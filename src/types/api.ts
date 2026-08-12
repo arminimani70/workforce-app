@@ -34,3 +34,16 @@ export interface TimeClockEntry {
   clockInLocation?: GeoPoint;
   clockOutLocation?: GeoPoint;
 }
+
+export type ShiftStatus = 'scheduled' | 'completed' | 'missed';
+
+export interface Shift {
+  _id: string;
+  organizationId: string;
+  employeeId: string;
+  startTime: string;
+  endTime: string;
+  jobSite?: string;
+  status: ShiftStatus;
+  createdBy: string;
+}

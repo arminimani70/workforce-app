@@ -6,4 +6,5 @@ export type AuthStackParamList = {
 export type AppStackParamList = {
   Home: undefined;
   TimeClock: undefined;
+  Schedule: undefined;
 };

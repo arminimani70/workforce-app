@@ -1,4 +1,4 @@
-import type { ApiError, CurrentUser, TimeClockEntry, TokenPair } from '../types/api';
+import type { ApiError, CurrentUser, Shift, TimeClockEntry, TokenPair } from '../types/api';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -76,4 +76,13 @@ export const timeClockApi = {
 
   status: (accessToken: string) =>
     request<TimeClockEntry | null>('/time-clock/status', { accessToken }),
+};
+
+export const schedulingApi = {
+  myShifts: (accessToken: string) => request<Shift[]>('/shifts/me', { accessToken }),
+
+  create: (
+    accessToken: string,
+    dto: { employeeId: string; startTime: string; endTime: string; jobSite?: string },
+  ) => request<Shift>('/shifts', { method: 'POST', accessToken, body: dto }),
 };

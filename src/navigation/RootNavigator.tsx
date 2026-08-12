@@ -7,6 +7,7 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import TimeClockScreen from '../screens/TimeClockScreen';
+import ScheduleScreen from '../screens/ScheduleScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -32,6 +33,11 @@ export default function RootNavigator() {
             name="TimeClock"
             component={TimeClockScreen}
             options={{ title: 'Time Clock' }}
+          />
+          <AppStack.Screen
+            name="Schedule"
+            component={ScheduleScreen}
+            options={{ title: 'Schedule' }}
           />
         </AppStack.Navigator>
       ) : (

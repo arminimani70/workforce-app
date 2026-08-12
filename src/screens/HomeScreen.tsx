@@ -23,6 +23,13 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.buttonText}>Time Clock</Text>
       </Pressable>
 
+      <Pressable
+        style={styles.scheduleButton}
+        onPress={() => navigation.navigate('Schedule')}
+      >
+        <Text style={styles.buttonText}>Schedule</Text>
+      </Pressable>
+
       <Pressable style={styles.logoutButton} onPress={logout}>
         <Text style={styles.buttonText}>Log out</Text>
       </Pressable>
@@ -36,6 +43,12 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 16, color: '#666', marginBottom: 24 },
   timeClockButton: {
     backgroundColor: '#2563eb',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  scheduleButton: {
+    backgroundColor: '#0f766e',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 24,
