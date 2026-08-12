@@ -10,6 +10,7 @@ import TimeClockScreen from '../screens/TimeClockScreen';
 import ScheduleScreen from '../screens/ScheduleScreen';
 import AvailabilityScreen from '../screens/AvailabilityScreen';
 import TeamScreen from '../screens/TeamScreen';
+import TasksScreen from '../screens/TasksScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -47,6 +48,7 @@ export default function RootNavigator() {
             options={{ title: 'Availability' }}
           />
           <AppStack.Screen name="Team" component={TeamScreen} options={{ title: 'Team' }} />
+          <AppStack.Screen name="Tasks" component={TasksScreen} options={{ title: 'Tasks' }} />
         </AppStack.Navigator>
       ) : (
         <AuthStack.Navigator screenOptions={{ headerShown: false }}>

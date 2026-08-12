@@ -5,8 +5,12 @@ import type {
   CurrentUser,
   DayAvailability,
   OrgMember,
+  OrgTask,
   Position,
   Shift,
+  Task,
+  TaskBatchResult,
+  TaskStatus,
   TimeClockEntry,
   TimeTotal,
   TokenPair,
@@ -122,6 +126,9 @@ export const schedulingApi = {
   confirm: (accessToken: string, shiftId: string) =>
     request<Shift>(`/shifts/${shiftId}/confirm`, { method: 'PATCH', accessToken }),
 
+  reject: (accessToken: string, shiftId: string) =>
+    request<Shift>(`/shifts/${shiftId}/reject`, { method: 'PATCH', accessToken }),
+
   // Org-wide, owner/manager only — every shift regardless of who it's assigned to.
   all: (accessToken: string) => request<Shift[]>('/shifts', { accessToken }),
 
@@ -139,5 +146,34 @@ export const availabilityApi = {
       method: 'PUT',
       accessToken,
       body: { days },
+    }),
+};
+
+export const tasksApi = {
+  create: (
+    accessToken: string,
+    dto: {
+      title: string;
+      description?: string;
+      dueDate: string;
+      assignedTo?: string;
+      position?: Position;
+    },
+  ) => request<Task>('/tasks', { method: 'POST', accessToken, body: dto }),
+
+  createBatch: (
+    accessToken: string,
+    dto: { title: string; description?: string; position: Position; dueDates: string[] },
+  ) => request<TaskBatchResult[]>('/tasks/batch', { method: 'POST', accessToken, body: dto }),
+
+  mine: (accessToken: string) => request<Task[]>('/tasks/me', { accessToken }),
+
+  all: (accessToken: string) => request<OrgTask[]>('/tasks', { accessToken }),
+
+  updateStatus: (accessToken: string, taskId: string, status: TaskStatus) =>
+    request<Task>(`/tasks/${taskId}/status`, {
+      method: 'PATCH',
+      accessToken,
+      body: { status },
     }),
 };

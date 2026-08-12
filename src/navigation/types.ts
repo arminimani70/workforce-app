@@ -9,4 +9,5 @@ export type AppStackParamList = {
   Schedule: undefined;
   Availability: undefined;
   Team: undefined;
+  Tasks: undefined;
 };

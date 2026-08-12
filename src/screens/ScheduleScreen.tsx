@@ -76,6 +76,7 @@ export default function ScheduleScreen() {
   const [monthTotalSeconds, setMonthTotalSeconds] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -119,7 +120,7 @@ export default function ScheduleScreen() {
         authFetch((token) => timeClockApi.total(token, monthToDateRange())),
         authFetch((token) => schedulingApi.coworkers(token, todayRange())),
       ]);
-      setWeekShifts(week.filter((s) => s.confirmed));
+      setWeekShifts(week.filter((s) => s.approval === 'approved'));
       setMonthTotalSeconds(total.totalSeconds);
       setTodayCoworkers(coworkers);
 
@@ -130,7 +131,7 @@ export default function ScheduleScreen() {
           authFetch((token) => schedulingApi.all(token)),
           authFetch((token) => usersApi.list(token)),
         ]);
-        setPendingShifts(all.filter((s) => !s.confirmed));
+        setPendingShifts(all.filter((s) => s.approval === 'pending'));
         setMembers(orgMembers);
       }
     } catch (err) {
@@ -203,6 +204,19 @@ export default function ScheduleScreen() {
     }
   };
 
+  const onRejectShift = async (shiftId: string) => {
+    setError(null);
+    setRejectingId(shiftId);
+    try {
+      await authFetch((token) => schedulingApi.reject(token, shiftId));
+      await load();
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not reject shift');
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -229,17 +243,30 @@ export default function ScheduleScreen() {
                 })}{' '}
                 · {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
               </Text>
-              <Pressable
-                style={styles.confirmButton}
-                onPress={() => onConfirmShift(shift._id)}
-                disabled={confirmingId === shift._id}
-              >
-                {confirmingId === shift._id ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Confirm</Text>
-                )}
-              </Pressable>
+              <View style={styles.pendingActions}>
+                <Pressable
+                  style={styles.confirmButton}
+                  onPress={() => onConfirmShift(shift._id)}
+                  disabled={confirmingId === shift._id || rejectingId === shift._id}
+                >
+                  {confirmingId === shift._id ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>Confirm</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={styles.rejectButton}
+                  onPress={() => onRejectShift(shift._id)}
+                  disabled={confirmingId === shift._id || rejectingId === shift._id}
+                >
+                  {rejectingId === shift._id ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.rejectButtonText}>Reject</Text>
+                  )}
+                </Pressable>
+              </View>
             </View>
           ))}
         </View>
@@ -483,6 +510,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pendingText: { fontSize: 13, color: '#333', flex: 1 },
+  pendingActions: { flexDirection: 'row', gap: 6 },
   confirmButton: {
     backgroundColor: '#16a34a',
     borderRadius: 6,
@@ -490,6 +518,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   confirmButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  rejectButton: {
+    backgroundColor: '#dc2626',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  rejectButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   calendar: { borderWidth: 1, borderColor: '#eee', borderRadius: 10, overflow: 'hidden' },
   dayRow: {
     flexDirection: 'row',

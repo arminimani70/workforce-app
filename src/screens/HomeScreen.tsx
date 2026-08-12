@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
-import { availabilityApi, schedulingApi, timeClockApi, usersApi } from '../api/client';
+import { availabilityApi, schedulingApi, tasksApi, timeClockApi, usersApi } from '../api/client';
 import type { AppStackParamList } from '../navigation/types';
 import type { Shift, TimeClockEntry } from '../types/api';
 import { formatElapsed, todayRange } from '../utils/time';
@@ -26,6 +26,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [todayShifts, setTodayShifts] = useState<Shift[]>([]);
   const [availableDaysCount, setAvailableDaysCount] = useState<number | null>(null);
   const [teamSize, setTeamSize] = useState<number | null>(null);
+  const [pendingTaskCount, setPendingTaskCount] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -40,8 +41,8 @@ export default function HomeScreen({ navigation }: Props) {
     (async () => {
       try {
         const shifts = await authFetch((token) => schedulingApi.myShifts(token));
-        const confirmed = shifts.filter((s) => s.confirmed);
-        const upcoming = confirmed
+        const approved = shifts.filter((s) => s.approval === 'approved');
+        const upcoming = approved
           .filter((s) => new Date(s.startTime).getTime() >= Date.now())
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         setNextShift(upcoming[0] ?? null);
@@ -56,7 +57,7 @@ export default function HomeScreen({ navigation }: Props) {
         const shifts = await authFetch((token) =>
           schedulingApi.myShifts(token, { from, to: new Date(to).toISOString() }),
         );
-        setTodayShifts(shifts.filter((s) => s.confirmed));
+        setTodayShifts(shifts.filter((s) => s.approval === 'approved'));
       } catch {
         // Leave "Today" empty if the call fails.
       }
@@ -81,6 +82,15 @@ export default function HomeScreen({ navigation }: Props) {
         // Leave the Team subtitle blank if the call fails.
       }
     })();
+
+    (async () => {
+      try {
+        const tasks = await authFetch((token) => tasksApi.mine(token));
+        setPendingTaskCount(tasks.filter((t) => t.status !== 'done').length);
+      } catch {
+        // Leave the Tasks subtitle blank if the call fails.
+      }
+    })();
   }, [authFetch]);
 
   useEffect(() => {
@@ -99,6 +109,13 @@ export default function HomeScreen({ navigation }: Props) {
     availableDaysCount === null ? ' ' : `${availableDaysCount} of 7 days available`;
 
   const teamSubtitle = teamSize === null ? ' ' : `${teamSize} team member${teamSize === 1 ? '' : 's'}`;
+
+  const tasksSubtitle =
+    pendingTaskCount === null
+      ? ' '
+      : pendingTaskCount === 0
+        ? 'All caught up'
+        : `${pendingTaskCount} open task${pendingTaskCount === 1 ? '' : 's'}`;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
@@ -134,6 +151,14 @@ export default function HomeScreen({ navigation }: Props) {
       <Pressable style={[styles.card, styles.cardTeam]} onPress={() => navigation.navigate('Team')}>
         <Text style={styles.cardTitle}>Team</Text>
         <Text style={styles.cardSubtitle}>{teamSubtitle}</Text>
+      </Pressable>
+
+      <Pressable
+        style={[styles.card, styles.cardTasks]}
+        onPress={() => navigation.navigate('Tasks')}
+      >
+        <Text style={styles.cardTitle}>Tasks</Text>
+        <Text style={styles.cardSubtitle}>{tasksSubtitle}</Text>
       </Pressable>
 
       <View style={styles.todaySection}>
@@ -180,6 +205,7 @@ const styles = StyleSheet.create({
   cardSchedule: { backgroundColor: '#0f766e' },
   cardAvailability: { backgroundColor: '#7c3aed' },
   cardTeam: { backgroundColor: '#b45309' },
+  cardTasks: { backgroundColor: '#be185d' },
   cardTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
   cardSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 4 },
   todaySection: {

@@ -34,29 +34,31 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   API — it retries once with a refreshed token on a 401, so that logic lives in one place
   instead of being duplicated per screen.
 - `src/navigation/RootNavigator.tsx` — renders the Auth stack (Login/Register) when there's no
-  user, or the App stack (Home, Time Clock, Schedule, Availability, Team) once `AuthContext`
-  has one. This is the standard React Navigation "auth flow" pattern: the screens the user can
-  reach are a direct function of auth state, not a route guard.
+  user, or the App stack (Home, Time Clock, Schedule, Availability, Team, Tasks) once
+  `AuthContext` has one. This is the standard React Navigation "auth flow" pattern: the screens
+  the user can reach are a direct function of auth state, not a route guard.
 
 ## Current screens
 
 - **Login** — `POST /auth/login`
 - **Register** — `POST /auth/register` (creates a new Organization + its Owner)
 - **Home** — dashboard cards for Time Clock (live elapsed time when clocked in), Schedule
-  (next upcoming confirmed shift), Availability (days available this week), and Team (member
-  count), plus a "Today" section listing today's confirmed shifts. Has a Log out button.
+  (next upcoming approved shift), Availability (days available this week), Team (member
+  count), and Tasks (count of the caller's own open tasks), plus a "Today" section listing
+  today's approved shifts. Has a Log out button.
 - **Time Clock** — one button that toggles clock-in/clock-out (`POST /time-clock/clock-in` /
   `/clock-out`), best-effort GPS via `expo-location` (proceeds without location if permission
   is denied). Shows a live HH:MM:SS elapsed timer while clocked in, and a total-hours summary
   (`GET /time-clock/total?from=&to=`) with Today/This Week/This Month/All Time presets.
-- **Schedule** — a Monday–Sunday calendar of the current week's **confirmed** shifts only;
+- **Schedule** — a Monday–Sunday calendar of the current week's **approved** shifts only;
   past days are greyed out. Below it, "Working Today" (`GET /shifts/coworkers?from=&to=`,
-  everyone confirmed to work today org-wide, with name and position), then total hours worked
+  everyone approved to work today org-wide, with name and position), then total hours worked
   this month (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation"
-  section — every unconfirmed shift org-wide (`GET /shifts`), not just their own, with a
-  Confirm button (`PATCH /shifts/:id/confirm`) — and a "+ New Shift" button opening a popup:
-  navigate week with ‹ › arrows, pick a day within it, set an HH:mm start/end, pick who it's
-  for (from the Team directory) and an optional position (`POST /shifts`).
+  section — every pending shift org-wide (`GET /shifts`), not just their own, with Confirm
+  (`PATCH /shifts/:id/confirm`) and Reject (`PATCH /shifts/:id/reject`) buttons — and a
+  "+ New Shift" button opening a popup: navigate week with ‹ › arrows, pick a day within it,
+  set an HH:mm start/end, pick who it's for (from the Team directory) and an optional position
+  (`POST /shifts`).
 - **Availability** — a recurring weekly pattern, not tied to specific dates. Tapping a day
   opens a popup: **Unavailable**, **Available** (set an HH:mm start/end and one or more
   positions — Front Desk/Help Desk/Information/Consultation), or **Flexible** (no preference,
@@ -64,6 +66,16 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Team** — lists every org member (`GET /users`). Owner/manager also see an "Add Employee"
   form — full name, email, and a temporary password (`POST /users`); there's no
   self-registration flow for team members, an admin sets them up directly.
+- **Tasks** — "My Tasks" (`GET /tasks/me`) lets anyone advance their own task through
+  Pending → In Progress → Done (`PATCH /tasks/:id/status`). Owner/manager also see "All Tasks"
+  org-wide (`GET /tasks`, assignee name shown) and a "+ New Task" button opening a popup with
+  two modes: assign to **a specific person** (pick from the Team directory, one due date), or
+  assign to **whoever works a position** (pick a position and one or more due dates from the
+  week/day picker — `POST /tasks` for a single date, `POST /tasks/batch` for several; each date
+  is resolved independently, so a Monday/Wednesday/Friday batch can land on three different
+  people depending on who's approved to work that position each day). If a batch date has no
+  one approved for that position, that date is skipped and reported back rather than failing
+  the whole batch.
 
 ## Scripts
 
