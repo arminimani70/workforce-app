@@ -1,30 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, schedulingApi, timeClockApi } from '../api/client';
 import type { Shift } from '../types/api';
 import { formatHoursMinutes, monthToDateRange } from '../utils/time';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-// Tomorrow 9:00–17:00 local time — a fixed preset so creating a shift needs no date picker
-// (there's no Employee Directory yet, so shifts can only be self-assigned for now anyway).
-function tomorrowShiftWindow() {
-  const start = new Date();
-  start.setDate(start.getDate() + 1);
-  start.setHours(9, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(17, 0, 0, 0);
-  return { startTime: start.toISOString(), endTime: end.toISOString() };
-}
 
 function startOfWeekMonday(date = new Date()) {
   const dayOfWeek = date.getDay(); // 0 = Sunday .. 6 = Saturday
@@ -61,9 +42,7 @@ export default function ScheduleScreen() {
   const [pendingShifts, setPendingShifts] = useState<Shift[]>([]);
   const [monthTotalSeconds, setMonthTotalSeconds] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [jobSite, setJobSite] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const canManage = user?.role === 'owner' || user?.role === 'manager';
@@ -102,29 +81,6 @@ export default function ScheduleScreen() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const onCreateShift = async () => {
-    if (!user) return;
-    setError(null);
-    setIsCreating(true);
-    try {
-      const { startTime, endTime } = tomorrowShiftWindow();
-      await authFetch((token) =>
-        schedulingApi.create(token, {
-          employeeId: user._id,
-          startTime,
-          endTime,
-          jobSite: jobSite.trim() || undefined,
-        }),
-      );
-      setJobSite('');
-      await load();
-    } catch (err) {
-      setError(err instanceof HttpError ? err.message : 'Could not create shift');
-    } finally {
-      setIsCreating(false);
-    }
-  };
 
   const onConfirmShift = async (shiftId: string) => {
     setError(null);
@@ -227,28 +183,6 @@ export default function ScheduleScreen() {
           {monthTotalSeconds === null ? '—' : formatHoursMinutes(monthTotalSeconds)}
         </Text>
       </View>
-
-      {canManage && (
-        <View style={styles.createBox}>
-          <TextInput
-            style={styles.input}
-            placeholder="Job site (optional)"
-            value={jobSite}
-            onChangeText={setJobSite}
-          />
-          <Pressable
-            style={[styles.button, isCreating && styles.buttonDisabled]}
-            onPress={onCreateShift}
-            disabled={isCreating}
-          >
-            {isCreating ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Schedule tomorrow, 9:00–17:00</Text>
-            )}
-          </Pressable>
-        </View>
-      )}
     </ScrollView>
   );
 }
@@ -308,20 +242,4 @@ const styles = StyleSheet.create({
   },
   monthLabel: { fontSize: 14, color: '#666' },
   monthValue: { fontSize: 18, fontWeight: '700', color: '#111' },
-  createBox: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 16, gap: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });
