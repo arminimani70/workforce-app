@@ -11,4 +11,5 @@ export type AppStackParamList = {
   Team: undefined;
   Tasks: undefined;
   Onboarding: undefined;
+  Profile: undefined;
 };

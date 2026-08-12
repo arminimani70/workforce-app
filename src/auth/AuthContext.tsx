@@ -29,6 +29,9 @@ interface AuthContextValue {
   // and retrying once on a 401. Every screen that talks to a protected endpoint uses this
   // instead of calling the API client directly, so the refresh logic lives in one place.
   authFetch: <T>(fn: (accessToken: string) => Promise<T>) => Promise<T>;
+  // Re-fetches /users/me and updates the cached user — used after a profile edit so the rest
+  // of the app (e.g. Home's avatar) reflects it without needing a restart.
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -120,9 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = useCallback(async () => {
+    const currentUser = await authFetch((token) => usersApi.me(token));
+    setUser(currentUser);
+  }, [authFetch]);
+
   const value = useMemo(
-    () => ({ user, isLoading, login, register, logout, authFetch }),
-    [user, isLoading, authFetch],
+    () => ({ user, isLoading, login, register, logout, authFetch, refreshUser }),
+    [user, isLoading, authFetch, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

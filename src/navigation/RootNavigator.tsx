@@ -12,6 +12,7 @@ import AvailabilityScreen from '../screens/AvailabilityScreen';
 import TeamScreen from '../screens/TeamScreen';
 import TasksScreen from '../screens/TasksScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 import { colors } from '../theme/colors';
 
@@ -62,6 +63,11 @@ export default function RootNavigator() {
             name="Onboarding"
             component={OnboardingScreen}
             options={{ title: 'Onboarding' }}
+          />
+          <AppStack.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ title: 'Profile' }}
           />
         </AppStack.Navigator>
       ) : (

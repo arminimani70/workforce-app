@@ -81,6 +81,29 @@ export const usersApi = {
     accessToken: string,
     dto: { fullName: string; email: string; password: string },
   ) => request<OrgMember>('/users', { method: 'POST', accessToken, body: dto }),
+
+  updateProfile: (
+    accessToken: string,
+    dto: {
+      fullName?: string;
+      phone?: string;
+      birthDate?: string;
+      address?: string;
+      emergencyContactName?: string;
+      emergencyContactPhone?: string;
+      avatarUrl?: string;
+    },
+  ) => request<CurrentUser>('/users/me', { method: 'PATCH', accessToken, body: dto }),
+
+  changePassword: (
+    accessToken: string,
+    dto: { currentPassword: string; newPassword: string },
+  ) =>
+    request<{ success: boolean }>('/users/me/password', {
+      method: 'PATCH',
+      accessToken,
+      body: dto,
+    }),
 };
 
 export const timeClockApi = {

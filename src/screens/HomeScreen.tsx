@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
@@ -158,17 +158,21 @@ export default function HomeScreen({ navigation }: Props) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials(user?.fullName)}</Text>
-        </View>
+      <Pressable style={styles.header} onPress={() => navigation.navigate('Profile')}>
+        {user?.avatarUrl ? (
+          <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials(user?.fullName)}</Text>
+          </View>
+        )}
         <View>
           <Text style={styles.title}>Welcome, {user?.fullName}</Text>
           <Text style={styles.subtitle}>
             {user?.email} · {user?.role}
           </Text>
         </View>
-      </View>
+      </Pressable>
 
       <DashboardCard
         icon="time-outline"
@@ -216,6 +220,14 @@ export default function HomeScreen({ navigation }: Props) {
         title="Onboarding"
         subtitle="Guide for new hires"
         onPress={() => navigation.navigate('Onboarding')}
+      />
+
+      <DashboardCard
+        icon="person-circle-outline"
+        tint={colors.cyan}
+        title="Profile"
+        subtitle="Your info, photo, and password"
+        onPress={() => navigation.navigate('Profile')}
       />
 
       <View style={styles.todaySection}>
@@ -270,6 +282,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  avatarImage: { width: 48, height: 48, borderRadius: 24 },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
   subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   card: {

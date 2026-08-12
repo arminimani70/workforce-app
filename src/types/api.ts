@@ -12,6 +12,14 @@ export interface CurrentUser {
   email: string;
   role: UserRole;
   status: 'active' | 'invited' | 'suspended';
+  // Self-editable profile fields (PATCH /users/me). email and role are not among them — those
+  // stay admin-set. Only present on GET /users/me, not on the org-wide GET /users listing.
+  phone?: string;
+  avatarUrl?: string; // a data:image/... URI, not an external link
+  birthDate?: string;
+  address?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
 }
 
 export type OrgMember = CurrentUser;

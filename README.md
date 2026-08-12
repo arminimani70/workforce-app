@@ -12,6 +12,8 @@ Connecteam-style app. Backend lives in a separate repo:
 - `@expo/vector-icons` (Ionicons) for iconography
 - `react-native-web` + `react-dom` — lets `npx expo start` also serve a web build (press `w`,
   or `npm run web`), in addition to iOS/Android/Expo Go
+- `expo-image-picker` + `expo-image-manipulator` — profile photo picking (library or camera)
+  and client-side resize/compress before upload
 
 ## Design system
 
@@ -49,9 +51,12 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   API — it retries once with a refreshed token on a 401, so that logic lives in one place
   instead of being duplicated per screen.
 - `src/navigation/RootNavigator.tsx` — renders the Auth stack (Login/Register) when there's no
-  user, or the App stack (Home, Time Clock, Schedule, Availability, Team, Tasks, Onboarding)
-  once `AuthContext` has one. This is the standard React Navigation "auth flow" pattern: the
-  screens the user can reach are a direct function of auth state, not a route guard.
+  user, or the App stack (Home, Time Clock, Schedule, Availability, Team, Tasks, Onboarding,
+  Profile) once `AuthContext` has one. This is the standard React Navigation "auth flow"
+  pattern: the screens the user can reach are a direct function of auth state, not a route
+  guard. `AuthContext` also exposes `refreshUser()`, which re-fetches `/users/me` and updates
+  the cached user — Profile calls it after a successful edit so the rest of the app (e.g.
+  Home's header avatar) reflects the change immediately, without an app restart.
 
 ## Current screens
 
@@ -95,6 +100,15 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   member can read; owner/manager see an Edit button that swaps the read view for a multiline
   text box and a Save/Cancel pair (`PUT /onboarding`). Shows an empty state prompting
   owner/manager to write one if the org hasn't yet.
+- **Profile** — self-service only, no admin-editing-others flow. A large avatar (photo or
+  initials) with "Choose Photo"/"Take Photo" buttons (`expo-image-picker`, resized to 400px
+  wide and JPEG-compressed via `expo-image-manipulator` before upload as a base64 data URI —
+  `PATCH /users/me`). An **Account** card shows email and role read-only (admin-set, not
+  editable here). A **Personal Info** card edits full name, phone, birth date (`YYYY-MM-DD`),
+  address, and emergency contact, saved together via one "Save Changes" button
+  (`PATCH /users/me`). A **Change Password** card takes current + new password
+  (`PATCH /users/me/password`, `401` on a wrong current password). Reachable via a Home
+  dashboard card or by tapping the header avatar on Home.
 
 ## Scripts
 

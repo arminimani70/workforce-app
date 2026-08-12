@@ -13,6 +13,7 @@ export const colors = {
   amber: '#b45309',
   pink: '#be185d',
   indigo: '#4338ca',
+  cyan: '#0891b2',
 
   success: '#16a34a',
   successBg: '#dcfce7',
