@@ -19,3 +19,18 @@ export interface ApiError {
   message: string | string[];
   error?: string;
 }
+
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+}
+
+export interface TimeClockEntry {
+  _id: string;
+  organizationId: string;
+  employeeId: string;
+  clockInTime: string;
+  clockOutTime?: string;
+  clockInLocation?: GeoPoint;
+  clockOutLocation?: GeoPoint;
+}

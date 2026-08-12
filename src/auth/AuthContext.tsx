@@ -1,7 +1,15 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi, HttpError, usersApi } from '../api/client';
-import type { CurrentUser } from '../types/api';
+import type { CurrentUser, TokenPair } from '../types/api';
 
 const ACCESS_TOKEN_KEY = 'workforce.accessToken';
 const REFRESH_TOKEN_KEY = 'workforce.refreshToken';
@@ -17,38 +25,48 @@ interface AuthContextValue {
     password: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
+  // Runs an authenticated call with the current access token, transparently refreshing
+  // and retrying once on a 401. Every screen that talks to a protected endpoint uses this
+  // instead of calling the API client directly, so the refresh logic lives in one place.
+  authFetch: <T>(fn: (accessToken: string) => Promise<T>) => Promise<T>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-async function persistTokens(accessToken: string, refreshToken: string) {
+async function persistTokens(tokens: TokenPair) {
   await AsyncStorage.setMany({
-    [ACCESS_TOKEN_KEY]: accessToken,
-    [REFRESH_TOKEN_KEY]: refreshToken,
+    [ACCESS_TOKEN_KEY]: tokens.accessToken,
+    [REFRESH_TOKEN_KEY]: tokens.refreshToken,
   });
 }
 
-async function clearTokens() {
+async function clearStoredTokens() {
   await AsyncStorage.removeMany([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
-}
-
-// Fetch the current user, transparently refreshing the access token once on a 401.
-async function fetchCurrentUser(accessToken: string, refreshToken: string) {
-  try {
-    return { user: await usersApi.me(accessToken), accessToken, refreshToken };
-  } catch (err) {
-    if (err instanceof HttpError && err.status === 401) {
-      const refreshed = await authApi.refresh(refreshToken);
-      const user = await usersApi.me(refreshed.accessToken);
-      return { user, accessToken: refreshed.accessToken, refreshToken: refreshed.refreshToken };
-    }
-    throw err;
-  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const tokensRef = useRef<TokenPair | null>(null);
+
+  const authFetch = useCallback(async <T,>(fn: (accessToken: string) => Promise<T>): Promise<T> => {
+    const tokens = tokensRef.current;
+    if (!tokens) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      return await fn(tokens.accessToken);
+    } catch (err) {
+      if (!(err instanceof HttpError) || err.status !== 401) {
+        throw err;
+      }
+      const refreshed = await authApi.refresh(tokens.refreshToken);
+      tokensRef.current = refreshed;
+      await persistTokens(refreshed);
+      return fn(refreshed.accessToken);
+    }
+  }, []);
 
   // On app start, try to restore a session from previously saved tokens.
   useEffect(() => {
@@ -62,22 +80,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      tokensRef.current = { accessToken, refreshToken };
       try {
-        const result = await fetchCurrentUser(accessToken, refreshToken);
-        await persistTokens(result.accessToken, result.refreshToken);
-        setUser(result.user);
+        const currentUser = await authFetch((token) => usersApi.me(token));
+        setUser(currentUser);
       } catch {
-        await clearTokens();
+        tokensRef.current = null;
+        await clearStoredTokens();
       } finally {
         setIsLoading(false);
       }
     })();
-  }, []);
+  }, [authFetch]);
 
   const login = async (email: string, password: string) => {
     const tokens = await authApi.login({ email, password });
     const currentUser = await usersApi.me(tokens.accessToken);
-    await persistTokens(tokens.accessToken, tokens.refreshToken);
+    tokensRef.current = tokens;
+    await persistTokens(tokens);
     setUser(currentUser);
   };
 
@@ -89,18 +109,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const tokens = await authApi.register(params);
     const currentUser = await usersApi.me(tokens.accessToken);
-    await persistTokens(tokens.accessToken, tokens.refreshToken);
+    tokensRef.current = tokens;
+    await persistTokens(tokens);
     setUser(currentUser);
   };
 
   const logout = async () => {
-    await clearTokens();
+    tokensRef.current = null;
+    await clearStoredTokens();
     setUser(null);
   };
 
   const value = useMemo(
-    () => ({ user, isLoading, login, register, logout }),
-    [user, isLoading],
+    () => ({ user, isLoading, login, register, logout, authFetch }),
+    [user, isLoading, authFetch],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,4 +1,4 @@
-import type { ApiError, CurrentUser, TokenPair } from '../types/api';
+import type { ApiError, CurrentUser, TimeClockEntry, TokenPair } from '../types/api';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -57,4 +57,23 @@ export const authApi = {
 
 export const usersApi = {
   me: (accessToken: string) => request<CurrentUser>('/users/me', { accessToken }),
+};
+
+export const timeClockApi = {
+  clockIn: (accessToken: string, location?: { lat: number; lng: number }) =>
+    request<TimeClockEntry>('/time-clock/clock-in', {
+      method: 'POST',
+      accessToken,
+      body: location ?? {},
+    }),
+
+  clockOut: (accessToken: string, location?: { lat: number; lng: number }) =>
+    request<TimeClockEntry>('/time-clock/clock-out', {
+      method: 'POST',
+      accessToken,
+      body: location ?? {},
+    }),
+
+  status: (accessToken: string) =>
+    request<TimeClockEntry | null>('/time-clock/status', { accessToken }),
 };

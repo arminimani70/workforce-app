@@ -20,6 +20,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Workforce uses your location to confirm clock-in and clock-out."
+        }
+      ]
+    ]
   }
 }

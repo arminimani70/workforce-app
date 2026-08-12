@@ -1,8 +1,12 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
+import type { AppStackParamList } from '../navigation/types';
 
-export default function HomeScreen() {
+type Props = NativeStackScreenProps<AppStackParamList, 'Home'>;
+
+export default function HomeScreen({ navigation }: Props) {
   const { user, logout } = useAuth();
 
   return (
@@ -12,7 +16,14 @@ export default function HomeScreen() {
         {user?.email} · {user?.role}
       </Text>
 
-      <Pressable style={styles.button} onPress={logout}>
+      <Pressable
+        style={styles.timeClockButton}
+        onPress={() => navigation.navigate('TimeClock')}
+      >
+        <Text style={styles.buttonText}>Time Clock</Text>
+      </Pressable>
+
+      <Pressable style={styles.logoutButton} onPress={logout}>
         <Text style={styles.buttonText}>Log out</Text>
       </Pressable>
     </View>
@@ -20,10 +31,16 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 8 },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
   title: { fontSize: 24, fontWeight: '700' },
   subtitle: { fontSize: 16, color: '#666', marginBottom: 24 },
-  button: {
+  timeClockButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  logoutButton: {
     backgroundColor: '#dc2626',
     borderRadius: 8,
     paddingVertical: 12,

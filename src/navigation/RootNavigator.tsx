@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
+import TimeClockScreen from '../screens/TimeClockScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -27,6 +28,11 @@ export default function RootNavigator() {
       {user ? (
         <AppStack.Navigator>
           <AppStack.Screen name="Home" component={HomeScreen} />
+          <AppStack.Screen
+            name="TimeClock"
+            component={TimeClockScreen}
+            options={{ title: 'Time Clock' }}
+          />
         </AppStack.Navigator>
       ) : (
         <AuthStack.Navigator screenOptions={{ headerShown: false }}>
