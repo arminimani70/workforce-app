@@ -42,19 +42,23 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 
 - **Login** — `POST /auth/login`
 - **Register** — `POST /auth/register` (creates a new Organization + its Owner)
-- **Home** — shows the logged-in user, links to the other screens, has a Log out button
+- **Home** — dashboard cards for Time Clock (live elapsed time when clocked in), Schedule
+  (next upcoming confirmed shift), and Availability (days available this week), plus a
+  "Today" section listing today's confirmed shifts. Has a Log out button.
 - **Time Clock** — one button that toggles clock-in/clock-out (`POST /time-clock/clock-in` /
   `/clock-out`), best-effort GPS via `expo-location` (proceeds without location if permission
-  is denied)
-- **Schedule** — "This Week" / "All Shifts" toggle over the caller's shifts
-  (`GET /shifts/me?from=&to=`, week computed client-side as Monday 00:00–Sunday 23:59 local
-  time). Owner/manager also see a "Schedule tomorrow, 9:00–17:00" button (`POST /shifts`) —
-  it self-assigns for now since there's no Employee Directory yet to pick a different employee.
-  A newly created shift is unconfirmed; owner/manager see a "Confirm" button on it
-  (`PATCH /shifts/:id/confirm`) — an employee never receives an unconfirmed shift from the API
-- **Availability** — a recurring weekly pattern, not tied to specific dates: toggle each day
-  Available/Unavailable and set an HH:mm start/end when available
-  (`GET`/`PUT /availability/me`)
+  is denied). Shows a live HH:MM:SS elapsed timer while clocked in, and a total-hours summary
+  (`GET /time-clock/total?from=&to=`) with Today/This Week/This Month/All Time presets.
+- **Schedule** — a Monday–Sunday calendar of the current week's **confirmed** shifts only;
+  past days are greyed out. Below it, total hours worked this month
+  (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation" section
+  for their own unconfirmed shifts with a Confirm button (`PATCH /shifts/:id/confirm`), and a
+  "Schedule tomorrow, 9:00–17:00" button (`POST /shifts`) — it self-assigns for now since
+  there's no Employee Directory yet to pick a different employee.
+- **Availability** — a recurring weekly pattern, not tied to specific dates. Tapping a day
+  opens a popup: **Unavailable**, **Available** (set an HH:mm start/end and one or more
+  positions — Front Desk/Help Desk/Information/Consultation), or **Flexible** (no preference,
+  manager decides). `GET`/`PUT /availability/me`.
 
 ## Scripts
 

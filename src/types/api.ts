@@ -49,15 +49,26 @@ export interface Shift {
   createdBy: string;
 }
 
+export type Position = 'frontdesk' | 'helpdesk' | 'information' | 'consultation';
+
+export const POSITIONS: Position[] = ['frontdesk', 'helpdesk', 'information', 'consultation'];
+
+export type DayAvailabilityStatus = 'unavailable' | 'available' | 'flexible';
+
 export interface DayAvailability {
   dayOfWeek: number; // 0 = Monday .. 6 = Sunday
-  available: boolean;
+  status: DayAvailabilityStatus;
   startTime?: string; // "HH:mm"
   endTime?: string;
+  positions?: Position[];
 }
 
 export interface Availability {
   organizationId: string;
   employeeId: string;
   days: DayAvailability[];
+}
+
+export interface TimeTotal {
+  totalSeconds: number;
 }

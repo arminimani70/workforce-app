@@ -5,6 +5,7 @@ import type {
   DayAvailability,
   Shift,
   TimeClockEntry,
+  TimeTotal,
   TokenPair,
 } from '../types/api';
 
@@ -84,6 +85,11 @@ export const timeClockApi = {
 
   status: (accessToken: string) =>
     request<TimeClockEntry | null>('/time-clock/status', { accessToken }),
+
+  total: (accessToken: string, range?: { from: string; to: string }) => {
+    const query = range ? `?from=${range.from}&to=${range.to}` : '';
+    return request<TimeTotal>(`/time-clock/total${query}`, { accessToken });
+  },
 };
 
 export const schedulingApi = {
