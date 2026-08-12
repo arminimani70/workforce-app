@@ -45,6 +45,7 @@ export interface Shift {
   endTime: string;
   jobSite?: string;
   status: ShiftStatus;
+  confirmed: boolean;
   createdBy: string;
 }
 

@@ -49,7 +49,9 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Schedule** — "This Week" / "All Shifts" toggle over the caller's shifts
   (`GET /shifts/me?from=&to=`, week computed client-side as Monday 00:00–Sunday 23:59 local
   time). Owner/manager also see a "Schedule tomorrow, 9:00–17:00" button (`POST /shifts`) —
-  it self-assigns for now since there's no Employee Directory yet to pick a different employee
+  it self-assigns for now since there's no Employee Directory yet to pick a different employee.
+  A newly created shift is unconfirmed; owner/manager see a "Confirm" button on it
+  (`PATCH /shifts/:id/confirm`) — an employee never receives an unconfirmed shift from the API
 - **Availability** — a recurring weekly pattern, not tied to specific dates: toggle each day
   Available/Unavailable and set an HH:mm start/end when available
   (`GET`/`PUT /availability/me`)

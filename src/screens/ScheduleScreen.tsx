@@ -58,6 +58,7 @@ export default function ScheduleScreen() {
   const [jobSite, setJobSite] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [weekOnly, setWeekOnly] = useState(true);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const canCreate = user?.role === 'owner' || user?.role === 'manager';
 
@@ -99,6 +100,19 @@ export default function ScheduleScreen() {
       setError(err instanceof HttpError ? err.message : 'Could not create shift');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const onConfirmShift = async (shiftId: string) => {
+    setError(null);
+    setConfirmingId(shiftId);
+    try {
+      await authFetch((token) => schedulingApi.confirm(token, shiftId));
+      await loadShifts();
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not confirm shift');
+    } finally {
+      setConfirmingId(null);
     }
   };
 
@@ -147,10 +161,27 @@ export default function ScheduleScreen() {
           }
           renderItem={({ item }) => (
             <View style={styles.shiftRow}>
-              <Text style={styles.shiftRange}>{formatRange(item)}</Text>
-              <Text style={styles.shiftMeta}>
-                {item.jobSite ?? 'No job site set'} · {item.status}
-              </Text>
+              <View style={styles.shiftInfo}>
+                <Text style={styles.shiftRange}>{formatRange(item)}</Text>
+                <Text style={styles.shiftMeta}>
+                  {item.jobSite ?? 'No job site set'} · {item.status}
+                  {!item.confirmed && ' · pending confirmation'}
+                </Text>
+              </View>
+
+              {canCreate && !item.confirmed && (
+                <Pressable
+                  style={styles.confirmButton}
+                  onPress={() => onConfirmShift(item._id)}
+                  disabled={confirmingId === item._id}
+                >
+                  {confirmingId === item._id ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>Confirm</Text>
+                  )}
+                </Pressable>
+              )}
             </View>
           )}
         />
@@ -203,12 +234,24 @@ const styles = StyleSheet.create({
   error: { color: '#c0392b', marginBottom: 12 },
   empty: { color: '#666', fontSize: 15 },
   shiftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     paddingVertical: 12,
+    gap: 12,
   },
+  shiftInfo: { flex: 1 },
   shiftRange: { fontSize: 16, fontWeight: '600' },
   shiftMeta: { fontSize: 13, color: '#666', marginTop: 2 },
+  confirmButton: {
+    backgroundColor: '#16a34a',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  confirmButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   createBox: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 16, gap: 8 },
   input: {
     borderWidth: 1,

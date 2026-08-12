@@ -96,6 +96,9 @@ export const schedulingApi = {
     accessToken: string,
     dto: { employeeId: string; startTime: string; endTime: string; jobSite?: string },
   ) => request<Shift>('/shifts', { method: 'POST', accessToken, body: dto }),
+
+  confirm: (accessToken: string, shiftId: string) =>
+    request<Shift>(`/shifts/${shiftId}/confirm`, { method: 'PATCH', accessToken }),
 };
 
 export const availabilityApi = {
