@@ -34,8 +34,8 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   API — it retries once with a refreshed token on a 401, so that logic lives in one place
   instead of being duplicated per screen.
 - `src/navigation/RootNavigator.tsx` — renders the Auth stack (Login/Register) when there's no
-  user, or the App stack (Home, Time Clock, Schedule, Availability) once `AuthContext` has
-  one. This is the standard React Navigation "auth flow" pattern: the screens the user can
+  user, or the App stack (Home, Time Clock, Schedule, Availability, Team) once `AuthContext`
+  has one. This is the standard React Navigation "auth flow" pattern: the screens the user can
   reach are a direct function of auth state, not a route guard.
 
 ## Current screens
@@ -43,22 +43,27 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Login** — `POST /auth/login`
 - **Register** — `POST /auth/register` (creates a new Organization + its Owner)
 - **Home** — dashboard cards for Time Clock (live elapsed time when clocked in), Schedule
-  (next upcoming confirmed shift), and Availability (days available this week), plus a
-  "Today" section listing today's confirmed shifts. Has a Log out button.
+  (next upcoming confirmed shift), Availability (days available this week), and Team (member
+  count), plus a "Today" section listing today's confirmed shifts. Has a Log out button.
 - **Time Clock** — one button that toggles clock-in/clock-out (`POST /time-clock/clock-in` /
   `/clock-out`), best-effort GPS via `expo-location` (proceeds without location if permission
   is denied). Shows a live HH:MM:SS elapsed timer while clocked in, and a total-hours summary
   (`GET /time-clock/total?from=&to=`) with Today/This Week/This Month/All Time presets.
 - **Schedule** — a Monday–Sunday calendar of the current week's **confirmed** shifts only;
-  past days are greyed out. Below it, total hours worked this month
-  (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation" section
-  for their own unconfirmed shifts with a Confirm button (`PATCH /shifts/:id/confirm`), and a
-  "Schedule tomorrow, 9:00–17:00" button (`POST /shifts`) — it self-assigns for now since
-  there's no Employee Directory yet to pick a different employee.
+  past days are greyed out. Below it, "Working Today" (`GET /shifts/coworkers?from=&to=`,
+  everyone confirmed to work today org-wide, with name and position), then total hours worked
+  this month (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation"
+  section for their own unconfirmed shifts with a Confirm button
+  (`PATCH /shifts/:id/confirm`), and a "New Shift" form — pick who it's for (from the Team
+  directory) and an optional position, always tomorrow 9:00–17:00 since there's no date
+  picker yet (`POST /shifts`).
 - **Availability** — a recurring weekly pattern, not tied to specific dates. Tapping a day
   opens a popup: **Unavailable**, **Available** (set an HH:mm start/end and one or more
   positions — Front Desk/Help Desk/Information/Consultation), or **Flexible** (no preference,
   manager decides). `GET`/`PUT /availability/me`.
+- **Team** — lists every org member (`GET /users`). Owner/manager also see an "Add Employee"
+  form — full name, email, and a temporary password (`POST /users`); there's no
+  self-registration flow for team members, an admin sets them up directly.
 
 ## Scripts
 

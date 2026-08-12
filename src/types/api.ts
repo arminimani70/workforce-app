@@ -14,6 +14,8 @@ export interface CurrentUser {
   status: 'active' | 'invited' | 'suspended';
 }
 
+export type OrgMember = CurrentUser;
+
 export interface ApiError {
   statusCode: number;
   message: string | string[];
@@ -35,6 +37,10 @@ export interface TimeClockEntry {
   clockOutLocation?: GeoPoint;
 }
 
+export type Position = 'frontdesk' | 'helpdesk' | 'information' | 'consultation';
+
+export const POSITIONS: Position[] = ['frontdesk', 'helpdesk', 'information', 'consultation'];
+
 export type ShiftStatus = 'scheduled' | 'completed' | 'missed';
 
 export interface Shift {
@@ -44,14 +50,22 @@ export interface Shift {
   startTime: string;
   endTime: string;
   jobSite?: string;
+  position?: Position;
   status: ShiftStatus;
   confirmed: boolean;
   createdBy: string;
 }
 
-export type Position = 'frontdesk' | 'helpdesk' | 'information' | 'consultation';
-
-export const POSITIONS: Position[] = ['frontdesk', 'helpdesk', 'information', 'consultation'];
+// GET /shifts/coworkers populates employeeId into { _id, fullName, role } instead of a
+// plain id string, so it needs its own shape rather than reusing Shift.
+export interface CoworkerShift {
+  _id: string;
+  employeeId: { _id: string; fullName: string; role: UserRole };
+  startTime: string;
+  endTime: string;
+  jobSite?: string;
+  position?: Position;
+}
 
 export type DayAvailabilityStatus = 'unavailable' | 'available' | 'flexible';
 

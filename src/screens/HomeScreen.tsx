@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
-import { availabilityApi, schedulingApi, timeClockApi } from '../api/client';
+import { availabilityApi, schedulingApi, timeClockApi, usersApi } from '../api/client';
 import type { AppStackParamList } from '../navigation/types';
 import type { Shift, TimeClockEntry } from '../types/api';
 import { formatElapsed, todayRange } from '../utils/time';
@@ -25,6 +25,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [nextShift, setNextShift] = useState<Shift | null>(null);
   const [todayShifts, setTodayShifts] = useState<Shift[]>([]);
   const [availableDaysCount, setAvailableDaysCount] = useState<number | null>(null);
+  const [teamSize, setTeamSize] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -71,6 +72,15 @@ export default function HomeScreen({ navigation }: Props) {
         // Leave the Availability subtitle blank if the call fails.
       }
     })();
+
+    (async () => {
+      try {
+        const members = await authFetch((token) => usersApi.list(token));
+        setTeamSize(members.length);
+      } catch {
+        // Leave the Team subtitle blank if the call fails.
+      }
+    })();
   }, [authFetch]);
 
   useEffect(() => {
@@ -87,6 +97,8 @@ export default function HomeScreen({ navigation }: Props) {
 
   const availabilitySubtitle =
     availableDaysCount === null ? ' ' : `${availableDaysCount} of 7 days available`;
+
+  const teamSubtitle = teamSize === null ? ' ' : `${teamSize} team member${teamSize === 1 ? '' : 's'}`;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
@@ -117,6 +129,11 @@ export default function HomeScreen({ navigation }: Props) {
       >
         <Text style={styles.cardTitle}>Availability</Text>
         <Text style={styles.cardSubtitle}>{availabilitySubtitle}</Text>
+      </Pressable>
+
+      <Pressable style={[styles.card, styles.cardTeam]} onPress={() => navigation.navigate('Team')}>
+        <Text style={styles.cardTitle}>Team</Text>
+        <Text style={styles.cardSubtitle}>{teamSubtitle}</Text>
       </Pressable>
 
       <View style={styles.todaySection}>
@@ -162,6 +179,7 @@ const styles = StyleSheet.create({
   cardTimeClock: { backgroundColor: '#2563eb' },
   cardSchedule: { backgroundColor: '#0f766e' },
   cardAvailability: { backgroundColor: '#7c3aed' },
+  cardTeam: { backgroundColor: '#b45309' },
   cardTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
   cardSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 4 },
   todaySection: {

@@ -1,8 +1,11 @@
 import type {
   ApiError,
   Availability,
+  CoworkerShift,
   CurrentUser,
   DayAvailability,
+  OrgMember,
+  Position,
   Shift,
   TimeClockEntry,
   TimeTotal,
@@ -66,6 +69,13 @@ export const authApi = {
 
 export const usersApi = {
   me: (accessToken: string) => request<CurrentUser>('/users/me', { accessToken }),
+
+  list: (accessToken: string) => request<OrgMember[]>('/users', { accessToken }),
+
+  createEmployee: (
+    accessToken: string,
+    dto: { fullName: string; email: string; password: string },
+  ) => request<OrgMember>('/users', { method: 'POST', accessToken, body: dto }),
 };
 
 export const timeClockApi = {
@@ -100,11 +110,22 @@ export const schedulingApi = {
 
   create: (
     accessToken: string,
-    dto: { employeeId: string; startTime: string; endTime: string; jobSite?: string },
+    dto: {
+      employeeId: string;
+      startTime: string;
+      endTime: string;
+      jobSite?: string;
+      position?: Position;
+    },
   ) => request<Shift>('/shifts', { method: 'POST', accessToken, body: dto }),
 
   confirm: (accessToken: string, shiftId: string) =>
     request<Shift>(`/shifts/${shiftId}/confirm`, { method: 'PATCH', accessToken }),
+
+  coworkers: (accessToken: string, range: { from: string; to: string }) =>
+    request<CoworkerShift[]>(`/shifts/coworkers?from=${range.from}&to=${range.to}`, {
+      accessToken,
+    }),
 };
 
 export const availabilityApi = {

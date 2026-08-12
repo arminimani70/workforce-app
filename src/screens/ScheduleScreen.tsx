@@ -1,11 +1,37 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useAuth } from '../auth/AuthContext';
-import { HttpError, schedulingApi, timeClockApi } from '../api/client';
-import type { Shift } from '../types/api';
-import { formatHoursMinutes, monthToDateRange } from '../utils/time';
+import { HttpError, schedulingApi, timeClockApi, usersApi } from '../api/client';
+import { POSITIONS } from '../types/api';
+import type { CoworkerShift, OrgMember, Position, Shift } from '../types/api';
+import { formatHoursMinutes, monthToDateRange, todayRange } from '../utils/time';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const POSITION_LABELS: Record<Position, string> = {
+  frontdesk: 'Front Desk',
+  helpdesk: 'Help Desk',
+  information: 'Information',
+  consultation: 'Consultation',
+};
+
+// Tomorrow 9:00–17:00 local time — a fixed preset so creating a shift needs no date picker.
+function tomorrowShiftWindow() {
+  const start = new Date();
+  start.setDate(start.getDate() + 1);
+  start.setHours(9, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(17, 0, 0, 0);
+  return { startTime: start.toISOString(), endTime: end.toISOString() };
+}
 
 function startOfWeekMonday(date = new Date()) {
   const dayOfWeek = date.getDay(); // 0 = Sunday .. 6 = Saturday
@@ -40,10 +66,17 @@ export default function ScheduleScreen() {
   const { user, authFetch } = useAuth();
   const [weekShifts, setWeekShifts] = useState<Shift[]>([]);
   const [pendingShifts, setPendingShifts] = useState<Shift[]>([]);
+  const [todayCoworkers, setTodayCoworkers] = useState<CoworkerShift[]>([]);
   const [monthTotalSeconds, setMonthTotalSeconds] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [jobSite, setJobSite] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const canManage = user?.role === 'owner' || user?.role === 'manager';
 
@@ -60,16 +93,22 @@ export default function ScheduleScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [week, total] = await Promise.all([
+      const [week, total, coworkers] = await Promise.all([
         authFetch((token) => schedulingApi.myShifts(token, { from: weekFrom, to: weekTo })),
         authFetch((token) => timeClockApi.total(token, monthToDateRange())),
+        authFetch((token) => schedulingApi.coworkers(token, todayRange())),
       ]);
       setWeekShifts(week.filter((s) => s.confirmed));
       setMonthTotalSeconds(total.totalSeconds);
+      setTodayCoworkers(coworkers);
 
       if (canManage) {
-        const all = await authFetch((token) => schedulingApi.myShifts(token));
+        const [all, orgMembers] = await Promise.all([
+          authFetch((token) => schedulingApi.myShifts(token)),
+          authFetch((token) => usersApi.list(token)),
+        ]);
         setPendingShifts(all.filter((s) => !s.confirmed));
+        setMembers(orgMembers);
       }
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load schedule');
@@ -81,6 +120,34 @@ export default function ScheduleScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const onCreateShift = async () => {
+    if (!selectedEmployeeId) {
+      setError('Pick who this shift is for');
+      return;
+    }
+    setError(null);
+    setIsCreating(true);
+    try {
+      const { startTime, endTime } = tomorrowShiftWindow();
+      await authFetch((token) =>
+        schedulingApi.create(token, {
+          employeeId: selectedEmployeeId,
+          startTime,
+          endTime,
+          jobSite: jobSite.trim() || undefined,
+          position: selectedPosition ?? undefined,
+        }),
+      );
+      setJobSite('');
+      setSelectedPosition(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not create shift');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const onConfirmShift = async (shiftId: string) => {
     setError(null);
@@ -177,12 +244,101 @@ export default function ScheduleScreen() {
         })}
       </View>
 
+      <View style={styles.coworkersBox}>
+        <Text style={styles.sectionTitleDark}>Working Today</Text>
+        {todayCoworkers.length === 0 ? (
+          <Text style={styles.noShift}>No one scheduled today</Text>
+        ) : (
+          todayCoworkers.map((shift) => (
+            <View key={shift._id} style={styles.coworkerRow}>
+              <Text style={styles.coworkerName}>
+                {shift.employeeId._id === user?._id ? 'You' : shift.employeeId.fullName}
+              </Text>
+              <Text style={styles.coworkerMeta}>
+                {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
+                {shift.position ? ` · ${POSITION_LABELS[shift.position]}` : ''}
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+
       <View style={styles.monthBox}>
         <Text style={styles.monthLabel}>Worked this month</Text>
         <Text style={styles.monthValue}>
           {monthTotalSeconds === null ? '—' : formatHoursMinutes(monthTotalSeconds)}
         </Text>
       </View>
+
+      {canManage && (
+        <View style={styles.createBox}>
+          <Text style={styles.formTitle}>New Shift — tomorrow, 9:00–17:00</Text>
+
+          <Text style={styles.sectionLabel}>For</Text>
+          <View style={styles.chipsWrap}>
+            {members.map((member) => (
+              <Pressable
+                key={member._id}
+                style={[
+                  styles.chip,
+                  selectedEmployeeId === member._id && styles.chipActive,
+                ]}
+                onPress={() => setSelectedEmployeeId(member._id)}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedEmployeeId === member._id && styles.chipTextActive,
+                  ]}
+                >
+                  {member.fullName}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.sectionLabel}>Position (optional)</Text>
+          <View style={styles.chipsWrap}>
+            {POSITIONS.map((position) => (
+              <Pressable
+                key={position}
+                style={[styles.chip, selectedPosition === position && styles.chipActive]}
+                onPress={() =>
+                  setSelectedPosition(selectedPosition === position ? null : position)
+                }
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedPosition === position && styles.chipTextActive,
+                  ]}
+                >
+                  {POSITION_LABELS[position]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Job site (optional)"
+            value={jobSite}
+            onChangeText={setJobSite}
+          />
+
+          <Pressable
+            style={[styles.button, isCreating && styles.buttonDisabled]}
+            onPress={onCreateShift}
+            disabled={isCreating}
+          >
+            {isCreating ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Create Shift</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -242,4 +398,48 @@ const styles = StyleSheet.create({
   },
   monthLabel: { fontSize: 14, color: '#666' },
   monthValue: { fontSize: 18, fontWeight: '700', color: '#111' },
+  coworkersBox: {
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+  },
+  sectionTitleDark: { fontSize: 13, fontWeight: '700', color: '#111', marginBottom: 4 },
+  coworkerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  coworkerName: { fontSize: 14, fontWeight: '600', color: '#111' },
+  coworkerMeta: { fontSize: 13, color: '#666' },
+  createBox: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 16, gap: 8 },
+  formTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginTop: 4 },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  chipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  chipText: { fontSize: 13, color: '#333' },
+  chipTextActive: { color: '#fff' },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });
