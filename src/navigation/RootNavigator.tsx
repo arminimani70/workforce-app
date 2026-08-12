@@ -11,6 +11,7 @@ import ScheduleScreen from '../screens/ScheduleScreen';
 import AvailabilityScreen from '../screens/AvailabilityScreen';
 import TeamScreen from '../screens/TeamScreen';
 import TasksScreen from '../screens/TasksScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 import { colors } from '../theme/colors';
 
@@ -57,6 +58,11 @@ export default function RootNavigator() {
           />
           <AppStack.Screen name="Team" component={TeamScreen} options={{ title: 'Team' }} />
           <AppStack.Screen name="Tasks" component={TasksScreen} options={{ title: 'Tasks' }} />
+          <AppStack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{ title: 'Onboarding' }}
+          />
         </AppStack.Navigator>
       ) : (
         <AuthStack.Navigator screenOptions={{ headerShown: false }}>

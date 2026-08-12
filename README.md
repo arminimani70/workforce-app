@@ -47,9 +47,9 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   API — it retries once with a refreshed token on a 401, so that logic lives in one place
   instead of being duplicated per screen.
 - `src/navigation/RootNavigator.tsx` — renders the Auth stack (Login/Register) when there's no
-  user, or the App stack (Home, Time Clock, Schedule, Availability, Team, Tasks) once
-  `AuthContext` has one. This is the standard React Navigation "auth flow" pattern: the screens
-  the user can reach are a direct function of auth state, not a route guard.
+  user, or the App stack (Home, Time Clock, Schedule, Availability, Team, Tasks, Onboarding)
+  once `AuthContext` has one. This is the standard React Navigation "auth flow" pattern: the
+  screens the user can reach are a direct function of auth state, not a route guard.
 
 ## Current screens
 
@@ -57,8 +57,8 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Register** — `POST /auth/register` (creates a new Organization + its Owner)
 - **Home** — dashboard cards for Time Clock (live elapsed time when clocked in), Schedule
   (next upcoming approved shift), Availability (days available this week), Team (member
-  count), and Tasks (count of the caller's own open tasks), plus a "Today" section listing
-  today's approved shifts. Has a Log out button.
+  count), Tasks (count of the caller's own open tasks), and Onboarding, plus a "Today" section
+  listing today's approved shifts. Has a Log out button.
 - **Time Clock** — one button that toggles clock-in/clock-out (`POST /time-clock/clock-in` /
   `/clock-out`), best-effort GPS via `expo-location` (proceeds without location if permission
   is denied). Shows a live HH:MM:SS elapsed timer while clocked in, and a total-hours summary
@@ -89,6 +89,10 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   people depending on who's approved to work that position each day). If a batch date has no
   one approved for that position, that date is skipped and reported back rather than failing
   the whole batch.
+- **Onboarding** — a single plain-text guide per organization (`GET /onboarding`) that every
+  member can read; owner/manager see an Edit button that swaps the read view for a multiline
+  text box and a Save/Cancel pair (`PUT /onboarding`). Shows an empty state prompting
+  owner/manager to write one if the org hasn't yet.
 
 ## Scripts
 

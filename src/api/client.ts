@@ -4,6 +4,7 @@ import type {
   CoworkerShift,
   CurrentUser,
   DayAvailability,
+  OnboardingGuide,
   OrgMember,
   OrgTask,
   Position,
@@ -176,4 +177,11 @@ export const tasksApi = {
       accessToken,
       body: { status },
     }),
+};
+
+export const onboardingApi = {
+  get: (accessToken: string) => request<OnboardingGuide>('/onboarding', { accessToken }),
+
+  update: (accessToken: string, content: string) =>
+    request<OnboardingGuide>('/onboarding', { method: 'PUT', accessToken, body: { content } }),
 };

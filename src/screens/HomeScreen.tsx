@@ -210,6 +210,14 @@ export default function HomeScreen({ navigation }: Props) {
         onPress={() => navigation.navigate('Tasks')}
       />
 
+      <DashboardCard
+        icon="school-outline"
+        tint={colors.indigo}
+        title="Onboarding"
+        subtitle="Guide for new hires"
+        onPress={() => navigation.navigate('Onboarding')}
+      />
+
       <View style={styles.todaySection}>
         <View style={styles.todayHeader}>
           <Ionicons name="today-outline" size={16} color={colors.text} />

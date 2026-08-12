@@ -12,6 +12,7 @@ export const colors = {
   purple: '#7c3aed',
   amber: '#b45309',
   pink: '#be185d',
+  indigo: '#4338ca',
 
   success: '#16a34a',
   successBg: '#dcfce7',

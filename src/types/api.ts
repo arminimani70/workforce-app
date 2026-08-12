@@ -113,3 +113,9 @@ export interface TaskBatchResult {
   reason?: string;
   task?: Task;
 }
+
+export interface OnboardingGuide {
+  organizationId: string;
+  content: string;
+  updatedAt: string | null;
+}
