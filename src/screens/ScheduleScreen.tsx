@@ -103,8 +103,10 @@ export default function ScheduleScreen() {
       setTodayCoworkers(coworkers);
 
       if (canManage) {
+        // Org-wide, not myShifts: a manager needs to confirm shifts they created for anyone,
+        // not just ones where they themselves are the assigned employee.
         const [all, orgMembers] = await Promise.all([
-          authFetch((token) => schedulingApi.myShifts(token)),
+          authFetch((token) => schedulingApi.all(token)),
           authFetch((token) => usersApi.list(token)),
         ]);
         setPendingShifts(all.filter((s) => !s.confirmed));
@@ -180,6 +182,7 @@ export default function ScheduleScreen() {
           {pendingShifts.map((shift) => (
             <View key={shift._id} style={styles.pendingRow}>
               <Text style={styles.pendingText}>
+                {members.find((m) => m._id === shift.employeeId)?.fullName ?? 'Unknown'} ·{' '}
                 {new Date(shift.startTime).toLocaleDateString([], {
                   weekday: 'short',
                   month: 'short',

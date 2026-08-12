@@ -122,6 +122,9 @@ export const schedulingApi = {
   confirm: (accessToken: string, shiftId: string) =>
     request<Shift>(`/shifts/${shiftId}/confirm`, { method: 'PATCH', accessToken }),
 
+  // Org-wide, owner/manager only — every shift regardless of who it's assigned to.
+  all: (accessToken: string) => request<Shift[]>('/shifts', { accessToken }),
+
   coworkers: (accessToken: string, range: { from: string; to: string }) =>
     request<CoworkerShift[]>(`/shifts/coworkers?from=${range.from}&to=${range.to}`, {
       accessToken,
