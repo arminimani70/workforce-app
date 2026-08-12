@@ -7,4 +7,5 @@ export type AppStackParamList = {
   Home: undefined;
   TimeClock: undefined;
   Schedule: undefined;
+  Availability: undefined;
 };

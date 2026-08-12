@@ -47,3 +47,16 @@ export interface Shift {
   status: ShiftStatus;
   createdBy: string;
 }
+
+export interface DayAvailability {
+  dayOfWeek: number; // 0 = Monday .. 6 = Sunday
+  available: boolean;
+  startTime?: string; // "HH:mm"
+  endTime?: string;
+}
+
+export interface Availability {
+  organizationId: string;
+  employeeId: string;
+  days: DayAvailability[];
+}

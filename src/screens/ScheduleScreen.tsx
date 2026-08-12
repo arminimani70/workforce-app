@@ -23,6 +23,23 @@ function tomorrowShiftWindow() {
   return { startTime: start.toISOString(), endTime: end.toISOString() };
 }
 
+// Monday 00:00 to Sunday 23:59:59.999, local time, for the week containing "now".
+function currentWeekRange() {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sunday .. 6 = Saturday
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  return { from: monday.toISOString(), to: sunday.toISOString() };
+}
+
 function formatRange(shift: Shift) {
   const start = new Date(shift.startTime);
   const end = new Date(shift.endTime);
@@ -35,23 +52,28 @@ function formatRange(shift: Shift) {
 export default function ScheduleScreen() {
   const { user, authFetch } = useAuth();
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // first paint only
+  const [isFetching, setIsFetching] = useState(false); // any load, including toggle reloads
   const [isCreating, setIsCreating] = useState(false);
   const [jobSite, setJobSite] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [weekOnly, setWeekOnly] = useState(true);
 
   const canCreate = user?.role === 'owner' || user?.role === 'manager';
 
   const loadShifts = useCallback(async () => {
+    setIsFetching(true);
     try {
-      const result = await authFetch((token) => schedulingApi.myShifts(token));
+      const range = weekOnly ? currentWeekRange() : undefined;
+      const result = await authFetch((token) => schedulingApi.myShifts(token, range));
       setShifts(result);
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load shifts');
     } finally {
+      setIsFetching(false);
       setIsLoading(false);
     }
-  }, [authFetch]);
+  }, [authFetch, weekOnly]);
 
   useEffect(() => {
     loadShifts();
@@ -90,22 +112,49 @@ export default function ScheduleScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.toggleRow}>
+        <Pressable
+          style={[styles.toggleButton, weekOnly && styles.toggleButtonActive]}
+          onPress={() => setWeekOnly(true)}
+        >
+          <Text style={[styles.toggleText, weekOnly && styles.toggleTextActive]}>This Week</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toggleButton, !weekOnly && styles.toggleButtonActive]}
+          onPress={() => setWeekOnly(false)}
+        >
+          <Text style={[styles.toggleText, !weekOnly && styles.toggleTextActive]}>
+            All Shifts
+          </Text>
+        </Pressable>
+      </View>
+
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <FlatList
-        data={shifts}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={shifts.length === 0 && styles.center}
-        ListEmptyComponent={<Text style={styles.empty}>No shifts scheduled yet</Text>}
-        renderItem={({ item }) => (
-          <View style={styles.shiftRow}>
-            <Text style={styles.shiftRange}>{formatRange(item)}</Text>
-            <Text style={styles.shiftMeta}>
-              {item.jobSite ?? 'No job site set'} · {item.status}
+      {isFetching ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={shifts}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={shifts.length === 0 && styles.center}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {weekOnly ? 'No shifts scheduled this week' : 'No shifts scheduled yet'}
             </Text>
-          </View>
-        )}
-      />
+          }
+          renderItem={({ item }) => (
+            <View style={styles.shiftRow}>
+              <Text style={styles.shiftRange}>{formatRange(item)}</Text>
+              <Text style={styles.shiftMeta}>
+                {item.jobSite ?? 'No job site set'} · {item.status}
+              </Text>
+            </View>
+          )}
+        />
+      )}
 
       {canCreate && (
         <View style={styles.createBox}>
@@ -135,6 +184,22 @@ export default function ScheduleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  toggleRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f1f1',
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 12,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  toggleButtonActive: { backgroundColor: '#fff' },
+  toggleText: { fontSize: 14, color: '#666', fontWeight: '600' },
+  toggleTextActive: { color: '#111' },
   error: { color: '#c0392b', marginBottom: 12 },
   empty: { color: '#666', fontSize: 15 },
   shiftRow: {

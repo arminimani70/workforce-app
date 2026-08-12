@@ -1,4 +1,12 @@
-import type { ApiError, CurrentUser, Shift, TimeClockEntry, TokenPair } from '../types/api';
+import type {
+  ApiError,
+  Availability,
+  CurrentUser,
+  DayAvailability,
+  Shift,
+  TimeClockEntry,
+  TokenPair,
+} from '../types/api';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -79,10 +87,24 @@ export const timeClockApi = {
 };
 
 export const schedulingApi = {
-  myShifts: (accessToken: string) => request<Shift[]>('/shifts/me', { accessToken }),
+  myShifts: (accessToken: string, range?: { from: string; to: string }) => {
+    const query = range ? `?from=${range.from}&to=${range.to}` : '';
+    return request<Shift[]>(`/shifts/me${query}`, { accessToken });
+  },
 
   create: (
     accessToken: string,
     dto: { employeeId: string; startTime: string; endTime: string; jobSite?: string },
   ) => request<Shift>('/shifts', { method: 'POST', accessToken, body: dto }),
+};
+
+export const availabilityApi = {
+  getMine: (accessToken: string) => request<Availability>('/availability/me', { accessToken }),
+
+  updateMine: (accessToken: string, days: DayAvailability[]) =>
+    request<Availability>('/availability/me', {
+      method: 'PUT',
+      accessToken,
+      body: { days },
+    }),
 };

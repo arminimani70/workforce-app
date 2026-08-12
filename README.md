@@ -34,21 +34,25 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   API — it retries once with a refreshed token on a 401, so that logic lives in one place
   instead of being duplicated per screen.
 - `src/navigation/RootNavigator.tsx` — renders the Auth stack (Login/Register) when there's no
-  user, or the App stack (Home, Time Clock, Schedule) once `AuthContext` has one. This is the
-  standard React Navigation "auth flow" pattern: the screens the user can reach are a direct
-  function of auth state, not a route guard.
+  user, or the App stack (Home, Time Clock, Schedule, Availability) once `AuthContext` has
+  one. This is the standard React Navigation "auth flow" pattern: the screens the user can
+  reach are a direct function of auth state, not a route guard.
 
 ## Current screens
 
 - **Login** — `POST /auth/login`
 - **Register** — `POST /auth/register` (creates a new Organization + its Owner)
-- **Home** — shows the logged-in user, links to Time Clock and Schedule, has a Log out button
+- **Home** — shows the logged-in user, links to the other screens, has a Log out button
 - **Time Clock** — one button that toggles clock-in/clock-out (`POST /time-clock/clock-in` /
   `/clock-out`), best-effort GPS via `expo-location` (proceeds without location if permission
   is denied)
-- **Schedule** — lists the caller's own shifts (`GET /shifts/me`). Owner/manager also see a
-  "Schedule tomorrow, 9:00–17:00" button (`POST /shifts`) — it self-assigns for now since
-  there's no Employee Directory yet to pick a different employee
+- **Schedule** — "This Week" / "All Shifts" toggle over the caller's shifts
+  (`GET /shifts/me?from=&to=`, week computed client-side as Monday 00:00–Sunday 23:59 local
+  time). Owner/manager also see a "Schedule tomorrow, 9:00–17:00" button (`POST /shifts`) —
+  it self-assigns for now since there's no Employee Directory yet to pick a different employee
+- **Availability** — a recurring weekly pattern, not tied to specific dates: toggle each day
+  Available/Unavailable and set an HH:mm start/end when available
+  (`GET`/`PUT /availability/me`)
 
 ## Scripts
 
