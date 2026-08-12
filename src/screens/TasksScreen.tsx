@@ -9,10 +9,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, tasksApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { OrgMember, OrgTask, Position, Task, TaskStatus } from '../types/api';
+import { cardShadow, colors } from '../theme/colors';
+import { NoteBox } from '../components/NoteBox';
+
+type IconName = keyof typeof Ionicons.glyphMap;
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -27,6 +32,12 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   pending: 'Pending',
   in_progress: 'In Progress',
   done: 'Done',
+};
+
+const STATUS_ICONS: Record<TaskStatus, IconName> = {
+  pending: 'ellipse-outline',
+  in_progress: 'hourglass-outline',
+  done: 'checkmark-circle',
 };
 
 const STATUS_ORDER: TaskStatus[] = ['pending', 'in_progress', 'done'];
@@ -235,12 +246,23 @@ export default function TasksScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Text style={styles.sectionTitleDark}>My Tasks</Text>
+      <View style={styles.sectionTitleRow}>
+        <Ionicons name="list-outline" size={16} color={colors.text} />
+        <Text style={styles.sectionTitleDark}>My Tasks</Text>
+      </View>
       {myTasks.length === 0 ? (
-        <Text style={styles.empty}>No tasks assigned to you</Text>
+        <View style={styles.emptyRow}>
+          <Ionicons name="checkmark-done-outline" size={15} color={colors.textFaint} />
+          <Text style={styles.empty}>No tasks assigned to you</Text>
+        </View>
       ) : (
         myTasks.map((task) => (
           <View key={task._id} style={styles.taskRow}>
+            <Ionicons
+              name={STATUS_ICONS[task.status]}
+              size={20}
+              color={task.status === 'done' ? colors.success : colors.textMuted}
+            />
             <View style={styles.taskInfo}>
               <Text style={styles.taskTitle}>{task.title}</Text>
               {task.description ? (
@@ -274,12 +296,23 @@ export default function TasksScreen() {
 
       {canManage && (
         <>
-          <Text style={[styles.sectionTitleDark, { marginTop: 8 }]}>All Tasks</Text>
+          <View style={[styles.sectionTitleRow, { marginTop: 8 }]}>
+            <Ionicons name="albums-outline" size={16} color={colors.text} />
+            <Text style={styles.sectionTitleDark}>All Tasks</Text>
+          </View>
           {orgTasks.length === 0 ? (
-            <Text style={styles.empty}>No tasks created yet</Text>
+            <View style={styles.emptyRow}>
+              <Ionicons name="file-tray-outline" size={15} color={colors.textFaint} />
+              <Text style={styles.empty}>No tasks created yet</Text>
+            </View>
           ) : (
             orgTasks.map((task) => (
               <View key={task._id} style={styles.taskRow}>
+                <Ionicons
+                  name={STATUS_ICONS[task.status]}
+                  size={20}
+                  color={task.status === 'done' ? colors.success : colors.textMuted}
+                />
                 <View style={styles.taskInfo}>
                   <Text style={styles.taskTitle}>{task.title}</Text>
                   <Text style={styles.taskMeta}>
@@ -300,7 +333,8 @@ export default function TasksScreen() {
               setIsModalOpen(true);
             }}
           >
-            <Text style={styles.newTaskButtonText}>+ New Task</Text>
+            <Ionicons name="add-circle-outline" size={18} color="#fff" />
+            <Text style={styles.newTaskButtonText}>New Task</Text>
           </Pressable>
         </>
       )}
@@ -313,7 +347,10 @@ export default function TasksScreen() {
       >
         <View style={styles.modalBackdrop}>
           <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
-            <Text style={styles.formTitle}>New Task</Text>
+            <View style={styles.modalTitleRow}>
+              <Ionicons name="add-circle-outline" size={18} color={colors.text} />
+              <Text style={styles.formTitle}>New Task</Text>
+            </View>
 
             <View style={styles.chipsWrap}>
               <Pressable
@@ -323,6 +360,11 @@ export default function TasksScreen() {
                   setSelectedDates((prev) => prev.slice(0, 1));
                 }}
               >
+                <Ionicons
+                  name="person-outline"
+                  size={14}
+                  color={assignMode === 'person' ? '#fff' : colors.text}
+                />
                 <Text
                   style={[styles.chipText, assignMode === 'person' && styles.chipTextActive]}
                 >
@@ -333,6 +375,11 @@ export default function TasksScreen() {
                 style={[styles.chip, assignMode === 'position' && styles.chipActive]}
                 onPress={() => setAssignMode('position')}
               >
+                <Ionicons
+                  name="briefcase-outline"
+                  size={14}
+                  color={assignMode === 'position' ? '#fff' : colors.text}
+                />
                 <Text
                   style={[styles.chipText, assignMode === 'position' && styles.chipTextActive]}
                 >
@@ -440,7 +487,7 @@ export default function TasksScreen() {
               })}
             </View>
 
-            {batchResultsNote && <Text style={styles.note}>{batchResultsNote}</Text>}
+            {batchResultsNote && <NoteBox variant="warning">{batchResultsNote}</NoteBox>}
             {error && <Text style={styles.error}>{error}</Text>}
 
             <Pressable
@@ -451,7 +498,10 @@ export default function TasksScreen() {
               {isCreating ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Create Task</Text>
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                  <Text style={styles.buttonText}>Create Task</Text>
+                </>
               )}
             </Pressable>
 
@@ -466,47 +516,50 @@ export default function TasksScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, gap: 10 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  error: { color: '#c0392b' },
-  note: { color: '#92400e', fontSize: 12 },
-  sectionTitleDark: { fontSize: 13, fontWeight: '700', color: '#111', marginBottom: 4 },
-  empty: { fontSize: 13, color: '#999' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  error: { color: colors.danger },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  sectionTitleDark: { fontSize: 13, fontWeight: '700', color: colors.text },
+  emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  empty: { fontSize: 13, color: colors.textFaint },
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 10,
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
     padding: 12,
+    ...cardShadow,
   },
   taskInfo: { flex: 1, gap: 2 },
-  taskTitle: { fontSize: 15, fontWeight: '600', color: '#111' },
-  taskDescription: { fontSize: 13, color: '#555' },
-  taskMeta: { fontSize: 12, color: '#666' },
-  taskStatusLabel: { fontSize: 12, fontWeight: '600', color: '#666' },
+  taskTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  taskDescription: { fontSize: 13, color: colors.textMuted },
+  taskMeta: { fontSize: 12, color: colors.textMuted },
+  taskStatusLabel: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   statusButton: {
-    backgroundColor: '#0f766e',
+    backgroundColor: colors.teal,
     borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
   statusButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   statusBadgeDone: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successBg,
     borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
-  statusBadgeDoneText: { color: '#166534', fontSize: 12, fontWeight: '600' },
+  statusBadgeDoneText: { color: colors.successText, fontSize: 12, fontWeight: '600' },
   newTaskButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    padding: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    padding: 14,
     marginTop: 4,
   },
   newTaskButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
@@ -516,23 +569,27 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
     maxHeight: '85%',
   },
-  formTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginTop: 4 },
+  modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  formTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginTop: 4 },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
-  chipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: '#333' },
   chipTextActive: { color: '#fff' },
   weekNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -545,7 +602,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weekNavButtonText: { fontSize: 18, fontWeight: '700', color: '#333' },
-  weekNavLabel: { fontSize: 14, fontWeight: '600', color: '#111' },
+  weekNavLabel: { fontSize: 14, fontWeight: '600', color: colors.text },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
@@ -554,12 +611,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   cancelButton: { alignItems: 'center', padding: 8 },
-  cancelButtonText: { color: '#666', fontSize: 14 },
+  cancelButtonText: { color: colors.textMuted, fontSize: 14 },
   button: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    padding: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    padding: 14,
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },

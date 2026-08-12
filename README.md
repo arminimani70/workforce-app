@@ -9,6 +9,19 @@ Connecteam-style app. Backend lives in a separate repo:
 - Expo (SDK 57) + TypeScript
 - React Navigation (native-stack)
 - AsyncStorage for local token persistence
+- `@expo/vector-icons` (Ionicons) for iconography
+
+## Design system
+
+- `src/theme/colors.ts` — the app's single color palette (`background`/`surface`/`border`,
+  text tones, a named color per feature area, and semantic `success`/`danger`/`warning`/`info`
+  colors with matching light backgrounds) plus a shared `cardShadow`. Every screen imports
+  from here instead of hardcoding hex values, so a palette change is a one-file edit.
+- `src/components/NoteBox.tsx` — a reusable icon+text callout (`info`/`warning`/`success`/
+  `danger` variants) for inline tips and warnings, e.g. Tasks' "N of M created" batch result.
+- Dashboard cards, list rows, and boxed sections are all `colors.surface` with `cardShadow` on
+  `colors.background`, giving the app a consistent light-elevated-card look; icons mark every
+  section header, button, and status so screens are scannable without reading every label.
 
 ## Getting started
 

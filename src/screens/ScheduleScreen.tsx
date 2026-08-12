@@ -9,11 +9,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, schedulingApi, timeClockApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { CoworkerShift, OrgMember, Position, Shift } from '../types/api';
 import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
+import { cardShadow, colors } from '../theme/colors';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -231,7 +233,10 @@ export default function ScheduleScreen() {
 
       {canManage && pendingShifts.length > 0 && (
         <View style={styles.pendingBox}>
-          <Text style={styles.sectionTitle}>Pending confirmation</Text>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="alert-circle" size={16} color={colors.warningText} />
+            <Text style={styles.sectionTitle}>Pending confirmation</Text>
+          </View>
           {pendingShifts.map((shift) => (
             <View key={shift._id} style={styles.pendingRow}>
               <Text style={styles.pendingText}>
@@ -252,7 +257,10 @@ export default function ScheduleScreen() {
                   {confirmingId === shift._id ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={styles.confirmButtonText}>Confirm</Text>
+                    <>
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                      <Text style={styles.confirmButtonText}>Confirm</Text>
+                    </>
                   )}
                 </Pressable>
                 <Pressable
@@ -263,7 +271,10 @@ export default function ScheduleScreen() {
                   {rejectingId === shift._id ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={styles.rejectButtonText}>Reject</Text>
+                    <>
+                      <Ionicons name="close" size={14} color="#fff" />
+                      <Text style={styles.rejectButtonText}>Reject</Text>
+                    </>
                   )}
                 </Pressable>
               </View>
@@ -271,6 +282,11 @@ export default function ScheduleScreen() {
           ))}
         </View>
       )}
+
+      <View style={styles.sectionTitleRow}>
+        <Ionicons name="calendar-outline" size={16} color={colors.text} />
+        <Text style={styles.sectionTitleDark}>This Week</Text>
+      </View>
 
       <View style={styles.calendar}>
         {days.map((day, index) => {
@@ -314,9 +330,15 @@ export default function ScheduleScreen() {
       </View>
 
       <View style={styles.coworkersBox}>
-        <Text style={styles.sectionTitleDark}>Working Today</Text>
+        <View style={styles.sectionTitleRow}>
+          <Ionicons name="people-outline" size={16} color={colors.text} />
+          <Text style={styles.sectionTitleDark}>Working Today</Text>
+        </View>
         {todayCoworkers.length === 0 ? (
-          <Text style={styles.noShift}>No one scheduled today</Text>
+          <View style={styles.emptyRow}>
+            <Ionicons name="moon-outline" size={15} color={colors.textFaint} />
+            <Text style={styles.noShift}>No one scheduled today</Text>
+          </View>
         ) : (
           todayCoworkers.map((shift) => (
             <View key={shift._id} style={styles.coworkerRow}>
@@ -333,7 +355,10 @@ export default function ScheduleScreen() {
       </View>
 
       <View style={styles.monthBox}>
-        <Text style={styles.monthLabel}>Worked this month</Text>
+        <View style={styles.monthLabelRow}>
+          <Ionicons name="bar-chart-outline" size={16} color={colors.textMuted} />
+          <Text style={styles.monthLabel}>Worked this month</Text>
+        </View>
         <Text style={styles.monthValue}>
           {monthTotalSeconds === null ? '—' : formatHoursMinutes(monthTotalSeconds)}
         </Text>
@@ -341,7 +366,8 @@ export default function ScheduleScreen() {
 
       {canManage && (
         <Pressable style={styles.newShiftButton} onPress={() => setIsModalOpen(true)}>
-          <Text style={styles.newShiftButtonText}>+ New Shift</Text>
+          <Ionicons name="add-circle-outline" size={18} color="#fff" />
+          <Text style={styles.newShiftButtonText}>New Shift</Text>
         </Pressable>
       )}
 
@@ -490,16 +516,17 @@ export default function ScheduleScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, gap: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  error: { color: '#c0392b' },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#92400e', marginBottom: 8 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  error: { color: colors.danger },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.warningText },
   pendingBox: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: colors.warningBg,
     borderWidth: 1,
-    borderColor: '#fde68a',
-    borderRadius: 10,
+    borderColor: colors.warningBorder,
+    borderRadius: 12,
     padding: 12,
     gap: 8,
   },
@@ -509,69 +536,86 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  pendingText: { fontSize: 13, color: '#333', flex: 1 },
+  pendingText: { fontSize: 13, color: colors.text, flex: 1 },
   pendingActions: { flexDirection: 'row', gap: 6 },
   confirmButton: {
-    backgroundColor: '#16a34a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.success,
     borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
   confirmButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   rejectButton: {
-    backgroundColor: '#dc2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.danger,
     borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
   rejectButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  calendar: { borderWidth: 1, borderColor: '#eee', borderRadius: 10, overflow: 'hidden' },
+  calendar: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    ...cardShadow,
+  },
   dayRow: {
     flexDirection: 'row',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: '#fff',
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   dayRowPast: { backgroundColor: '#f5f5f5' },
-  dayRowToday: { backgroundColor: '#eff6ff' },
+  dayRowToday: { backgroundColor: colors.infoBg },
   dayHeader: { width: 64 },
-  dayLabel: { fontSize: 14, fontWeight: '700', color: '#111' },
-  dayDate: { fontSize: 12, color: '#666', marginTop: 2 },
-  dayTextPast: { color: '#999' },
+  dayLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
+  dayDate: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  dayTextPast: { color: colors.textFaint },
   dayShifts: { flex: 1, justifyContent: 'center', gap: 2 },
-  noShift: { fontSize: 13, color: '#bbb' },
-  shiftText: { fontSize: 13, color: '#111', fontWeight: '600' },
+  emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  noShift: { fontSize: 13, color: colors.textFaint },
+  shiftText: { fontSize: 13, color: colors.text, fontWeight: '600' },
   monthBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    ...cardShadow,
   },
-  monthLabel: { fontSize: 14, color: '#666' },
-  monthValue: { fontSize: 18, fontWeight: '700', color: '#111' },
+  monthLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  monthLabel: { fontSize: 14, color: colors.textMuted },
+  monthValue: { fontSize: 18, fontWeight: '700', color: colors.text },
   coworkersBox: {
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     gap: 6,
+    backgroundColor: colors.surface,
+    ...cardShadow,
   },
-  sectionTitleDark: { fontSize: 13, fontWeight: '700', color: '#111', marginBottom: 4 },
+  sectionTitleDark: { fontSize: 13, fontWeight: '700', color: colors.text },
   coworkerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 4,
   },
-  coworkerName: { fontSize: 14, fontWeight: '600', color: '#111' },
-  coworkerMeta: { fontSize: 13, color: '#666' },
+  coworkerName: { fontSize: 14, fontWeight: '600', color: colors.text },
+  coworkerMeta: { fontSize: 13, color: colors.textMuted },
   newShiftButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    padding: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    padding: 14,
   },
   newShiftButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   modalBackdrop: {

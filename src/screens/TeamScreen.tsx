@@ -8,9 +8,26 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, usersApi } from '../api/client';
-import type { OrgMember } from '../types/api';
+import type { OrgMember, UserRole } from '../types/api';
+import { cardShadow, colors } from '../theme/colors';
+
+const ROLE_COLORS: Record<UserRole, string> = {
+  owner: colors.amber,
+  manager: colors.purple,
+  employee: colors.primary,
+};
+
+function initials(fullName: string) {
+  return fullName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+}
 
 export default function TeamScreen() {
   const { user, authFetch } = useAuth();
@@ -72,6 +89,11 @@ export default function TeamScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.sectionTitleRow}>
+        <Ionicons name="people-outline" size={16} color={colors.text} />
+        <Text style={styles.sectionTitleDark}>Team ({members.length})</Text>
+      </View>
+
       {error && <Text style={styles.error}>{error}</Text>}
 
       <FlatList
@@ -80,17 +102,28 @@ export default function TeamScreen() {
         style={styles.list}
         renderItem={({ item }) => (
           <View style={styles.memberRow}>
-            <Text style={styles.memberName}>{item.fullName}</Text>
-            <Text style={styles.memberMeta}>
-              {item.email} · {item.role}
-            </Text>
+            <View style={[styles.avatar, { backgroundColor: ROLE_COLORS[item.role] }]}>
+              <Text style={styles.avatarText}>{initials(item.fullName)}</Text>
+            </View>
+            <View style={styles.memberTextGroup}>
+              <Text style={styles.memberName}>{item.fullName}</Text>
+              <Text style={styles.memberMeta}>{item.email}</Text>
+            </View>
+            <View style={[styles.roleBadge, { backgroundColor: `${ROLE_COLORS[item.role]}1a` }]}>
+              <Text style={[styles.roleBadgeText, { color: ROLE_COLORS[item.role] }]}>
+                {item.role}
+              </Text>
+            </View>
           </View>
         )}
       />
 
       {canManage && (
         <View style={styles.formBox}>
-          <Text style={styles.formTitle}>Add Employee</Text>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="person-add-outline" size={16} color={colors.text} />
+            <Text style={styles.formTitle}>Add Employee</Text>
+          </View>
           <TextInput
             style={styles.input}
             placeholder="Full name"
@@ -120,7 +153,10 @@ export default function TeamScreen() {
             {isCreating ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Add Employee</Text>
+              <>
+                <Ionicons name="person-add-outline" size={18} color="#fff" />
+                <Text style={styles.buttonText}>Add Employee</Text>
+              </>
             )}
           </Pressable>
         </View>
@@ -130,19 +166,37 @@ export default function TeamScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  error: { color: '#c0392b', marginBottom: 12 },
+  container: { flex: 1, padding: 16, backgroundColor: colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  sectionTitleDark: { fontSize: 13, fontWeight: '700', color: colors.text },
+  error: { color: colors.danger, marginBottom: 12 },
   list: { flexGrow: 0 },
   memberRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    ...cardShadow,
   },
-  memberName: { fontSize: 16, fontWeight: '600' },
-  memberMeta: { fontSize: 13, color: '#666', marginTop: 2 },
-  formBox: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 16, marginTop: 16, gap: 8 },
-  formTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  memberTextGroup: { flex: 1 },
+  memberName: { fontSize: 15, fontWeight: '600', color: colors.text },
+  memberMeta: { fontSize: 13, color: colors.textMuted, marginTop: 1 },
+  roleBadge: { borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
+  roleBadgeText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  formBox: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16, marginTop: 16, gap: 8 },
+  formTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
@@ -151,10 +205,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#0f766e',
-    borderRadius: 8,
-    padding: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.teal,
+    borderRadius: 10,
+    padding: 14,
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },

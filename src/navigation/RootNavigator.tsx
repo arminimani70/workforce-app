@@ -12,6 +12,7 @@ import AvailabilityScreen from '../screens/AvailabilityScreen';
 import TeamScreen from '../screens/TeamScreen';
 import TasksScreen from '../screens/TasksScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
+import { colors } from '../theme/colors';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
@@ -21,7 +22,7 @@ export default function RootNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -30,8 +31,15 @@ export default function RootNavigator() {
   return (
     <NavigationContainer>
       {user ? (
-        <AppStack.Navigator>
-          <AppStack.Screen name="Home" component={HomeScreen} />
+        <AppStack.Navigator
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitleStyle: { fontWeight: '700' },
+            headerShadowVisible: false,
+          }}
+        >
+          <AppStack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
           <AppStack.Screen
             name="TimeClock"
             component={TimeClockScreen}

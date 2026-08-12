@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, timeClockApi } from '../api/client';
 import type { TimeClockEntry } from '../types/api';
 import { currentWeekRange, formatElapsed, formatHoursMinutes, monthToDateRange, todayRange } from '../utils/time';
+import { cardShadow, colors } from '../theme/colors';
 
 // Best-effort GPS: if permission is denied or location fails, clock in/out still proceeds
 // without a location, matching the backend's optional lat/lng.
@@ -117,7 +119,14 @@ export default function TimeClockScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.status}>{openEntry ? 'Clocked in' : 'Not clocked in'}</Text>
+      <View style={styles.statusRow}>
+        <Ionicons
+          name={openEntry ? 'radio-button-on' : 'radio-button-off-outline'}
+          size={16}
+          color={openEntry ? colors.success : colors.textFaint}
+        />
+        <Text style={styles.status}>{openEntry ? 'Clocked in' : 'Not clocked in'}</Text>
+      </View>
       {openEntry ? (
         <Text style={styles.timer}>{formatElapsed(elapsedMs)}</Text>
       ) : (
@@ -138,7 +147,10 @@ export default function TimeClockScreen() {
         {isSubmitting ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.buttonText}>{openEntry ? 'Clock Out' : 'Clock In'}</Text>
+          <>
+            <Ionicons name={openEntry ? 'stop-circle-outline' : 'play-circle-outline'} size={32} color="#fff" />
+            <Text style={styles.buttonText}>{openEntry ? 'Clock Out' : 'Clock In'}</Text>
+          </>
         )}
       </Pressable>
 
@@ -156,38 +168,60 @@ export default function TimeClockScreen() {
             </Pressable>
           ))}
         </View>
-        <Text style={styles.totalValue}>
-          {totalSeconds === null ? '—' : formatHoursMinutes(totalSeconds)}
-        </Text>
+        <View style={styles.totalRow}>
+          <Ionicons name="time-outline" size={20} color={colors.textMuted} />
+          <Text style={styles.totalValue}>
+            {totalSeconds === null ? '—' : formatHoursMinutes(totalSeconds)}
+          </Text>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', padding: 24, gap: 8, paddingTop: 48 },
-  status: { fontSize: 22, fontWeight: '700' },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 24,
+    gap: 8,
+    paddingTop: 48,
+    backgroundColor: colors.background,
+  },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  status: { fontSize: 22, fontWeight: '700', color: colors.text },
   timer: {
     fontSize: 32,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    color: '#111',
+    color: colors.text,
     marginBottom: 24,
   },
   timerSpacer: { height: 40 + 24 },
-  error: { color: '#c0392b', marginBottom: 12 },
+  error: { color: colors.danger, marginBottom: 12 },
   button: {
     borderRadius: 999,
     width: 160,
     height: 160,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
+    ...cardShadow,
   },
-  buttonClockIn: { backgroundColor: '#16a34a' },
-  buttonClockOut: { backgroundColor: '#dc2626' },
+  buttonClockIn: { backgroundColor: colors.success },
+  buttonClockOut: { backgroundColor: colors.danger },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  totalsBox: { marginTop: 40, width: '100%', alignItems: 'center', gap: 12 },
+  totalsBox: {
+    marginTop: 40,
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 16,
+    ...cardShadow,
+  },
   rangeRow: {
     flexDirection: 'row',
     backgroundColor: '#f1f1f1',
@@ -197,7 +231,8 @@ const styles = StyleSheet.create({
   },
   rangeButton: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
   rangeButtonActive: { backgroundColor: '#fff' },
-  rangeText: { fontSize: 12, color: '#666', fontWeight: '600' },
-  rangeTextActive: { color: '#111' },
-  totalValue: { fontSize: 24, fontWeight: '700', color: '#111' },
+  rangeText: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
+  rangeTextActive: { color: colors.text },
+  totalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  totalValue: { fontSize: 24, fontWeight: '700', color: colors.text },
 });

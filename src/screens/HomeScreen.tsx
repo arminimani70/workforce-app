@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, schedulingApi, tasksApi, timeClockApi, usersApi } from '../api/client';
 import type { AppStackParamList } from '../navigation/types';
 import type { Shift, TimeClockEntry } from '../types/api';
 import { formatElapsed, fullDayRange } from '../utils/time';
+import { cardShadow, colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Home'>;
+
+type IconName = keyof typeof Ionicons.glyphMap;
 
 function formatShiftLine(shift: Shift) {
   const start = new Date(shift.startTime);
@@ -16,6 +20,43 @@ function formatShiftLine(shift: Shift) {
   const startText = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const endText = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `${day} · ${startText}–${endText}`;
+}
+
+function initials(fullName: string | undefined) {
+  if (!fullName) return '?';
+  return fullName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+}
+
+function DashboardCard({
+  icon,
+  tint,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: IconName;
+  tint: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={styles.card} onPress={onPress}>
+      <View style={[styles.cardIconBadge, { backgroundColor: tint }]}>
+        <Ionicons name={icon} size={22} color="#fff" />
+      </View>
+      <View style={styles.cardTextGroup}>
+        <Text style={styles.cardTitle}>{title}</Text>
+        <Text style={styles.cardSubtitle}>{subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
+    </Pressable>
+  );
 }
 
 export default function HomeScreen({ navigation }: Props) {
@@ -117,55 +158,72 @@ export default function HomeScreen({ navigation }: Props) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Welcome, {user?.fullName}</Text>
-      <Text style={styles.subtitle}>
-        {user?.email} · {user?.role}
-      </Text>
+      <View style={styles.header}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials(user?.fullName)}</Text>
+        </View>
+        <View>
+          <Text style={styles.title}>Welcome, {user?.fullName}</Text>
+          <Text style={styles.subtitle}>
+            {user?.email} · {user?.role}
+          </Text>
+        </View>
+      </View>
 
-      <Pressable
-        style={[styles.card, styles.cardTimeClock]}
+      <DashboardCard
+        icon="time-outline"
+        tint={colors.primary}
+        title="Time Clock"
+        subtitle={timeClockSubtitle}
         onPress={() => navigation.navigate('TimeClock')}
-      >
-        <Text style={styles.cardTitle}>Time Clock</Text>
-        <Text style={styles.cardSubtitle}>{timeClockSubtitle}</Text>
-      </Pressable>
+      />
 
-      <Pressable
-        style={[styles.card, styles.cardSchedule]}
+      <DashboardCard
+        icon="calendar-outline"
+        tint={colors.teal}
+        title="Schedule"
+        subtitle={scheduleSubtitle}
         onPress={() => navigation.navigate('Schedule')}
-      >
-        <Text style={styles.cardTitle}>Schedule</Text>
-        <Text style={styles.cardSubtitle}>{scheduleSubtitle}</Text>
-      </Pressable>
+      />
 
-      <Pressable
-        style={[styles.card, styles.cardAvailability]}
+      <DashboardCard
+        icon="checkmark-done-outline"
+        tint={colors.purple}
+        title="Availability"
+        subtitle={availabilitySubtitle}
         onPress={() => navigation.navigate('Availability')}
-      >
-        <Text style={styles.cardTitle}>Availability</Text>
-        <Text style={styles.cardSubtitle}>{availabilitySubtitle}</Text>
-      </Pressable>
+      />
 
-      <Pressable style={[styles.card, styles.cardTeam]} onPress={() => navigation.navigate('Team')}>
-        <Text style={styles.cardTitle}>Team</Text>
-        <Text style={styles.cardSubtitle}>{teamSubtitle}</Text>
-      </Pressable>
+      <DashboardCard
+        icon="people-outline"
+        tint={colors.amber}
+        title="Team"
+        subtitle={teamSubtitle}
+        onPress={() => navigation.navigate('Team')}
+      />
 
-      <Pressable
-        style={[styles.card, styles.cardTasks]}
+      <DashboardCard
+        icon="list-outline"
+        tint={colors.pink}
+        title="Tasks"
+        subtitle={tasksSubtitle}
         onPress={() => navigation.navigate('Tasks')}
-      >
-        <Text style={styles.cardTitle}>Tasks</Text>
-        <Text style={styles.cardSubtitle}>{tasksSubtitle}</Text>
-      </Pressable>
+      />
 
       <View style={styles.todaySection}>
-        <Text style={styles.todayTitle}>Today</Text>
+        <View style={styles.todayHeader}>
+          <Ionicons name="today-outline" size={16} color={colors.text} />
+          <Text style={styles.todayTitle}>Today</Text>
+        </View>
         {todayShifts.length === 0 ? (
-          <Text style={styles.todayEmpty}>No shifts today</Text>
+          <View style={styles.todayEmptyRow}>
+            <Ionicons name="moon-outline" size={16} color={colors.textFaint} />
+            <Text style={styles.todayEmpty}>No shifts today</Text>
+          </View>
         ) : (
           todayShifts.map((shift) => (
             <View key={shift._id} style={styles.todayRow}>
+              <Ionicons name="time-outline" size={15} color={colors.textMuted} />
               <Text style={styles.todayText}>
                 {new Date(shift.startTime).toLocaleTimeString([], {
                   hour: '2-digit',
@@ -184,6 +242,7 @@ export default function HomeScreen({ navigation }: Props) {
       </View>
 
       <Pressable style={styles.logoutButton} onPress={logout}>
+        <Ionicons name="log-out-outline" size={18} color="#fff" />
         <Text style={styles.buttonText}>Log out</Text>
       </Pressable>
     </ScrollView>
@@ -191,39 +250,63 @@ export default function HomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  container: { padding: 24, gap: 12 },
-  title: { fontSize: 24, fontWeight: '700' },
-  subtitle: { fontSize: 16, color: '#666', marginBottom: 12 },
-  card: {
-    borderRadius: 12,
-    padding: 16,
+  screen: { flex: 1, backgroundColor: colors.background },
+  container: { padding: 20, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cardTimeClock: { backgroundColor: '#2563eb' },
-  cardSchedule: { backgroundColor: '#0f766e' },
-  cardAvailability: { backgroundColor: '#7c3aed' },
-  cardTeam: { backgroundColor: '#b45309' },
-  cardTasks: { backgroundColor: '#be185d' },
-  cardTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  cardSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 4 },
+  avatarText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  title: { fontSize: 20, fontWeight: '700', color: colors.text },
+  subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    ...cardShadow,
+  },
+  cardIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTextGroup: { flex: 1 },
+  cardTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  cardSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
   todaySection: {
     marginTop: 8,
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    backgroundColor: colors.surface,
     gap: 8,
+    ...cardShadow,
   },
-  todayTitle: { fontSize: 15, fontWeight: '700', color: '#111' },
-  todayEmpty: { fontSize: 13, color: '#999' },
-  todayRow: { paddingVertical: 2 },
-  todayText: { fontSize: 14, color: '#333' },
+  todayHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  todayTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  todayEmptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  todayEmpty: { fontSize: 13, color: colors.textFaint },
+  todayRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
+  todayText: { fontSize: 14, color: colors.text },
   logoutButton: {
-    backgroundColor: '#dc2626',
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.danger,
+    borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    alignItems: 'center',
-    marginTop: 16,
+    marginTop: 8,
   },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
