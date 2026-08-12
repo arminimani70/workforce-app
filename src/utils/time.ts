@@ -31,11 +31,22 @@ export function currentWeekRange(date = new Date()) {
   return { from: monday.toISOString(), to: sunday.toISOString() };
 }
 
-// Start of today (local) to now.
+// Start of today (local) to now — for "hours worked so far today" queries, where counting
+// past "now" would be meaningless.
 export function todayRange() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   return { from: start.toISOString(), to: new Date().toISOString() };
+}
+
+// The full local calendar day, start to end — for "what's scheduled today" queries, which
+// must include shifts later today, not just ones that already started.
+export function fullDayRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return { from: start.toISOString(), to: end.toISOString() };
 }
 
 // Start of this calendar month (local) to now.

@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, schedulingApi, tasksApi, timeClockApi, usersApi } from '../api/client';
 import type { AppStackParamList } from '../navigation/types';
 import type { Shift, TimeClockEntry } from '../types/api';
-import { formatElapsed, todayRange } from '../utils/time';
+import { formatElapsed, fullDayRange } from '../utils/time';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Home'>;
 
@@ -53,10 +53,8 @@ export default function HomeScreen({ navigation }: Props) {
 
     (async () => {
       try {
-        const { from, to } = todayRange();
-        const shifts = await authFetch((token) =>
-          schedulingApi.myShifts(token, { from, to: new Date(to).toISOString() }),
-        );
+        const { from, to } = fullDayRange();
+        const shifts = await authFetch((token) => schedulingApi.myShifts(token, { from, to }));
         setTodayShifts(shifts.filter((s) => s.approval === 'approved'));
       } catch {
         // Leave "Today" empty if the call fails.

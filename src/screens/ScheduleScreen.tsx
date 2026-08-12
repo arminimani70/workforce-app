@@ -13,7 +13,7 @@ import { useAuth } from '../auth/AuthContext';
 import { HttpError, schedulingApi, timeClockApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { CoworkerShift, OrgMember, Position, Shift } from '../types/api';
-import { formatHoursMinutes, monthToDateRange, todayRange } from '../utils/time';
+import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -118,7 +118,7 @@ export default function ScheduleScreen() {
       const [week, total, coworkers] = await Promise.all([
         authFetch((token) => schedulingApi.myShifts(token, { from: weekFrom, to: weekTo })),
         authFetch((token) => timeClockApi.total(token, monthToDateRange())),
-        authFetch((token) => schedulingApi.coworkers(token, todayRange())),
+        authFetch((token) => schedulingApi.coworkers(token, fullDayRange())),
       ]);
       setWeekShifts(week.filter((s) => s.approval === 'approved'));
       setMonthTotalSeconds(total.totalSeconds);
