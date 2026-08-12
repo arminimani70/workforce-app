@@ -10,6 +10,8 @@ Connecteam-style app. Backend lives in a separate repo:
 - React Navigation (native-stack)
 - AsyncStorage for local token persistence
 - `@expo/vector-icons` (Ionicons) for iconography
+- `react-native-web` + `react-dom` — lets `npx expo start` also serve a web build (press `w`,
+  or `npm run web`), in addition to iOS/Android/Expo Go
 
 ## Design system
 
