@@ -5,6 +5,7 @@ import type {
   CurrentUser,
   DayAvailability,
   OnboardingGuide,
+  OrgAvailability,
   OrgMember,
   OrgTask,
   Position,
@@ -160,6 +161,13 @@ export const schedulingApi = {
     request<CoworkerShift[]>(`/shifts/coworkers?from=${range.from}&to=${range.to}`, {
       accessToken,
     }),
+
+  // Bulk-confirms every still-pending shift in the range — the "Publish Week" action.
+  publishWeek: (accessToken: string, range: { from: string; to: string }) =>
+    request<{ publishedCount: number }>(
+      `/shifts/publish?from=${range.from}&to=${range.to}`,
+      { method: 'PATCH', accessToken },
+    ),
 };
 
 export const availabilityApi = {
@@ -171,6 +179,9 @@ export const availabilityApi = {
       accessToken,
       body: { days },
     }),
+
+  // Org-wide, owner/manager only — every employee's weekly availability pattern.
+  all: (accessToken: string) => request<OrgAvailability[]>('/availability', { accessToken }),
 };
 
 export const tasksApi = {

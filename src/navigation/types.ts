@@ -12,4 +12,5 @@ export type AppStackParamList = {
   Tasks: undefined;
   Onboarding: undefined;
   Profile: undefined;
+  BuildSchedule: undefined;
 };

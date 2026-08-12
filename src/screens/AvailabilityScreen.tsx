@@ -37,6 +37,7 @@ const POSITION_LABELS: Record<Position, string> = {
   helpdesk: 'Help Desk',
   information: 'Information',
   consultation: 'Consultation',
+  manager: 'Manager',
 };
 
 function defaultDays(): DayAvailability[] {

@@ -81,8 +81,8 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   (`POST /shifts`).
 - **Availability** — a recurring weekly pattern, not tied to specific dates. Tapping a day
   opens a popup: **Unavailable**, **Available** (set an HH:mm start/end and one or more
-  positions — Front Desk/Help Desk/Information/Consultation), or **Flexible** (no preference,
-  manager decides). `GET`/`PUT /availability/me`.
+  positions — Front Desk/Help Desk/Information/Consultation/Manager), or **Flexible** (no
+  preference, manager decides). `GET`/`PUT /availability/me`.
 - **Team** — lists every org member (`GET /users`). Owner/manager also see an "Add Employee"
   form — full name, email, and a temporary password (`POST /users`); there's no
   self-registration flow for team members, an admin sets them up directly.
@@ -109,6 +109,17 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   (`PATCH /users/me`). A **Change Password** card takes current + new password
   (`PATCH /users/me/password`, `401` on a wrong current password). Reachable via a Home
   dashboard card or by tapping the header avatar on Home.
+- **Build Schedule** (owner/manager only, via a button on Schedule) — the weekly
+  schedule-building workflow. Week nav (‹ › arrows), and for each day: an **Available** list
+  pulled from `GET /availability` (every employee whose recurring pattern marks that day of
+  week available/flexible, with their time range and position(s) — if two people picked the
+  same position, both show up, so the manager can eyeball the overlap and pick), each with a
+  "+" that opens a prefilled add-to-schedule popup (`POST /shifts`, still a **draft**: shifts
+  start `approval: pending` and stay invisible to employees), and a **Scheduled** list of that
+  day's shifts already drafted/published, with a trash icon to remove a still-draft one
+  (`PATCH /shifts/:id/reject`). A "Publish Week" button at the bottom
+  (`PATCH /shifts/publish?from=&to=`) bulk-confirms every draft shift in the displayed week in
+  one action, making the whole week visible to employees at once instead of shift by shift.
 
 ## Scripts
 

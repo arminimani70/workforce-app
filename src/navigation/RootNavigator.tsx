@@ -13,6 +13,7 @@ import TeamScreen from '../screens/TeamScreen';
 import TasksScreen from '../screens/TasksScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import BuildScheduleScreen from '../screens/BuildScheduleScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 import { colors } from '../theme/colors';
 
@@ -68,6 +69,11 @@ export default function RootNavigator() {
             name="Profile"
             component={ProfileScreen}
             options={{ title: 'Profile' }}
+          />
+          <AppStack.Screen
+            name="BuildSchedule"
+            component={BuildScheduleScreen}
+            options={{ title: 'Build Schedule' }}
           />
         </AppStack.Navigator>
       ) : (

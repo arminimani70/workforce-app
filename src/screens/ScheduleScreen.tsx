@@ -10,12 +10,15 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, schedulingApi, timeClockApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { CoworkerShift, OrgMember, Position, Shift } from '../types/api';
 import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
 import { cardShadow, colors } from '../theme/colors';
+import type { AppStackParamList } from '../navigation/types';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -25,6 +28,7 @@ const POSITION_LABELS: Record<Position, string> = {
   helpdesk: 'Help Desk',
   information: 'Information',
   consultation: 'Consultation',
+  manager: 'Manager',
 };
 
 function startOfWeekMonday(date = new Date()) {
@@ -72,6 +76,7 @@ function combineDateAndTime(date: Date, hhmm: string): Date {
 
 export default function ScheduleScreen() {
   const { user, authFetch } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [weekShifts, setWeekShifts] = useState<Shift[]>([]);
   const [pendingShifts, setPendingShifts] = useState<Shift[]>([]);
   const [todayCoworkers, setTodayCoworkers] = useState<CoworkerShift[]>([]);
@@ -365,6 +370,16 @@ export default function ScheduleScreen() {
       </View>
 
       {canManage && (
+        <Pressable
+          style={styles.buildScheduleButton}
+          onPress={() => navigation.navigate('BuildSchedule')}
+        >
+          <Ionicons name="construct-outline" size={18} color="#fff" />
+          <Text style={styles.newShiftButtonText}>Build Week Schedule</Text>
+        </Pressable>
+      )}
+
+      {canManage && (
         <Pressable style={styles.newShiftButton} onPress={() => setIsModalOpen(true)}>
           <Ionicons name="add-circle-outline" size={18} color="#fff" />
           <Text style={styles.newShiftButtonText}>New Shift</Text>
@@ -618,6 +633,15 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   newShiftButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  buildScheduleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.teal,
+    borderRadius: 10,
+    padding: 14,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',

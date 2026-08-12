@@ -45,9 +45,15 @@ export interface TimeClockEntry {
   clockOutLocation?: GeoPoint;
 }
 
-export type Position = 'frontdesk' | 'helpdesk' | 'information' | 'consultation';
+export type Position = 'frontdesk' | 'helpdesk' | 'information' | 'consultation' | 'manager';
 
-export const POSITIONS: Position[] = ['frontdesk', 'helpdesk', 'information', 'consultation'];
+export const POSITIONS: Position[] = [
+  'frontdesk',
+  'helpdesk',
+  'information',
+  'consultation',
+  'manager',
+];
 
 export type ShiftStatus = 'scheduled' | 'completed' | 'missed';
 export type ShiftApproval = 'pending' | 'approved' | 'rejected';
@@ -89,6 +95,12 @@ export interface DayAvailability {
 export interface Availability {
   organizationId: string;
   employeeId: string;
+  days: DayAvailability[];
+}
+
+// GET /availability (org-wide) populates employeeId into { _id, fullName, role }.
+export interface OrgAvailability {
+  employeeId: { _id: string; fullName: string; role: UserRole };
   days: DayAvailability[];
 }
 
