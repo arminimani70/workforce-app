@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import type { CoworkerShift, OrgMember, Position, Shift } from '../types/api';
 import { formatHoursMinutes, monthToDateRange, todayRange } from '../utils/time';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const POSITION_LABELS: Record<Position, string> = {
   frontdesk: 'Front Desk',
@@ -23,16 +25,6 @@ const POSITION_LABELS: Record<Position, string> = {
   consultation: 'Consultation',
 };
 
-// Tomorrow 9:00–17:00 local time — a fixed preset so creating a shift needs no date picker.
-function tomorrowShiftWindow() {
-  const start = new Date();
-  start.setDate(start.getDate() + 1);
-  start.setHours(9, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(17, 0, 0, 0);
-  return { startTime: start.toISOString(), endTime: end.toISOString() };
-}
-
 function startOfWeekMonday(date = new Date()) {
   const dayOfWeek = date.getDay(); // 0 = Sunday .. 6 = Saturday
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -40,6 +32,12 @@ function startOfWeekMonday(date = new Date()) {
   monday.setDate(date.getDate() + diffToMonday);
   monday.setHours(0, 0, 0, 0);
   return monday;
+}
+
+function addWeeks(date: Date, weeks: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + weeks * 7);
+  return result;
 }
 
 function weekDates(monday: Date) {
@@ -62,6 +60,14 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+// Combines a calendar day with an "HH:mm" string into a full local Date.
+function combineDateAndTime(date: Date, hhmm: string): Date {
+  const [hours, minutes] = hhmm.split(':').map(Number);
+  const combined = new Date(date);
+  combined.setHours(hours, minutes, 0, 0);
+  return combined;
+}
+
 export default function ScheduleScreen() {
   const { user, authFetch } = useAuth();
   const [weekShifts, setWeekShifts] = useState<Shift[]>([]);
@@ -78,6 +84,12 @@ export default function ScheduleScreen() {
   const [jobSite, setJobSite] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalWeekOffset, setModalWeekOffset] = useState(0);
+  const [modalSelectedDate, setModalSelectedDate] = useState<Date | null>(null);
+  const [modalStartTime, setModalStartTime] = useState('09:00');
+  const [modalEndTime, setModalEndTime] = useState('17:00');
+
   const canManage = user?.role === 'owner' || user?.role === 'manager';
 
   const monday = startOfWeekMonday();
@@ -90,6 +102,15 @@ export default function ScheduleScreen() {
     sunday.setHours(23, 59, 59, 999);
     return sunday.toISOString();
   })();
+
+  const modalWeekMonday = addWeeks(monday, modalWeekOffset);
+  const modalWeekDays = weekDates(modalWeekMonday);
+  const modalWeekSunday = (() => {
+    const sunday = new Date(modalWeekMonday);
+    sunday.setDate(modalWeekMonday.getDate() + 6);
+    return sunday;
+  })();
+  const modalWeekLabel = `${modalWeekMonday.toLocaleDateString([], { month: 'short', day: 'numeric' })} – ${modalWeekSunday.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 
   const load = useCallback(async () => {
     try {
@@ -128,21 +149,39 @@ export default function ScheduleScreen() {
       setError('Pick who this shift is for');
       return;
     }
+    if (!modalSelectedDate) {
+      setError('Pick a day');
+      return;
+    }
+    if (!TIME_PATTERN.test(modalStartTime) || !TIME_PATTERN.test(modalEndTime)) {
+      setError('Start/end time must be HH:mm');
+      return;
+    }
+
+    const startTime = combineDateAndTime(modalSelectedDate, modalStartTime);
+    const endTime = combineDateAndTime(modalSelectedDate, modalEndTime);
+    if (endTime <= startTime) {
+      setError('End time must be after start time');
+      return;
+    }
+
     setError(null);
     setIsCreating(true);
     try {
-      const { startTime, endTime } = tomorrowShiftWindow();
       await authFetch((token) =>
         schedulingApi.create(token, {
           employeeId: selectedEmployeeId,
-          startTime,
-          endTime,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
           jobSite: jobSite.trim() || undefined,
           position: selectedPosition ?? undefined,
         }),
       );
       setJobSite('');
       setSelectedPosition(null);
+      setSelectedEmployeeId(null);
+      setModalSelectedDate(null);
+      setIsModalOpen(false);
       await load();
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not create shift');
@@ -274,74 +313,151 @@ export default function ScheduleScreen() {
       </View>
 
       {canManage && (
-        <View style={styles.createBox}>
-          <Text style={styles.formTitle}>New Shift — tomorrow, 9:00–17:00</Text>
-
-          <Text style={styles.sectionLabel}>For</Text>
-          <View style={styles.chipsWrap}>
-            {members.map((member) => (
-              <Pressable
-                key={member._id}
-                style={[
-                  styles.chip,
-                  selectedEmployeeId === member._id && styles.chipActive,
-                ]}
-                onPress={() => setSelectedEmployeeId(member._id)}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    selectedEmployeeId === member._id && styles.chipTextActive,
-                  ]}
-                >
-                  {member.fullName}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={styles.sectionLabel}>Position (optional)</Text>
-          <View style={styles.chipsWrap}>
-            {POSITIONS.map((position) => (
-              <Pressable
-                key={position}
-                style={[styles.chip, selectedPosition === position && styles.chipActive]}
-                onPress={() =>
-                  setSelectedPosition(selectedPosition === position ? null : position)
-                }
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    selectedPosition === position && styles.chipTextActive,
-                  ]}
-                >
-                  {POSITION_LABELS[position]}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Job site (optional)"
-            value={jobSite}
-            onChangeText={setJobSite}
-          />
-
-          <Pressable
-            style={[styles.button, isCreating && styles.buttonDisabled]}
-            onPress={onCreateShift}
-            disabled={isCreating}
-          >
-            {isCreating ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Create Shift</Text>
-            )}
-          </Pressable>
-        </View>
+        <Pressable style={styles.newShiftButton} onPress={() => setIsModalOpen(true)}>
+          <Text style={styles.newShiftButtonText}>+ New Shift</Text>
+        </Pressable>
       )}
+
+      <Modal
+        visible={isModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+            <Text style={styles.formTitle}>New Shift</Text>
+
+            <Text style={styles.sectionLabel}>Week</Text>
+            <View style={styles.weekNavRow}>
+              <Pressable
+                style={styles.weekNavButton}
+                onPress={() => setModalWeekOffset((w) => w - 1)}
+              >
+                <Text style={styles.weekNavButtonText}>‹</Text>
+              </Pressable>
+              <Text style={styles.weekNavLabel}>{modalWeekLabel}</Text>
+              <Pressable
+                style={styles.weekNavButton}
+                onPress={() => setModalWeekOffset((w) => w + 1)}
+              >
+                <Text style={styles.weekNavButtonText}>›</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.sectionLabel}>Day</Text>
+            <View style={styles.chipsWrap}>
+              {modalWeekDays.map((day, index) => (
+                <Pressable
+                  key={index}
+                  style={[
+                    styles.chip,
+                    modalSelectedDate &&
+                      isSameDay(modalSelectedDate, day) &&
+                      styles.chipActive,
+                  ]}
+                  onPress={() => setModalSelectedDate(day)}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      modalSelectedDate &&
+                        isSameDay(modalSelectedDate, day) &&
+                        styles.chipTextActive,
+                    ]}
+                  >
+                    {DAY_LABELS[index]} {day.getDate()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.sectionLabel}>Time</Text>
+            <View style={styles.timeRow}>
+              <TextInput
+                style={styles.timeInput}
+                placeholder="09:00"
+                value={modalStartTime}
+                onChangeText={setModalStartTime}
+              />
+              <Text style={styles.timeSeparator}>–</Text>
+              <TextInput
+                style={styles.timeInput}
+                placeholder="17:00"
+                value={modalEndTime}
+                onChangeText={setModalEndTime}
+              />
+            </View>
+
+            <Text style={styles.sectionLabel}>For</Text>
+            <View style={styles.chipsWrap}>
+              {members.map((member) => (
+                <Pressable
+                  key={member._id}
+                  style={[styles.chip, selectedEmployeeId === member._id && styles.chipActive]}
+                  onPress={() => setSelectedEmployeeId(member._id)}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      selectedEmployeeId === member._id && styles.chipTextActive,
+                    ]}
+                  >
+                    {member.fullName}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.sectionLabel}>Position (optional)</Text>
+            <View style={styles.chipsWrap}>
+              {POSITIONS.map((position) => (
+                <Pressable
+                  key={position}
+                  style={[styles.chip, selectedPosition === position && styles.chipActive]}
+                  onPress={() =>
+                    setSelectedPosition(selectedPosition === position ? null : position)
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      selectedPosition === position && styles.chipTextActive,
+                    ]}
+                  >
+                    {POSITION_LABELS[position]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Job site (optional)"
+              value={jobSite}
+              onChangeText={setJobSite}
+            />
+
+            {error && <Text style={styles.error}>{error}</Text>}
+
+            <Pressable
+              style={[styles.button, isCreating && styles.buttonDisabled]}
+              onPress={onCreateShift}
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Create Shift</Text>
+              )}
+            </Pressable>
+
+            <Pressable style={styles.cancelButton} onPress={() => setIsModalOpen(false)}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -416,7 +532,49 @@ const styles = StyleSheet.create({
   },
   coworkerName: { fontSize: 14, fontWeight: '600', color: '#111' },
   coworkerMeta: { fontSize: 13, color: '#666' },
-  createBox: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 16, gap: 8 },
+  newShiftButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+  },
+  newShiftButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 20,
+    maxHeight: '85%',
+  },
+  weekNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  weekNavButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f1f1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekNavButtonText: { fontSize: 18, fontWeight: '700', color: '#333' },
+  weekNavLabel: { fontSize: 14, fontWeight: '600', color: '#111' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  timeInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  timeSeparator: { fontSize: 15, color: '#666' },
+  cancelButton: { alignItems: 'center', padding: 8 },
+  cancelButtonText: { color: '#666', fontSize: 14 },
   formTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginTop: 4 },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

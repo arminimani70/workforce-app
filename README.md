@@ -53,10 +53,10 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   past days are greyed out. Below it, "Working Today" (`GET /shifts/coworkers?from=&to=`,
   everyone confirmed to work today org-wide, with name and position), then total hours worked
   this month (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation"
-  section for their own unconfirmed shifts with a Confirm button
-  (`PATCH /shifts/:id/confirm`), and a "New Shift" form — pick who it's for (from the Team
-  directory) and an optional position, always tomorrow 9:00–17:00 since there's no date
-  picker yet (`POST /shifts`).
+  section — every unconfirmed shift org-wide (`GET /shifts`), not just their own, with a
+  Confirm button (`PATCH /shifts/:id/confirm`) — and a "+ New Shift" button opening a popup:
+  navigate week with ‹ › arrows, pick a day within it, set an HH:mm start/end, pick who it's
+  for (from the Team directory) and an optional position (`POST /shifts`).
 - **Availability** — a recurring weekly pattern, not tied to specific dates. Tapping a day
   opens a popup: **Unavailable**, **Available** (set an HH:mm start/end and one or more
   positions — Front Desk/Help Desk/Information/Consultation), or **Flexible** (no preference,
