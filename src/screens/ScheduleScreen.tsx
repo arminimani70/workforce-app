@@ -23,6 +23,20 @@ import type { AppStackParamList } from '../navigation/types';
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+type ViewScope = 'me' | 'branch' | 'all';
+
+const SCOPE_LABELS: Record<ViewScope, string> = {
+  me: 'Me',
+  branch: 'My Branch',
+  all: 'All Branches',
+};
+
+const SCOPE_ICONS: Record<ViewScope, keyof typeof Ionicons.glyphMap> = {
+  me: 'person-outline',
+  branch: 'business-outline',
+  all: 'globe-outline',
+};
+
 const POSITION_LABELS: Record<Position, string> = {
   frontdesk: 'Front Desk',
   helpdesk: 'Help Desk',
@@ -80,6 +94,9 @@ export default function ScheduleScreen() {
   const [weekShifts, setWeekShifts] = useState<Shift[]>([]);
   const [pendingShifts, setPendingShifts] = useState<Shift[]>([]);
   const [todayCoworkers, setTodayCoworkers] = useState<CoworkerShift[]>([]);
+  const [weekCoworkers, setWeekCoworkers] = useState<CoworkerShift[]>([]);
+  const [viewScope, setViewScope] = useState<ViewScope>('branch');
+  const [detailDay, setDetailDay] = useState<Date | null>(null);
   const [monthTotalSeconds, setMonthTotalSeconds] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -131,14 +148,16 @@ export default function ScheduleScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [week, total, coworkers] = await Promise.all([
+      const [week, total, coworkers, weekWideCoworkers] = await Promise.all([
         authFetch((token) => schedulingApi.myShifts(token, { from: weekFrom, to: weekTo })),
         authFetch((token) => timeClockApi.total(token, monthToDateRange())),
         authFetch((token) => schedulingApi.coworkers(token, fullDayRange())),
+        authFetch((token) => schedulingApi.coworkers(token, { from: weekFrom, to: weekTo })),
       ]);
       setWeekShifts(week.filter((s) => s.approval === 'approved'));
       setMonthTotalSeconds(total.totalSeconds);
       setTodayCoworkers(coworkers);
+      setWeekCoworkers(weekWideCoworkers);
 
       if (canManage) {
         // Org-wide, not myShifts: a manager needs to confirm shifts they created for anyone,
@@ -231,6 +250,33 @@ export default function ScheduleScreen() {
     } finally {
       setRejectingId(null);
     }
+  };
+
+  // Shared by the calendar's day rows and the day-detail modal, so "who am I working with"
+  // stays consistent between the summary line and the popup.
+  const getDayInfo = (day: Date) => {
+    const dayShifts = weekShifts.filter((shift) => isSameDay(new Date(shift.startTime), day));
+    const myJobSiteForDay = dayShifts.find((s) => s.jobSite)?.jobSite;
+
+    const dayCoworkersAll = weekCoworkers.filter(
+      (c) => isSameDay(new Date(c.startTime), day) && c.employeeId._id !== user?._id,
+    );
+    const dayCoworkers =
+      viewScope === 'me'
+        ? []
+        : viewScope === 'branch'
+          ? dayCoworkersAll.filter((c) => myJobSiteForDay && c.jobSite === myJobSiteForDay)
+          : dayCoworkersAll;
+
+    const dayManagerPool = weekCoworkers.filter((c) => isSameDay(new Date(c.startTime), day));
+    const dayManager =
+      viewScope === 'branch'
+        ? dayManagerPool.find(
+            (c) => c.position === 'manager' && (!myJobSiteForDay || c.jobSite === myJobSiteForDay),
+          )
+        : dayManagerPool.find((c) => c.position === 'manager');
+
+    return { dayShifts, myJobSiteForDay, dayCoworkers, dayManager };
   };
 
   if (isLoading) {
@@ -329,20 +375,40 @@ export default function ScheduleScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.scopeRow}>
+        {(Object.keys(SCOPE_LABELS) as ViewScope[]).map((scope) => (
+          <Pressable
+            key={scope}
+            style={[styles.scopeButton, viewScope === scope && styles.scopeButtonActive]}
+            onPress={() => setViewScope(scope)}
+          >
+            <Ionicons
+              name={SCOPE_ICONS[scope]}
+              size={14}
+              color={viewScope === scope ? '#fff' : colors.textMuted}
+            />
+            <Text style={[styles.scopeText, viewScope === scope && styles.scopeTextActive]}>
+              {SCOPE_LABELS[scope]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       <View style={styles.calendar}>
         {days.map((day, index) => {
           const isPast = day < today && !isSameDay(day, today);
           const isToday = isSameDay(day, today);
-          const dayShifts = weekShifts.filter((shift) => isSameDay(new Date(shift.startTime), day));
+          const { dayShifts, dayCoworkers, dayManager } = getDayInfo(day);
 
           return (
-            <View
+            <Pressable
               key={index}
               style={[
                 styles.dayRow,
                 isPast && styles.dayRowPast,
                 isToday && styles.dayRowToday,
               ]}
+              onPress={() => setDetailDay(day)}
             >
               <View style={styles.dayHeader}>
                 <Text style={[styles.dayLabel, isPast && styles.dayTextPast]}>
@@ -364,8 +430,20 @@ export default function ScheduleScreen() {
                     </Text>
                   ))
                 )}
+                {viewScope !== 'me' && dayManager && (
+                  <Text style={[styles.dayManagerText, isPast && styles.dayTextPast]}>
+                    Manager: {dayManager.employeeId._id === user?._id ? 'You' : dayManager.employeeId.fullName}
+                  </Text>
+                )}
+                {viewScope !== 'me' && dayCoworkers.length > 0 && (
+                  <Text style={[styles.dayCoworkersText, isPast && styles.dayTextPast]} numberOfLines={1}>
+                    With {dayCoworkers.map((c) => c.employeeId.fullName).join(', ')}
+                  </Text>
+                )}
               </View>
-            </View>
+
+              <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+            </Pressable>
           );
         })}
       </View>
@@ -562,6 +640,90 @@ export default function ScheduleScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      <Modal
+        visible={detailDay !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setDetailDay(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+            {detailDay && (
+              <>
+                <Text style={styles.formTitle}>
+                  {detailDay.toLocaleDateString([], {
+                    weekday: 'long',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </Text>
+
+                {(() => {
+                  const { dayShifts, dayCoworkers, dayManager } = getDayInfo(detailDay);
+                  return (
+                    <>
+                      <Text style={styles.sectionLabel}>Your Shift</Text>
+                      {dayShifts.length === 0 ? (
+                        <Text style={styles.noShift}>You're not scheduled this day</Text>
+                      ) : (
+                        dayShifts.map((shift) => (
+                          <Text key={shift._id} style={styles.detailShiftText}>
+                            {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
+                            {shift.position ? ` · ${POSITION_LABELS[shift.position]}` : ''}
+                            {shift.jobSite ? ` · ${shift.jobSite}` : ''}
+                          </Text>
+                        ))
+                      )}
+
+                      {dayManager && (
+                        <>
+                          <Text style={styles.sectionLabel}>Manager</Text>
+                          <View style={styles.detailPersonRow}>
+                            <Ionicons name="shield-checkmark-outline" size={16} color={colors.indigo} />
+                            <Text style={styles.detailPersonText}>
+                              {dayManager.employeeId._id === user?._id
+                                ? 'You'
+                                : dayManager.employeeId.fullName}
+                            </Text>
+                          </View>
+                        </>
+                      )}
+
+                      <Text style={styles.sectionLabel}>
+                        Coworkers ({SCOPE_LABELS[viewScope]})
+                      </Text>
+                      {viewScope === 'me' ? (
+                        <Text style={styles.noShift}>Switch to My Branch or All Branches to see who else is working</Text>
+                      ) : dayCoworkers.length === 0 ? (
+                        <Text style={styles.noShift}>No one else scheduled this day in that scope</Text>
+                      ) : (
+                        dayCoworkers.map((coworker) => (
+                          <View key={coworker._id} style={styles.detailPersonRow}>
+                            <Ionicons name="person-outline" size={16} color={colors.textMuted} />
+                            <View style={styles.detailPersonInfo}>
+                              <Text style={styles.detailPersonText}>{coworker.employeeId.fullName}</Text>
+                              <Text style={styles.detailPersonMeta}>
+                                {formatTime(coworker.startTime)}–{formatTime(coworker.endTime)}
+                                {coworker.position ? ` · ${POSITION_LABELS[coworker.position]}` : ''}
+                                {viewScope === 'all' && coworker.jobSite ? ` · ${coworker.jobSite}` : ''}
+                              </Text>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </>
+                  );
+                })()}
+
+                <Pressable style={styles.cancelButton} onPress={() => setDetailDay(null)}>
+                  <Text style={styles.cancelButtonText}>Close</Text>
+                </Pressable>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -582,6 +744,30 @@ const styles = StyleSheet.create({
   },
   currentWeekBadgeText: { fontSize: 11, fontWeight: '700', color: colors.infoText },
   jumpToTodayText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  scopeRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f1f1',
+    borderRadius: 8,
+    padding: 4,
+    gap: 4,
+  },
+  scopeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  scopeButtonActive: { backgroundColor: colors.primary },
+  scopeText: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
+  scopeTextActive: { color: '#fff' },
+  detailShiftText: { fontSize: 14, color: colors.text, fontWeight: '600' },
+  detailPersonRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  detailPersonInfo: { flex: 1 },
+  detailPersonText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  detailPersonMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.warningText },
   pendingBox: {
     backgroundColor: colors.warningBg,
@@ -627,6 +813,8 @@ const styles = StyleSheet.create({
   },
   dayRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -639,6 +827,8 @@ const styles = StyleSheet.create({
   dayDate: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   dayTextPast: { color: colors.textFaint },
   dayShifts: { flex: 1, justifyContent: 'center', gap: 2 },
+  dayManagerText: { fontSize: 12, color: colors.indigo, fontWeight: '600' },
+  dayCoworkersText: { fontSize: 12, color: colors.textMuted },
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   noShift: { fontSize: 13, color: colors.textFaint },
   shiftText: { fontSize: 13, color: colors.text, fontWeight: '600' },

@@ -78,7 +78,15 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Schedule** — a Monday–Sunday calendar of that week's **approved** shifts only; past days
   are greyed out. ‹ › arrows browse to any previous/future week (the fetch re-runs for
   whichever week is displayed); a "This Week" badge marks the current week, replaced by a
-  "Jump to this week" link once you've navigated away from it. Below it, "Working Today"
+  "Jump to this week" link once you've navigated away from it. A scope switcher above the
+  calendar — **Me** / **My Branch** / **All Branches** — controls who shows up alongside each
+  day's shift time: Me shows only your own shift, My Branch cross-references the week's
+  coworkers (`GET /shifts/coworkers?from=&to=`) against your `jobSite` for that day, All
+  Branches shows everyone regardless of branch. Each day also shows that day's **Manager**
+  (whoever has an approved shift with `position: manager`, scoped the same way as My Branch),
+  so you can see who to talk to about a shift swap. Tapping a day opens a detail popup with
+  your shift, the manager, and the full coworker list for that day (more will land in this
+  popup as it's built out further). Below the calendar, "Working Today"
   (`GET /shifts/coworkers?from=&to=`,
   everyone approved to work today org-wide, with name and position), then total hours worked
   this month (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation"
