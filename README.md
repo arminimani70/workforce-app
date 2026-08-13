@@ -6,7 +6,9 @@ Connecteam-style app. Backend lives in a separate repo:
 
 ## Stack
 
-- Expo (SDK 57) + TypeScript
+- Expo (SDK 54 — pinned to match what the Expo Go app currently supports; every companion
+  package version comes from that SDK's `bundledNativeModules.json`, not just whatever `npm
+  install` would pick on its own) + TypeScript
 - React Navigation (native-stack)
 - AsyncStorage for local token persistence
 - `@expo/vector-icons` (Ionicons) for iconography

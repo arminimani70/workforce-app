@@ -37,14 +37,14 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 async function persistTokens(tokens: TokenPair) {
-  await AsyncStorage.setMany({
-    [ACCESS_TOKEN_KEY]: tokens.accessToken,
-    [REFRESH_TOKEN_KEY]: tokens.refreshToken,
-  });
+  await AsyncStorage.multiSet([
+    [ACCESS_TOKEN_KEY, tokens.accessToken],
+    [REFRESH_TOKEN_KEY, tokens.refreshToken],
+  ]);
 }
 
 async function clearStoredTokens() {
-  await AsyncStorage.removeMany([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+  await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -74,9 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // On app start, try to restore a session from previously saved tokens.
   useEffect(() => {
     (async () => {
-      const stored = await AsyncStorage.getMany([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
-      const accessToken = stored[ACCESS_TOKEN_KEY];
-      const refreshToken = stored[REFRESH_TOKEN_KEY];
+      const stored = await AsyncStorage.multiGet([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+      const storedMap = Object.fromEntries(stored);
+      const accessToken = storedMap[ACCESS_TOKEN_KEY];
+      const refreshToken = storedMap[REFRESH_TOKEN_KEY];
 
       if (!accessToken || !refreshToken) {
         setIsLoading(false);
