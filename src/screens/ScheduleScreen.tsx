@@ -17,7 +17,8 @@ import { HttpError, schedulingApi, timeClockApi, usersApi } from '../api/client'
 import { POSITIONS } from '../types/api';
 import type { CoworkerShift, OrgMember, Position, Shift } from '../types/api';
 import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
-import { cardShadow, colors } from '../theme/colors';
+import { cardShadow, colorForBranch, colors } from '../theme/colors';
+import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import type { AppStackParamList } from '../navigation/types';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -35,14 +36,6 @@ const SCOPE_ICONS: Record<ViewScope, keyof typeof Ionicons.glyphMap> = {
   me: 'person-outline',
   branch: 'business-outline',
   all: 'globe-outline',
-};
-
-const POSITION_LABELS: Record<Position, string> = {
-  frontdesk: 'Front Desk',
-  helpdesk: 'Help Desk',
-  information: 'Information',
-  consultation: 'Consultation',
-  manager: 'Manager',
 };
 
 function startOfWeekMonday(date = new Date()) {
@@ -98,6 +91,17 @@ function combineDateAndTime(date: Date, hhmm: string): Date {
   const combined = new Date(date);
   combined.setHours(hours, minutes, 0, 0);
   return combined;
+}
+
+// A small colored pill for a branch name — jobSite is free text with no fixed list, so its
+// color comes from hashing the name (colorForBranch) rather than a lookup table.
+function BranchTag({ jobSite }: { jobSite: string }) {
+  const color = colorForBranch(jobSite);
+  return (
+    <View style={[styles.branchTag, { backgroundColor: `${color}1a`, borderColor: color }]}>
+      <Text style={[styles.branchTagText, { color }]}>{jobSite}</Text>
+    </View>
+  );
 }
 
 export default function ScheduleScreen() {
@@ -608,24 +612,31 @@ export default function ScheduleScreen() {
 
             <Text style={styles.sectionLabel}>Position (optional)</Text>
             <View style={styles.chipsWrap}>
-              {POSITIONS.map((position) => (
-                <Pressable
-                  key={position}
-                  style={[styles.chip, selectedPosition === position && styles.chipActive]}
-                  onPress={() =>
-                    setSelectedPosition(selectedPosition === position ? null : position)
-                  }
-                >
-                  <Text
+              {POSITIONS.map((position) => {
+                const isActive = selectedPosition === position;
+                return (
+                  <Pressable
+                    key={position}
                     style={[
-                      styles.chipText,
-                      selectedPosition === position && styles.chipTextActive,
+                      styles.chip,
+                      isActive && {
+                        backgroundColor: POSITION_COLORS[position],
+                        borderColor: POSITION_COLORS[position],
+                      },
                     ]}
+                    onPress={() => setSelectedPosition(isActive ? null : position)}
                   >
-                    {POSITION_LABELS[position]}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Ionicons
+                      name={POSITION_ICONS[position]}
+                      size={14}
+                      color={isActive ? '#fff' : POSITION_COLORS[position]}
+                    />
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {POSITION_LABELS[position]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <TextInput
@@ -683,11 +694,18 @@ export default function ScheduleScreen() {
                         <Text style={styles.noShift}>You're not scheduled this day</Text>
                       ) : (
                         dayShifts.map((shift) => (
-                          <Text key={shift._id} style={styles.detailShiftText}>
-                            {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
-                            {shift.position ? ` · ${POSITION_LABELS[shift.position]}` : ''}
-                            {shift.jobSite ? ` · ${shift.jobSite}` : ''}
-                          </Text>
+                          <View key={shift._id} style={styles.detailPersonRow}>
+                            <Ionicons
+                              name={shift.position ? POSITION_ICONS[shift.position] : 'time-outline'}
+                              size={16}
+                              color={shift.position ? POSITION_COLORS[shift.position] : colors.textMuted}
+                            />
+                            <Text style={styles.detailShiftText}>
+                              {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
+                              {shift.position ? ` · ${POSITION_LABELS[shift.position]}` : ''}
+                            </Text>
+                            {shift.jobSite && <BranchTag jobSite={shift.jobSite} />}
+                          </View>
                         ))
                       )}
 
@@ -695,12 +713,17 @@ export default function ScheduleScreen() {
                         <>
                           <Text style={styles.sectionLabel}>Manager</Text>
                           <View style={styles.detailPersonRow}>
-                            <Ionicons name="shield-checkmark-outline" size={16} color={colors.indigo} />
+                            <Ionicons
+                              name={POSITION_ICONS.manager}
+                              size={16}
+                              color={POSITION_COLORS.manager}
+                            />
                             <Text style={styles.detailPersonText}>
                               {dayManager.employeeId._id === user?._id
                                 ? 'You'
                                 : dayManager.employeeId.fullName}
                             </Text>
+                            {dayManager.jobSite && <BranchTag jobSite={dayManager.jobSite} />}
                           </View>
                         </>
                       )}
@@ -716,15 +739,21 @@ export default function ScheduleScreen() {
                       ) : (
                         dayCoworkers.map((coworker) => (
                           <View key={coworker._id} style={styles.detailPersonRow}>
-                            <Ionicons name="person-outline" size={16} color={colors.textMuted} />
+                            <Ionicons
+                              name={coworker.position ? POSITION_ICONS[coworker.position] : 'person-outline'}
+                              size={16}
+                              color={coworker.position ? POSITION_COLORS[coworker.position] : colors.textMuted}
+                            />
                             <View style={styles.detailPersonInfo}>
                               <Text style={styles.detailPersonText}>{coworker.employeeId.fullName}</Text>
                               <Text style={styles.detailPersonMeta}>
                                 {formatTime(coworker.startTime)}–{formatTime(coworker.endTime)}
                                 {coworker.position ? ` · ${POSITION_LABELS[coworker.position]}` : ''}
-                                {viewScope === 'all' && coworker.jobSite ? ` · ${coworker.jobSite}` : ''}
                               </Text>
                             </View>
+                            {viewScope === 'all' && coworker.jobSite && (
+                              <BranchTag jobSite={coworker.jobSite} />
+                            )}
                           </View>
                         ))
                       )}
@@ -784,6 +813,13 @@ const styles = StyleSheet.create({
   detailPersonInfo: { flex: 1 },
   detailPersonText: { fontSize: 14, fontWeight: '600', color: colors.text },
   detailPersonMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  branchTag: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  branchTagText: { fontSize: 11, fontWeight: '700' },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.warningText },
   pendingBox: {
     backgroundColor: colors.warningBg,
@@ -934,6 +970,9 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginTop: 4 },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 999,

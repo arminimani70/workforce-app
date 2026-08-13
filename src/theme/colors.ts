@@ -45,3 +45,28 @@ export const cardShadow = {
   shadowRadius: 8,
   elevation: 2,
 };
+
+// A fixed palette to hash a branch's jobSite string against — jobSite is free text (there's no
+// Branch entity in the backend yet), so this is the pragmatic way to give every branch a
+// consistent color without a schema change: same name always lands on the same color, and it
+// works for however many branches an org ends up with.
+const BRANCH_PALETTE = [
+  '#2563eb', // blue
+  '#0f766e', // teal
+  '#7c3aed', // purple
+  '#b45309', // amber
+  '#be185d', // pink
+  '#4338ca', // indigo
+  '#0891b2', // cyan
+  '#16a34a', // green
+  '#c2410c', // orange
+  '#9333ea', // violet
+];
+
+export function colorForBranch(jobSite: string): string {
+  let hash = 0;
+  for (let i = 0; i < jobSite.length; i++) {
+    hash = (hash * 31 + jobSite.charCodeAt(i)) >>> 0;
+  }
+  return BRANCH_PALETTE[hash % BRANCH_PALETTE.length];
+}

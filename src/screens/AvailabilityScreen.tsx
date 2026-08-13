@@ -15,6 +15,7 @@ import { availabilityApi, HttpError } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { DayAvailability, DayAvailabilityStatus, Position } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
+import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -31,14 +32,6 @@ const STATUS_ICON_COLORS: Record<DayAvailabilityStatus, string> = {
 };
 
 const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-const POSITION_LABELS: Record<Position, string> = {
-  frontdesk: 'Front Desk',
-  helpdesk: 'Help Desk',
-  information: 'Information',
-  consultation: 'Consultation',
-  manager: 'Manager',
-};
 
 function defaultDays(): DayAvailability[] {
   return DAY_LABELS.map((_, dayOfWeek) => ({ dayOfWeek, status: 'unavailable', positions: [] }));
@@ -242,9 +235,20 @@ export default function AvailabilityScreen() {
                         return (
                           <Pressable
                             key={position}
-                            style={[styles.positionChip, selected && styles.positionChipActive]}
+                            style={[
+                              styles.positionChip,
+                              selected && {
+                                backgroundColor: POSITION_COLORS[position],
+                                borderColor: POSITION_COLORS[position],
+                              },
+                            ]}
                             onPress={() => togglePosition(editingDay.dayOfWeek, position)}
                           >
+                            <Ionicons
+                              name={POSITION_ICONS[position]}
+                              size={14}
+                              color={selected ? '#fff' : POSITION_COLORS[position]}
+                            />
                             <Text
                               style={[
                                 styles.positionChipText,
@@ -346,13 +350,15 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginTop: 8 },
   positionsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   positionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
-  positionChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   positionChipText: { fontSize: 13, color: '#333' },
   positionChipTextActive: { color: '#fff' },
   doneButton: {

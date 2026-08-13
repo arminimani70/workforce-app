@@ -15,19 +15,12 @@ import { HttpError, tasksApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { OrgMember, OrgTask, Position, Task, TaskStatus } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
+import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-const POSITION_LABELS: Record<Position, string> = {
-  frontdesk: 'Front Desk',
-  helpdesk: 'Help Desk',
-  information: 'Information',
-  consultation: 'Consultation',
-  manager: 'Manager',
-};
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   pending: 'Pending',
@@ -431,22 +424,31 @@ export default function TasksScreen() {
               <>
                 <Text style={styles.sectionLabel}>Position</Text>
                 <View style={styles.chipsWrap}>
-                  {POSITIONS.map((position) => (
-                    <Pressable
-                      key={position}
-                      style={[styles.chip, selectedPosition === position && styles.chipActive]}
-                      onPress={() => setSelectedPosition(position)}
-                    >
-                      <Text
+                  {POSITIONS.map((position) => {
+                    const isActive = selectedPosition === position;
+                    return (
+                      <Pressable
+                        key={position}
                         style={[
-                          styles.chipText,
-                          selectedPosition === position && styles.chipTextActive,
+                          styles.chip,
+                          isActive && {
+                            backgroundColor: POSITION_COLORS[position],
+                            borderColor: POSITION_COLORS[position],
+                          },
                         ]}
+                        onPress={() => setSelectedPosition(position)}
                       >
-                        {POSITION_LABELS[position]}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <Ionicons
+                          name={POSITION_ICONS[position]}
+                          size={14}
+                          color={isActive ? '#fff' : POSITION_COLORS[position]}
+                        />
+                        <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                          {POSITION_LABELS[position]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </>
             )}

@@ -28,6 +28,16 @@ Connecteam-style app. Backend lives in a separate repo:
 - Dashboard cards, list rows, and boxed sections are all `colors.surface` with `cardShadow` on
   `colors.background`, giving the app a consistent light-elevated-card look; icons mark every
   section header, button, and status so screens are scannable without reading every label.
+- `src/constants/positions.ts` — the single source of truth for how a `Position` is labeled,
+  iconed, and colored (`POSITION_LABELS`/`POSITION_ICONS`/`POSITION_COLORS`); every screen with
+  a position chip or a position-tagged row (Availability, Schedule, Tasks, the week builder)
+  imports from here, so they can't drift out of sync with each other.
+- `colorForBranch(jobSite)` in `theme/colors.ts` — `jobSite` is free text (there's no Branch
+  entity in the backend), so a branch's color comes from hashing its name against a fixed
+  palette rather than a lookup table: the same name always lands on the same color, and it
+  scales to however many branches an org ends up with, no schema change needed. Rendered as a
+  small colored pill wherever a branch name shows up next to a person (Schedule's day-detail
+  popup, the week builder's Scheduled list).
 
 ## Getting started
 

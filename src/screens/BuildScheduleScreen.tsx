@@ -14,19 +14,12 @@ import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, HttpError, schedulingApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { DayAvailability, OrgAvailability, OrgMember, Position, Shift } from '../types/api';
-import { cardShadow, colors } from '../theme/colors';
+import { cardShadow, colorForBranch, colors } from '../theme/colors';
+import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-const POSITION_LABELS: Record<Position, string> = {
-  frontdesk: 'Front Desk',
-  helpdesk: 'Help Desk',
-  information: 'Information',
-  consultation: 'Consultation',
-  manager: 'Manager',
-};
 
 function startOfWeekMonday(date = new Date()) {
   const dayOfWeek = date.getDay(); // 0 = Sunday .. 6 = Saturday
@@ -84,6 +77,17 @@ interface ModalTarget {
   employeeId: string;
   employeeName: string;
   day: Date;
+}
+
+// A small colored pill for a branch name — jobSite is free text with no fixed list, so its
+// color comes from hashing the name (colorForBranch) rather than a lookup table.
+function BranchTag({ jobSite }: { jobSite: string }) {
+  const color = colorForBranch(jobSite);
+  return (
+    <View style={[styles.branchTag, { backgroundColor: `${color}1a`, borderColor: color }]}>
+      <Text style={[styles.branchTagText, { color }]}>{jobSite}</Text>
+    </View>
+  );
 }
 
 export default function BuildScheduleScreen() {
@@ -296,6 +300,11 @@ export default function BuildScheduleScreen() {
             ) : (
               dayShifts.map((shift) => (
                 <View key={shift._id} style={styles.scheduledRow}>
+                  <Ionicons
+                    name={shift.position ? POSITION_ICONS[shift.position] : 'person-outline'}
+                    size={16}
+                    color={shift.position ? POSITION_COLORS[shift.position] : colors.textMuted}
+                  />
                   <View style={styles.candidateInfo}>
                     <Text style={styles.candidateName}>{nameFor(shift.employeeId)}</Text>
                     <Text style={styles.candidateMeta}>
@@ -303,6 +312,7 @@ export default function BuildScheduleScreen() {
                       {shift.position ? ` · ${POSITION_LABELS[shift.position]}` : ''}
                     </Text>
                   </View>
+                  {shift.jobSite && <BranchTag jobSite={shift.jobSite} />}
                   {shift.approval === 'approved' ? (
                     <View style={styles.publishedBadge}>
                       <Text style={styles.publishedBadgeText}>Published</Text>
@@ -386,24 +396,31 @@ export default function BuildScheduleScreen() {
 
             <Text style={styles.sectionLabel}>Position (optional)</Text>
             <View style={styles.chipsWrap}>
-              {POSITIONS.map((position) => (
-                <Pressable
-                  key={position}
-                  style={[styles.chip, modalPosition === position && styles.chipActive]}
-                  onPress={() =>
-                    setModalPosition(modalPosition === position ? null : position)
-                  }
-                >
-                  <Text
+              {POSITIONS.map((position) => {
+                const isActive = modalPosition === position;
+                return (
+                  <Pressable
+                    key={position}
                     style={[
-                      styles.chipText,
-                      modalPosition === position && styles.chipTextActive,
+                      styles.chip,
+                      isActive && {
+                        backgroundColor: POSITION_COLORS[position],
+                        borderColor: POSITION_COLORS[position],
+                      },
                     ]}
+                    onPress={() => setModalPosition(isActive ? null : position)}
                   >
-                    {POSITION_LABELS[position]}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Ionicons
+                      name={POSITION_ICONS[position]}
+                      size={14}
+                      color={isActive ? '#fff' : POSITION_COLORS[position]}
+                    />
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {POSITION_LABELS[position]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <TextInput
@@ -558,6 +575,9 @@ const styles = StyleSheet.create({
   timeSeparator: { fontSize: 15, color: colors.textMuted },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 999,
@@ -567,6 +587,13 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: '#333' },
   chipTextActive: { color: '#fff' },
+  branchTag: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  branchTagText: { fontSize: 11, fontWeight: '700' },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
