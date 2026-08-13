@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
@@ -7,6 +7,24 @@ import { HttpError, timeClockApi } from '../api/client';
 import type { TimeClockEntry } from '../types/api';
 import { currentWeekRange, formatElapsed, formatHoursMinutes, monthToDateRange, todayRange } from '../utils/time';
 import { cardShadow, colors } from '../theme/colors';
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDateInput(value: string, endOfDay: boolean): Date | null {
+  if (!DATE_PATTERN.test(value)) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return date;
+}
+
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 // Best-effort GPS: if permission is denied or location fails, clock in/out still proceeds
 // without a location, matching the backend's optional lat/lng.
@@ -23,12 +41,13 @@ async function getLocation(): Promise<{ lat: number; lng: number } | undefined> 
   }
 }
 
-type RangeKey = 'today' | 'week' | 'month' | 'all';
+type RangeKey = 'today' | 'week' | 'month' | 'custom' | 'all';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   today: 'Today',
   week: 'This Week',
   month: 'This Month',
+  custom: 'Custom',
   all: 'All Time',
 };
 
@@ -40,6 +59,10 @@ function rangeFor(key: RangeKey) {
       return currentWeekRange();
     case 'month':
       return monthToDateRange();
+    case 'custom':
+      // Handled separately in loadTotal — needs validation and an error message on bad input,
+      // which this helper's plain return-a-range-or-undefined shape can't express.
+      return undefined;
     case 'all':
       return undefined;
   }
@@ -52,8 +75,16 @@ export default function TimeClockScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [rangeKey, setRangeKey] = useState<RangeKey>('week');
+  // Default view is month-to-date, not a rolling week.
+  const [rangeKey, setRangeKey] = useState<RangeKey>('month');
   const [totalSeconds, setTotalSeconds] = useState<number | null>(null);
+  const [customFrom, setCustomFrom] = useState(() => {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    return formatDateInput(startOfMonth);
+  });
+  const [customTo, setCustomTo] = useState(() => formatDateInput(new Date()));
+  const [customError, setCustomError] = useState<string | null>(null);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -67,13 +98,39 @@ export default function TimeClockScreen() {
   }, [authFetch]);
 
   const loadTotal = useCallback(async () => {
+    if (rangeKey === 'custom') {
+      const from = parseDateInput(customFrom, false);
+      const to = parseDateInput(customTo, true);
+      if (!from || !to) {
+        setCustomError('Enter valid dates as YYYY-MM-DD');
+        setTotalSeconds(null);
+        return;
+      }
+      if (to < from) {
+        setCustomError('End date must be on or after the start date');
+        setTotalSeconds(null);
+        return;
+      }
+      setCustomError(null);
+      try {
+        const result = await authFetch((token) =>
+          timeClockApi.total(token, { from: from.toISOString(), to: to.toISOString() }),
+        );
+        setTotalSeconds(result.totalSeconds);
+      } catch {
+        setTotalSeconds(null);
+      }
+      return;
+    }
+
+    setCustomError(null);
     try {
       const result = await authFetch((token) => timeClockApi.total(token, rangeFor(rangeKey)));
       setTotalSeconds(result.totalSeconds);
     } catch {
       setTotalSeconds(null);
     }
-  }, [authFetch, rangeKey]);
+  }, [authFetch, rangeKey, customFrom, customTo]);
 
   useEffect(() => {
     loadStatus();
@@ -168,6 +225,26 @@ export default function TimeClockScreen() {
             </Pressable>
           ))}
         </View>
+
+        {rangeKey === 'custom' && (
+          <View style={styles.customRow}>
+            <TextInput
+              style={styles.customInput}
+              placeholder="2026-07-18"
+              value={customFrom}
+              onChangeText={setCustomFrom}
+            />
+            <Text style={styles.customSeparator}>–</Text>
+            <TextInput
+              style={styles.customInput}
+              placeholder="2026-08-05"
+              value={customTo}
+              onChangeText={setCustomTo}
+            />
+          </View>
+        )}
+        {customError && <Text style={styles.customError}>{customError}</Text>}
+
         <View style={styles.totalRow}>
           <Ionicons name="time-outline" size={20} color={colors.textMuted} />
           <Text style={styles.totalValue}>
@@ -224,15 +301,36 @@ const styles = StyleSheet.create({
   },
   rangeRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: '#f1f1f1',
     borderRadius: 8,
     padding: 4,
     width: '100%',
+    gap: 4,
   },
-  rangeButton: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+  rangeButton: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
   rangeButtonActive: { backgroundColor: '#fff' },
   rangeText: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
   rangeTextActive: { color: colors.text },
+  customRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
+  customInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    textAlign: 'center',
+    color: colors.text,
+  },
+  customSeparator: { fontSize: 15, color: colors.textMuted },
+  customError: { color: colors.danger, fontSize: 12 },
   totalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   totalValue: { fontSize: 24, fontWeight: '700', color: colors.text },
 });

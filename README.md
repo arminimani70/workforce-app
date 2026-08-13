@@ -71,7 +71,10 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Time Clock** — one button that toggles clock-in/clock-out (`POST /time-clock/clock-in` /
   `/clock-out`), best-effort GPS via `expo-location` (proceeds without location if permission
   is denied). Shows a live HH:MM:SS elapsed timer while clocked in, and a total-hours summary
-  (`GET /time-clock/total?from=&to=`) with Today/This Week/This Month/All Time presets.
+  (`GET /time-clock/total?from=&to=`) with Today/This Week/**This Month (the default)**/
+  Custom/All Time presets — Custom shows two `YYYY-MM-DD` inputs (e.g. `2026-07-18` to
+  `2026-08-05`) and validates them client-side (invalid or backwards ranges show an inline
+  error instead of silently falling back to All Time).
 - **Schedule** — a Monday–Sunday calendar of that week's **approved** shifts only; past days
   are greyed out. ‹ › arrows browse to any previous/future week (the fetch re-runs for
   whichever week is displayed); a "This Week" badge marks the current week, replaced by a
