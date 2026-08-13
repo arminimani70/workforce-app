@@ -80,6 +80,18 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+// Names a couple of coworkers and folds the rest into a count, so a branch with 100 people
+// doesn't try to cram 100 names into one line — full names are still all in the day-detail
+// popup, this is just the calendar row's at-a-glance summary.
+const MAX_NAMED_COWORKERS = 2;
+
+function summarizeCoworkers(coworkers: CoworkerShift[]): string {
+  const names = coworkers.slice(0, MAX_NAMED_COWORKERS).map((c) => c.employeeId.fullName);
+  const remaining = coworkers.length - names.length;
+  if (remaining <= 0) return `With ${names.join(', ')}`;
+  return `With ${names.join(', ')} +${remaining} more`;
+}
+
 // Combines a calendar day with an "HH:mm" string into a full local Date.
 function combineDateAndTime(date: Date, hhmm: string): Date {
   const [hours, minutes] = hhmm.split(':').map(Number);
@@ -436,8 +448,11 @@ export default function ScheduleScreen() {
                   </Text>
                 )}
                 {viewScope !== 'me' && dayCoworkers.length > 0 && (
-                  <Text style={[styles.dayCoworkersText, isPast && styles.dayTextPast]} numberOfLines={1}>
-                    With {dayCoworkers.map((c) => c.employeeId.fullName).join(', ')}
+                  <Text
+                    style={[styles.dayCoworkersText, isPast && styles.dayTextPast]}
+                    numberOfLines={1}
+                  >
+                    {summarizeCoworkers(dayCoworkers)}
                   </Text>
                 )}
               </View>
@@ -691,7 +706,8 @@ export default function ScheduleScreen() {
                       )}
 
                       <Text style={styles.sectionLabel}>
-                        Coworkers ({SCOPE_LABELS[viewScope]})
+                        Coworkers ({SCOPE_LABELS[viewScope]}
+                        {dayCoworkers.length > 0 ? ` · ${dayCoworkers.length}` : ''})
                       </Text>
                       {viewScope === 'me' ? (
                         <Text style={styles.noShift}>Switch to My Branch or All Branches to see who else is working</Text>

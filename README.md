@@ -84,9 +84,12 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   coworkers (`GET /shifts/coworkers?from=&to=`) against your `jobSite` for that day, All
   Branches shows everyone regardless of branch. Each day also shows that day's **Manager**
   (whoever has an approved shift with `position: manager`, scoped the same way as My Branch),
-  so you can see who to talk to about a shift swap. Tapping a day opens a detail popup with
-  your shift, the manager, and the full coworker list for that day (more will land in this
-  popup as it's built out further). Below the calendar, "Working Today"
+  so you can see who to talk to about a shift swap. The calendar row's coworker line names up
+  to 2 people and folds the rest into a count (`With Sara, Ali +98 more`) rather than trying to
+  fit a large branch's whole roster on one line — full names are always in the day-detail
+  popup instead. Tapping a day opens that popup: your shift, the manager, and the full coworker
+  list for that day, with a count in the section heading (more will land in this popup as it's
+  built out further). Below the calendar, "Working Today"
   (`GET /shifts/coworkers?from=&to=`,
   everyone approved to work today org-wide, with name and position), then total hours worked
   this month (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation"
