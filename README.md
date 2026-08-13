@@ -98,8 +98,20 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   to 2 people and folds the rest into a count (`With Sara, Ali +98 more`) rather than trying to
   fit a large branch's whole roster on one line — full names are always in the day-detail
   popup instead. Tapping a day opens that popup: your shift, the manager, and the full coworker
-  list for that day, with a count in the section heading (more will land in this popup as it's
-  built out further). Below the calendar, "Working Today"
+  list for that day, with a count in the section heading, plus two actions: **Request Shift
+  Swap** (only shown when you have a shift that day and at least one coworker also working it,
+  regardless of the current scope filter — pick which of your shifts to offer and whose shift
+  you want in exchange, `POST /shifts/swap-requests`) and **Tasks for this day** (jumps to Tasks
+  pre-filtered to that date). A direct 1:1 trade needs both the target coworker and a manager to
+  sign off before anything actually moves: "Your Swap Requests" (visible to everyone, shown
+  whenever you're on either side of an active request) lets the target **Accept**/**Decline**
+  (`PATCH /shifts/swap-requests/:id/accept` / `/decline`) or the requester **Cancel** it
+  (`PATCH /shifts/swap-requests/:id/cancel`) while it's still waiting on the target; once
+  accepted it shows "awaiting manager approval" with no further action from either employee.
+  Owner/manager additionally see "Swap requests awaiting approval" — every request already
+  accepted by its target, with **Approve** (`PATCH /shifts/swap-requests/:id/approve` — swaps
+  the two shifts' assigned employee) / **Deny** (`PATCH /shifts/swap-requests/:id/deny`)
+  buttons. Below the calendar, "Working Today"
   (`GET /shifts/coworkers?from=&to=`,
   everyone approved to work today org-wide, with name and position), then total hours worked
   this month (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation"
@@ -124,7 +136,9 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   is resolved independently, so a Monday/Wednesday/Friday batch can land on three different
   people depending on who's approved to work that position each day). If a batch date has no
   one approved for that position, that date is skipped and reported back rather than failing
-  the whole batch.
+  the whole batch. Arriving here via Schedule's "Tasks for this day" link filters both lists
+  to that one date client-side (a "Show all tasks" link clears it) — there's no separate
+  date-filtered endpoint, it's the same `GET /tasks/me` / `GET /tasks` data.
 - **Onboarding** — a single plain-text guide per organization (`GET /onboarding`) that every
   member can read; owner/manager see an Edit button that swaps the read view for a multiline
   text box and a Save/Cancel pair (`PUT /onboarding`). Shows an empty state prompting

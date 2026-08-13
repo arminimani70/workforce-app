@@ -10,6 +10,7 @@ import type {
   OrgTask,
   Position,
   Shift,
+  SwapRequest,
   Task,
   TaskBatchResult,
   TaskStatus,
@@ -211,6 +212,34 @@ export const tasksApi = {
       accessToken,
       body: { status },
     }),
+};
+
+export const swapRequestsApi = {
+  create: (accessToken: string, dto: { requestingShiftId: string; targetShiftId: string }) =>
+    request<SwapRequest>('/shifts/swap-requests', { method: 'POST', accessToken, body: dto }),
+
+  mine: (accessToken: string) =>
+    request<SwapRequest[]>('/shifts/swap-requests/me', { accessToken }),
+
+  // Org-wide, owner/manager only — every request already accepted by its target, awaiting
+  // final manager approval.
+  pendingManager: (accessToken: string) =>
+    request<SwapRequest[]>('/shifts/swap-requests', { accessToken }),
+
+  accept: (accessToken: string, id: string) =>
+    request<SwapRequest>(`/shifts/swap-requests/${id}/accept`, { method: 'PATCH', accessToken }),
+
+  decline: (accessToken: string, id: string) =>
+    request<SwapRequest>(`/shifts/swap-requests/${id}/decline`, { method: 'PATCH', accessToken }),
+
+  cancel: (accessToken: string, id: string) =>
+    request<SwapRequest>(`/shifts/swap-requests/${id}/cancel`, { method: 'PATCH', accessToken }),
+
+  approve: (accessToken: string, id: string) =>
+    request<SwapRequest>(`/shifts/swap-requests/${id}/approve`, { method: 'PATCH', accessToken }),
+
+  deny: (accessToken: string, id: string) =>
+    request<SwapRequest>(`/shifts/swap-requests/${id}/deny`, { method: 'PATCH', accessToken }),
 };
 
 export const onboardingApi = {

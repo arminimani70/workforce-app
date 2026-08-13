@@ -13,9 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
-import { HttpError, schedulingApi, timeClockApi, usersApi } from '../api/client';
+import { HttpError, schedulingApi, swapRequestsApi, timeClockApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
-import type { CoworkerShift, OrgMember, Position, Shift } from '../types/api';
+import type { CoworkerShift, OrgMember, Position, Shift, SwapRequest } from '../types/api';
 import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
@@ -133,6 +133,14 @@ export default function ScheduleScreen() {
 
   const [viewWeekOffset, setViewWeekOffset] = useState(0);
 
+  const [mySwapRequests, setMySwapRequests] = useState<SwapRequest[]>([]);
+  const [pendingManagerSwaps, setPendingManagerSwaps] = useState<SwapRequest[]>([]);
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [swapMyShiftId, setSwapMyShiftId] = useState<string | null>(null);
+  const [swapTargetShiftId, setSwapTargetShiftId] = useState<string | null>(null);
+  const [isSendingSwap, setIsSendingSwap] = useState(false);
+  const [swapActionId, setSwapActionId] = useState<string | null>(null);
+
   const canManage = user?.role === 'owner' || user?.role === 'manager';
 
   const today = new Date();
@@ -164,26 +172,30 @@ export default function ScheduleScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [week, total, coworkers, weekWideCoworkers] = await Promise.all([
+      const [week, total, coworkers, weekWideCoworkers, mySwaps] = await Promise.all([
         authFetch((token) => schedulingApi.myShifts(token, { from: weekFrom, to: weekTo })),
         authFetch((token) => timeClockApi.total(token, monthToDateRange())),
         authFetch((token) => schedulingApi.coworkers(token, fullDayRange())),
         authFetch((token) => schedulingApi.coworkers(token, { from: weekFrom, to: weekTo })),
+        authFetch((token) => swapRequestsApi.mine(token)),
       ]);
       setWeekShifts(week.filter((s) => s.approval === 'approved'));
       setMonthTotalSeconds(total.totalSeconds);
       setTodayCoworkers(coworkers);
       setWeekCoworkers(weekWideCoworkers);
+      setMySwapRequests(mySwaps);
 
       if (canManage) {
         // Org-wide, not myShifts: a manager needs to confirm shifts they created for anyone,
         // not just ones where they themselves are the assigned employee.
-        const [all, orgMembers] = await Promise.all([
+        const [all, orgMembers, pendingSwaps] = await Promise.all([
           authFetch((token) => schedulingApi.all(token)),
           authFetch((token) => usersApi.list(token)),
+          authFetch((token) => swapRequestsApi.pendingManager(token)),
         ]);
         setPendingShifts(all.filter((s) => s.approval === 'pending'));
         setMembers(orgMembers);
+        setPendingManagerSwaps(pendingSwaps);
       }
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load schedule');
@@ -268,6 +280,53 @@ export default function ScheduleScreen() {
     }
   };
 
+  const onOpenSwapModal = () => {
+    setSwapMyShiftId(null);
+    setSwapTargetShiftId(null);
+    setError(null);
+    setIsSwapModalOpen(true);
+  };
+
+  const onSendSwapRequest = async () => {
+    if (!swapMyShiftId || !swapTargetShiftId) {
+      setError('Pick your shift and who you want to trade with');
+      return;
+    }
+    setError(null);
+    setIsSendingSwap(true);
+    try {
+      await authFetch((token) =>
+        swapRequestsApi.create(token, {
+          requestingShiftId: swapMyShiftId,
+          targetShiftId: swapTargetShiftId,
+        }),
+      );
+      setIsSwapModalOpen(false);
+      setDetailDay(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not send swap request');
+    } finally {
+      setIsSendingSwap(false);
+    }
+  };
+
+  const onSwapAction = async (
+    id: string,
+    action: 'accept' | 'decline' | 'cancel' | 'approve' | 'deny',
+  ) => {
+    setError(null);
+    setSwapActionId(id);
+    try {
+      await authFetch((token) => swapRequestsApi[action](token, id));
+      await load();
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not update swap request');
+    } finally {
+      setSwapActionId(null);
+    }
+  };
+
   // Shared by the calendar's day rows and the day-detail modal, so "who am I working with"
   // stays consistent between the summary line and the popup.
   const getDayInfo = (day: Date) => {
@@ -292,7 +351,7 @@ export default function ScheduleScreen() {
           )
         : dayManagerPool.find((c) => c.position === 'manager');
 
-    return { dayShifts, myJobSiteForDay, dayCoworkers, dayManager };
+    return { dayShifts, myJobSiteForDay, dayCoworkers, dayCoworkersAll, dayManager };
   };
 
   if (isLoading) {
@@ -356,6 +415,121 @@ export default function ScheduleScreen() {
               </View>
             </View>
           ))}
+        </View>
+      )}
+
+      {canManage && pendingManagerSwaps.length > 0 && (
+        <View style={styles.pendingBox}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="swap-horizontal" size={16} color={colors.warningText} />
+            <Text style={styles.sectionTitle}>Swap requests awaiting approval</Text>
+          </View>
+          {pendingManagerSwaps.map((req) => (
+            <View key={req._id} style={styles.swapRow}>
+              <Text style={styles.pendingText}>
+                {req.requestingEmployeeId.fullName} (
+                {new Date(req.requestingShiftId.startTime).toLocaleDateString([], {
+                  month: 'short',
+                  day: 'numeric',
+                })}{' '}
+                {formatTime(req.requestingShiftId.startTime)}–
+                {formatTime(req.requestingShiftId.endTime)}) ⇄ {req.targetEmployeeId.fullName} (
+                {new Date(req.targetShiftId.startTime).toLocaleDateString([], {
+                  month: 'short',
+                  day: 'numeric',
+                })}{' '}
+                {formatTime(req.targetShiftId.startTime)}–{formatTime(req.targetShiftId.endTime)})
+              </Text>
+              <View style={styles.pendingActions}>
+                <Pressable
+                  style={styles.confirmButton}
+                  onPress={() => onSwapAction(req._id, 'approve')}
+                  disabled={swapActionId === req._id}
+                >
+                  {swapActionId === req._id ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                      <Text style={styles.confirmButtonText}>Approve</Text>
+                    </>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={styles.rejectButton}
+                  onPress={() => onSwapAction(req._id, 'deny')}
+                  disabled={swapActionId === req._id}
+                >
+                  <Ionicons name="close" size={14} color="#fff" />
+                  <Text style={styles.rejectButtonText}>Deny</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {mySwapRequests.filter((r) => r.status === 'pending_target' || r.status === 'pending_manager')
+        .length > 0 && (
+        <View style={styles.coworkersBox}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="swap-horizontal-outline" size={16} color={colors.text} />
+            <Text style={styles.sectionTitleDark}>Your Swap Requests</Text>
+          </View>
+          {mySwapRequests
+            .filter((r) => r.status === 'pending_target' || r.status === 'pending_manager')
+            .map((req) => {
+              const isIncoming = req.targetEmployeeId._id === user?._id;
+              return (
+                <View key={req._id} style={styles.swapRow}>
+                  <Text style={styles.pendingText}>
+                    {isIncoming
+                      ? `${req.requestingEmployeeId.fullName} wants to trade their ${formatTime(req.requestingShiftId.startTime)}–${formatTime(req.requestingShiftId.endTime)} shift for your ${formatTime(req.targetShiftId.startTime)}–${formatTime(req.targetShiftId.endTime)} shift`
+                      : `You offered your ${formatTime(req.requestingShiftId.startTime)}–${formatTime(req.requestingShiftId.endTime)} shift to ${req.targetEmployeeId.fullName} for their ${formatTime(req.targetShiftId.startTime)}–${formatTime(req.targetShiftId.endTime)} shift`}
+                    {req.status === 'pending_manager' ? ' · awaiting manager approval' : ''}
+                  </Text>
+                  {req.status === 'pending_target' && isIncoming && (
+                    <View style={styles.pendingActions}>
+                      <Pressable
+                        style={styles.confirmButton}
+                        onPress={() => onSwapAction(req._id, 'accept')}
+                        disabled={swapActionId === req._id}
+                      >
+                        {swapActionId === req._id ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <>
+                            <Ionicons name="checkmark" size={14} color="#fff" />
+                            <Text style={styles.confirmButtonText}>Accept</Text>
+                          </>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        style={styles.rejectButton}
+                        onPress={() => onSwapAction(req._id, 'decline')}
+                        disabled={swapActionId === req._id}
+                      >
+                        <Ionicons name="close" size={14} color="#fff" />
+                        <Text style={styles.rejectButtonText}>Decline</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  {req.status === 'pending_target' && !isIncoming && (
+                    <Pressable
+                      style={styles.rejectButton}
+                      onPress={() => onSwapAction(req._id, 'cancel')}
+                      disabled={swapActionId === req._id}
+                    >
+                      {swapActionId === req._id ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.rejectButtonText}>Cancel</Text>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
         </View>
       )}
 
@@ -686,7 +860,8 @@ export default function ScheduleScreen() {
                 </Text>
 
                 {(() => {
-                  const { dayShifts, dayCoworkers, dayManager } = getDayInfo(detailDay);
+                  const { dayShifts, dayCoworkers, dayCoworkersAll, dayManager } =
+                    getDayInfo(detailDay);
                   return (
                     <>
                       <Text style={styles.sectionLabel}>Your Shift</Text>
@@ -757,6 +932,30 @@ export default function ScheduleScreen() {
                           </View>
                         ))
                       )}
+
+                      <View style={styles.detailActionsRow}>
+                        {dayShifts.length > 0 && dayCoworkersAll.length > 0 && (
+                          <Pressable style={styles.detailActionButton} onPress={onOpenSwapModal}>
+                            <Ionicons
+                              name="swap-horizontal-outline"
+                              size={16}
+                              color={colors.primary}
+                            />
+                            <Text style={styles.detailActionButtonText}>Request Shift Swap</Text>
+                          </Pressable>
+                        )}
+                        <Pressable
+                          style={styles.detailActionButton}
+                          onPress={() => {
+                            const dueDate = detailDay.toISOString();
+                            setDetailDay(null);
+                            navigation.navigate('Tasks', { dueDate });
+                          }}
+                        >
+                          <Ionicons name="list-outline" size={16} color={colors.primary} />
+                          <Text style={styles.detailActionButtonText}>Tasks for this day</Text>
+                        </Pressable>
+                      </View>
                     </>
                   );
                 })()}
@@ -766,6 +965,99 @@ export default function ScheduleScreen() {
                 </Pressable>
               </>
             )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isSwapModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsSwapModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+            <Text style={styles.formTitle}>Request Shift Swap</Text>
+
+            {detailDay &&
+              (() => {
+                const { dayShifts, dayCoworkersAll } = getDayInfo(detailDay);
+                return (
+                  <>
+                    <Text style={styles.sectionLabel}>Offer</Text>
+                    <View style={styles.chipsWrap}>
+                      {dayShifts.map((shift) => (
+                        <Pressable
+                          key={shift._id}
+                          style={[styles.chip, swapMyShiftId === shift._id && styles.chipActive]}
+                          onPress={() => setSwapMyShiftId(shift._id)}
+                        >
+                          <Text
+                            style={[
+                              styles.chipText,
+                              swapMyShiftId === shift._id && styles.chipTextActive,
+                            ]}
+                          >
+                            {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
+                            {shift.jobSite ? ` · ${shift.jobSite}` : ''}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+
+                    <Text style={styles.sectionLabel}>In exchange for</Text>
+                    {dayCoworkersAll.map((coworker) => (
+                      <Pressable
+                        key={coworker._id}
+                        style={[
+                          styles.detailPersonRow,
+                          styles.swapTargetRow,
+                          swapTargetShiftId === coworker._id && styles.swapTargetRowActive,
+                        ]}
+                        onPress={() => setSwapTargetShiftId(coworker._id)}
+                      >
+                        <Ionicons
+                          name={
+                            coworker.position ? POSITION_ICONS[coworker.position] : 'person-outline'
+                          }
+                          size={16}
+                          color={
+                            coworker.position ? POSITION_COLORS[coworker.position] : colors.textMuted
+                          }
+                        />
+                        <View style={styles.detailPersonInfo}>
+                          <Text style={styles.detailPersonText}>{coworker.employeeId.fullName}</Text>
+                          <Text style={styles.detailPersonMeta}>
+                            {formatTime(coworker.startTime)}–{formatTime(coworker.endTime)}
+                            {coworker.jobSite ? ` · ${coworker.jobSite}` : ''}
+                          </Text>
+                        </View>
+                        {swapTargetShiftId === coworker._id && (
+                          <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                        )}
+                      </Pressable>
+                    ))}
+                  </>
+                );
+              })()}
+
+            {error && <Text style={styles.error}>{error}</Text>}
+
+            <Pressable
+              style={[styles.button, isSendingSwap && styles.buttonDisabled]}
+              onPress={onSendSwapRequest}
+              disabled={isSendingSwap}
+            >
+              {isSendingSwap ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Send Request</Text>
+              )}
+            </Pressable>
+
+            <Pressable style={styles.cancelButton} onPress={() => setIsSwapModalOpen(false)}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
           </ScrollView>
         </View>
       </Modal>
@@ -837,6 +1129,31 @@ const styles = StyleSheet.create({
   },
   pendingText: { fontSize: 13, color: colors.text, flex: 1 },
   pendingActions: { flexDirection: 'row', gap: 6 },
+  swapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  detailActionsRow: { gap: 8, marginTop: 4 },
+  detailActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  detailActionButtonText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
+  swapTargetRow: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 10,
+  },
+  swapTargetRowActive: { borderColor: colors.primary, backgroundColor: colors.infoBg },
   confirmButton: {
     flexDirection: 'row',
     alignItems: 'center',

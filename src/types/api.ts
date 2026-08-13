@@ -139,3 +139,23 @@ export interface OnboardingGuide {
   content: string;
   updatedAt: string | null;
 }
+
+export type SwapRequestStatus =
+  | 'pending_target'
+  | 'pending_manager'
+  | 'approved'
+  | 'rejected'
+  | 'cancelled';
+
+// employeeId fields and shiftId fields are always populated by the backend.
+export interface SwapRequest {
+  _id: string;
+  organizationId: string;
+  requestingShiftId: Shift;
+  requestingEmployeeId: { _id: string; fullName: string; role: UserRole };
+  targetShiftId: Shift;
+  targetEmployeeId: { _id: string; fullName: string; role: UserRole };
+  status: SwapRequestStatus;
+  decidedBy?: string;
+  createdAt: string;
+}

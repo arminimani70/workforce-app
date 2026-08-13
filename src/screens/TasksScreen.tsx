@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, tasksApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
@@ -17,6 +19,7 @@ import type { OrgMember, OrgTask, Position, Task, TaskStatus } from '../types/ap
 import { cardShadow, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
+import type { AppStackParamList } from '../navigation/types';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -77,6 +80,10 @@ function formatDueDate(iso: string) {
 
 export default function TasksScreen() {
   const { user, authFetch } = useAuth();
+  const route = useRoute<RouteProp<AppStackParamList, 'Tasks'>>();
+  const [dateFilter, setDateFilter] = useState<Date | null>(
+    route.params?.dueDate ? new Date(route.params.dueDate) : null,
+  );
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [orgTasks, setOrgTasks] = useState<OrgTask[]>([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -96,6 +103,13 @@ export default function TasksScreen() {
   const [batchResultsNote, setBatchResultsNote] = useState<string | null>(null);
 
   const canManage = user?.role === 'owner' || user?.role === 'manager';
+
+  const visibleMyTasks = dateFilter
+    ? myTasks.filter((t) => isSameDay(new Date(t.dueDate), dateFilter))
+    : myTasks;
+  const visibleOrgTasks = dateFilter
+    ? orgTasks.filter((t) => isSameDay(new Date(t.dueDate), dateFilter))
+    : orgTasks;
 
   const monday = startOfWeekMonday();
   const modalWeekMonday = addWeeks(monday, modalWeekOffset);
@@ -240,17 +254,28 @@ export default function TasksScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {error && <Text style={styles.error}>{error}</Text>}
 
+      {dateFilter && (
+        <NoteBox variant="info">
+          Showing tasks due {formatDueDate(dateFilter.toISOString())}.{' '}
+          <Text style={styles.clearFilterLink} onPress={() => setDateFilter(null)}>
+            Show all tasks
+          </Text>
+        </NoteBox>
+      )}
+
       <View style={styles.sectionTitleRow}>
         <Ionicons name="list-outline" size={16} color={colors.text} />
         <Text style={styles.sectionTitleDark}>My Tasks</Text>
       </View>
-      {myTasks.length === 0 ? (
+      {visibleMyTasks.length === 0 ? (
         <View style={styles.emptyRow}>
           <Ionicons name="checkmark-done-outline" size={15} color={colors.textFaint} />
-          <Text style={styles.empty}>No tasks assigned to you</Text>
+          <Text style={styles.empty}>
+            {dateFilter ? 'No tasks of yours are due this day' : 'No tasks assigned to you'}
+          </Text>
         </View>
       ) : (
-        myTasks.map((task) => (
+        visibleMyTasks.map((task) => (
           <View key={task._id} style={styles.taskRow}>
             <Ionicons
               name={STATUS_ICONS[task.status]}
@@ -294,13 +319,15 @@ export default function TasksScreen() {
             <Ionicons name="albums-outline" size={16} color={colors.text} />
             <Text style={styles.sectionTitleDark}>All Tasks</Text>
           </View>
-          {orgTasks.length === 0 ? (
+          {visibleOrgTasks.length === 0 ? (
             <View style={styles.emptyRow}>
               <Ionicons name="file-tray-outline" size={15} color={colors.textFaint} />
-              <Text style={styles.empty}>No tasks created yet</Text>
+              <Text style={styles.empty}>
+                {dateFilter ? 'No tasks are due this day' : 'No tasks created yet'}
+              </Text>
             </View>
           ) : (
-            orgTasks.map((task) => (
+            visibleOrgTasks.map((task) => (
               <View key={task._id} style={styles.taskRow}>
                 <Ionicons
                   name={STATUS_ICONS[task.status]}
@@ -527,6 +554,7 @@ const styles = StyleSheet.create({
   sectionTitleDark: { fontSize: 13, fontWeight: '700', color: colors.text },
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   empty: { fontSize: 13, color: colors.textFaint },
+  clearFilterLink: { fontWeight: '700', textDecorationLine: 'underline' },
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
