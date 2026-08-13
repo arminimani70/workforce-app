@@ -98,18 +98,27 @@ export default function ScheduleScreen() {
   const [modalStartTime, setModalStartTime] = useState('09:00');
   const [modalEndTime, setModalEndTime] = useState('17:00');
 
+  const [viewWeekOffset, setViewWeekOffset] = useState(0);
+
   const canManage = user?.role === 'owner' || user?.role === 'manager';
 
-  const monday = startOfWeekMonday();
   const today = new Date();
+  const currentMonday = startOfWeekMonday();
+  const monday = addWeeks(currentMonday, viewWeekOffset);
   const days = weekDates(monday);
-  const weekFrom = monday.toISOString();
-  const weekTo = (() => {
+  const weekSunday = (() => {
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
+    return sunday;
+  })();
+  const weekFrom = monday.toISOString();
+  const weekTo = (() => {
+    const sunday = new Date(weekSunday);
     sunday.setHours(23, 59, 59, 999);
     return sunday.toISOString();
   })();
+  const isCurrentWeek = viewWeekOffset === 0;
+  const weekRangeLabel = `${monday.toLocaleDateString([], { month: 'short', day: 'numeric' })} – ${weekSunday.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 
   const modalWeekMonday = addWeeks(monday, modalWeekOffset);
   const modalWeekDays = weekDates(modalWeekMonday);
@@ -288,9 +297,36 @@ export default function ScheduleScreen() {
         </View>
       )}
 
-      <View style={styles.sectionTitleRow}>
-        <Ionicons name="calendar-outline" size={16} color={colors.text} />
-        <Text style={styles.sectionTitleDark}>This Week</Text>
+      <View style={styles.weekViewNavRow}>
+        <Pressable
+          style={styles.weekNavButton}
+          onPress={() => setViewWeekOffset((w) => w - 1)}
+        >
+          <Text style={styles.weekNavButtonText}>‹</Text>
+        </Pressable>
+
+        <View style={styles.weekViewTitle}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="calendar-outline" size={16} color={colors.text} />
+            <Text style={styles.sectionTitleDark}>{weekRangeLabel}</Text>
+          </View>
+          {isCurrentWeek ? (
+            <View style={styles.currentWeekBadge}>
+              <Text style={styles.currentWeekBadgeText}>This Week</Text>
+            </View>
+          ) : (
+            <Pressable onPress={() => setViewWeekOffset(0)}>
+              <Text style={styles.jumpToTodayText}>Jump to this week</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <Pressable
+          style={styles.weekNavButton}
+          onPress={() => setViewWeekOffset((w) => w + 1)}
+        >
+          <Text style={styles.weekNavButtonText}>›</Text>
+        </Pressable>
       </View>
 
       <View style={styles.calendar}>
@@ -536,6 +572,16 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   error: { color: colors.danger },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  weekViewNavRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  weekViewTitle: { flex: 1, alignItems: 'center', gap: 2 },
+  currentWeekBadge: {
+    backgroundColor: colors.infoBg,
+    borderRadius: 999,
+    paddingVertical: 2,
+    paddingHorizontal: 10,
+  },
+  currentWeekBadgeText: { fontSize: 11, fontWeight: '700', color: colors.infoText },
+  jumpToTodayText: { fontSize: 12, fontWeight: '600', color: colors.primary },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.warningText },
   pendingBox: {
     backgroundColor: colors.warningBg,

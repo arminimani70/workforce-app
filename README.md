@@ -70,8 +70,11 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   `/clock-out`), best-effort GPS via `expo-location` (proceeds without location if permission
   is denied). Shows a live HH:MM:SS elapsed timer while clocked in, and a total-hours summary
   (`GET /time-clock/total?from=&to=`) with Today/This Week/This Month/All Time presets.
-- **Schedule** — a Monday–Sunday calendar of the current week's **approved** shifts only;
-  past days are greyed out. Below it, "Working Today" (`GET /shifts/coworkers?from=&to=`,
+- **Schedule** — a Monday–Sunday calendar of that week's **approved** shifts only; past days
+  are greyed out. ‹ › arrows browse to any previous/future week (the fetch re-runs for
+  whichever week is displayed); a "This Week" badge marks the current week, replaced by a
+  "Jump to this week" link once you've navigated away from it. Below it, "Working Today"
+  (`GET /shifts/coworkers?from=&to=`,
   everyone approved to work today org-wide, with name and position), then total hours worked
   this month (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation"
   section — every pending shift org-wide (`GET /shifts`), not just their own, with Confirm
