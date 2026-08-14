@@ -120,10 +120,15 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   "+ New Shift" button opening a popup: navigate week with ‹ › arrows, pick a day within it,
   set an HH:mm start/end, pick who it's for (from the Team directory) and an optional position
   (`POST /shifts`).
-- **Availability** — a recurring weekly pattern, not tied to specific dates. Tapping a day
-  opens a popup: **Unavailable**, **Available** (set an HH:mm start/end and one or more
+- **Availability** — date-based, not a recurring weekly pattern: a ‹ › week-navigable calendar
+  (same pattern as Schedule) so any future week can be set independently, with a "This Week"
+  badge / "Jump to this week" link once you've browsed away. Tapping a day opens a popup for
+  that exact date: **Unavailable**, **Available** (set an HH:mm start/end and one or more
   positions — Front Desk/Help Desk/Information/Consultation/Manager), or **Flexible** (no
-  preference, manager decides). `GET`/`PUT /availability/me`.
+  preference, manager decides) — Save writes it immediately (`PUT /availability/me`); a day
+  that's already set also gets a **Clear** option to reset it back to "not set"
+  (`DELETE /availability/me?date=`). `GET /availability/me?from=&to=` loads the displayed
+  week's entries; a day with no entry shows "Not set".
 - **Team** — lists every org member (`GET /users`). Owner/manager also see an "Add Employee"
   form — full name, email, and a temporary password (`POST /users`); there's no
   self-registration flow for team members, an admin sets them up directly.
@@ -154,9 +159,9 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   dashboard card or by tapping the header avatar on Home.
 - **Build Schedule** (owner/manager only, via a button on Schedule) — the weekly
   schedule-building workflow. Week nav (‹ › arrows), and for each day: an **Available** list
-  pulled from `GET /availability` (every employee whose recurring pattern marks that day of
-  week available/flexible, with their time range and position(s) — if two people picked the
-  same position, both show up, so the manager can eyeball the overlap and pick), each with a
+  pulled from `GET /availability?from=&to=` (every employee with an available/flexible entry
+  for that exact date, with their time range and position(s) — if two people picked the same
+  position, both show up, so the manager can eyeball the overlap and pick), each with a
   "+" that opens a prefilled add-to-schedule popup (`POST /shifts`, still a **draft**: shifts
   start `approval: pending` and stay invisible to employees), and a **Scheduled** list of that
   day's shifts already drafted/published, with a trash icon to remove a still-draft one

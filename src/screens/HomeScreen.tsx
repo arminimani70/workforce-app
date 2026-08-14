@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, schedulingApi, tasksApi, timeClockApi, usersApi } from '../api/client';
 import type { AppStackParamList } from '../navigation/types';
 import type { Shift, TimeClockEntry } from '../types/api';
-import { formatElapsed, fullDayRange } from '../utils/time';
+import { currentWeekRange, formatElapsed, fullDayRange } from '../utils/time';
 import { cardShadow, colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Home'>;
@@ -104,10 +104,10 @@ export default function HomeScreen({ navigation }: Props) {
 
     (async () => {
       try {
-        const availability = await authFetch((token) => availabilityApi.getMine(token));
-        setAvailableDaysCount(
-          availability.days.filter((d) => d.status !== 'unavailable').length,
+        const entries = await authFetch((token) =>
+          availabilityApi.getMine(token, currentWeekRange()),
         );
+        setAvailableDaysCount(entries.filter((e) => e.status !== 'unavailable').length);
       } catch {
         // Leave the Availability subtitle blank if the call fails.
       }

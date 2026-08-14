@@ -82,26 +82,24 @@ export interface CoworkerShift {
   position?: Position;
 }
 
-export type DayAvailabilityStatus = 'unavailable' | 'available' | 'flexible';
+export type AvailabilityStatus = 'unavailable' | 'available' | 'flexible';
 
-export interface DayAvailability {
-  dayOfWeek: number; // 0 = Monday .. 6 = Sunday
-  status: DayAvailabilityStatus;
+// One entry per (employee, exact calendar date) — not a recurring weekly pattern. A date with
+// no entry simply hasn't been set yet.
+export interface AvailabilityEntry {
+  _id: string;
+  organizationId: string;
+  employeeId: string;
+  date: string;
+  status: AvailabilityStatus;
   startTime?: string; // "HH:mm"
   endTime?: string;
   positions?: Position[];
 }
 
-export interface Availability {
-  organizationId: string;
-  employeeId: string;
-  days: DayAvailability[];
-}
-
 // GET /availability (org-wide) populates employeeId into { _id, fullName, role }.
-export interface OrgAvailability {
+export interface OrgAvailabilityEntry extends Omit<AvailabilityEntry, 'employeeId'> {
   employeeId: { _id: string; fullName: string; role: UserRole };
-  days: DayAvailability[];
 }
 
 export interface TimeTotal {

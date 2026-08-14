@@ -1,11 +1,11 @@
 import type {
   ApiError,
-  Availability,
+  AvailabilityEntry,
+  AvailabilityStatus,
   CoworkerShift,
   CurrentUser,
-  DayAvailability,
   OnboardingGuide,
-  OrgAvailability,
+  OrgAvailabilityEntry,
   OrgMember,
   OrgTask,
   Position,
@@ -172,17 +172,35 @@ export const schedulingApi = {
 };
 
 export const availabilityApi = {
-  getMine: (accessToken: string) => request<Availability>('/availability/me', { accessToken }),
+  getMine: (accessToken: string, range: { from: string; to: string }) =>
+    request<AvailabilityEntry[]>(
+      `/availability/me?from=${range.from}&to=${range.to}`,
+      { accessToken },
+    ),
 
-  updateMine: (accessToken: string, days: DayAvailability[]) =>
-    request<Availability>('/availability/me', {
-      method: 'PUT',
+  updateMine: (
+    accessToken: string,
+    dto: {
+      date: string;
+      status: AvailabilityStatus;
+      startTime?: string;
+      endTime?: string;
+      positions?: Position[];
+    },
+  ) => request<AvailabilityEntry>('/availability/me', { method: 'PUT', accessToken, body: dto }),
+
+  deleteMine: (accessToken: string, date: string) =>
+    request<{ acknowledged: boolean }>(`/availability/me?date=${date}`, {
+      method: 'DELETE',
       accessToken,
-      body: { days },
     }),
 
-  // Org-wide, owner/manager only — every employee's weekly availability pattern.
-  all: (accessToken: string) => request<OrgAvailability[]>('/availability', { accessToken }),
+  // Org-wide, owner/manager only — every entry in the range, across all employees.
+  all: (accessToken: string, range: { from: string; to: string }) =>
+    request<OrgAvailabilityEntry[]>(
+      `/availability?from=${range.from}&to=${range.to}`,
+      { accessToken },
+    ),
 };
 
 export const tasksApi = {

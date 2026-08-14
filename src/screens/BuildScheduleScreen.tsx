@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, HttpError, schedulingApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
-import type { DayAvailability, OrgAvailability, OrgMember, Position, Shift } from '../types/api';
+import type { OrgAvailabilityEntry, OrgMember, Position, Shift } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
@@ -63,12 +63,11 @@ function combineDateAndTime(date: Date, hhmm: string): Date {
   return combined;
 }
 
-function summarizeDay(day: DayAvailability | undefined): string {
-  if (!day || day.status === 'unavailable') return '';
-  if (day.status === 'flexible') return 'Flexible — no preference';
-  const time = day.startTime && day.endTime ? `${day.startTime}–${day.endTime}` : '';
-  const positions = day.positions?.length
-    ? day.positions.map((p) => POSITION_LABELS[p]).join(', ')
+function summarizeEntry(entry: OrgAvailabilityEntry): string {
+  if (entry.status === 'flexible') return 'Flexible — no preference';
+  const time = entry.startTime && entry.endTime ? `${entry.startTime}–${entry.endTime}` : '';
+  const positions = entry.positions?.length
+    ? entry.positions.map((p) => POSITION_LABELS[p]).join(', ')
     : '';
   return [time, positions].filter(Boolean).join(' · ');
 }
@@ -93,7 +92,7 @@ function BranchTag({ jobSite }: { jobSite: string }) {
 export default function BuildScheduleScreen() {
   const { authFetch } = useAuth();
   const [weekOffset, setWeekOffset] = useState(0);
-  const [availability, setAvailability] = useState<OrgAvailability[]>([]);
+  const [availability, setAvailability] = useState<OrgAvailabilityEntry[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -124,7 +123,7 @@ export default function BuildScheduleScreen() {
   const load = useCallback(async () => {
     try {
       const [orgAvailability, allShifts, orgMembers] = await Promise.all([
-        authFetch((token) => availabilityApi.all(token)),
+        authFetch((token) => availabilityApi.all(token, { from: weekFrom, to: weekTo })),
         authFetch((token) => schedulingApi.all(token)),
         authFetch((token) => usersApi.list(token)),
       ]);
@@ -136,7 +135,7 @@ export default function BuildScheduleScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [authFetch]);
+  }, [authFetch, weekFrom, weekTo]);
 
   useEffect(() => {
     load();
@@ -145,13 +144,14 @@ export default function BuildScheduleScreen() {
   const nameFor = (employeeId: string) =>
     members.find((m) => m._id === employeeId)?.fullName ?? 'Unknown';
 
-  const openAddModal = (employeeId: string, employeeName: string, day: Date, index: number) => {
-    const record = availability.find((a) => a.employeeId._id === employeeId);
-    const dayInfo = record?.days.find((d) => d.dayOfWeek === index);
+  const openAddModal = (employeeId: string, employeeName: string, day: Date) => {
+    const entry = availability.find(
+      (a) => a.employeeId._id === employeeId && isSameDay(new Date(a.date), day),
+    );
     setModalTarget({ employeeId, employeeName, day });
-    setModalStartTime(dayInfo?.startTime ?? '09:00');
-    setModalEndTime(dayInfo?.endTime ?? '17:00');
-    setModalPosition(dayInfo?.positions?.[0] ?? null);
+    setModalStartTime(entry?.startTime ?? '09:00');
+    setModalEndTime(entry?.endTime ?? '17:00');
+    setModalPosition(entry?.positions?.[0] ?? null);
     setModalJobSite('');
     setError(null);
   };
@@ -248,12 +248,9 @@ export default function BuildScheduleScreen() {
       {publishMessage && <NoteBox variant="success">{publishMessage}</NoteBox>}
 
       {days.map((day, index) => {
-        const candidates = availability
-          .map((a) => ({
-            employee: a.employeeId,
-            dayInfo: a.days.find((d) => d.dayOfWeek === index),
-          }))
-          .filter((c) => c.dayInfo && c.dayInfo.status !== 'unavailable');
+        const candidates = availability.filter(
+          (a) => a.status !== 'unavailable' && isSameDay(new Date(a.date), day),
+        );
 
         const dayShifts = shifts.filter(
           (s) => s.approval !== 'rejected' && isSameDay(new Date(s.startTime), day),
@@ -273,20 +270,20 @@ export default function BuildScheduleScreen() {
             {candidates.length === 0 ? (
               <Text style={styles.emptyText}>No one marked themselves available</Text>
             ) : (
-              candidates.map(({ employee, dayInfo }) => (
-                <View key={employee._id} style={styles.candidateRow}>
+              candidates.map((entry) => (
+                <View key={entry.employeeId._id} style={styles.candidateRow}>
                   <View style={styles.candidateInfo}>
                     <Text style={styles.candidateName}>
-                      {employee.fullName}
-                      {scheduledEmployeeIds.has(employee._id) ? (
+                      {entry.employeeId.fullName}
+                      {scheduledEmployeeIds.has(entry.employeeId._id) ? (
                         <Text style={styles.candidateScheduledBadge}> ✓ scheduled</Text>
                       ) : null}
                     </Text>
-                    <Text style={styles.candidateMeta}>{summarizeDay(dayInfo)}</Text>
+                    <Text style={styles.candidateMeta}>{summarizeEntry(entry)}</Text>
                   </View>
                   <Pressable
                     style={styles.addButton}
-                    onPress={() => openAddModal(employee._id, employee.fullName, day, index)}
+                    onPress={() => openAddModal(entry.employeeId._id, entry.employeeId.fullName, day)}
                   >
                     <Ionicons name="add" size={16} color="#fff" />
                   </Pressable>

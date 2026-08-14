@@ -13,100 +13,166 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, HttpError } from '../api/client';
 import { POSITIONS } from '../types/api';
-import type { DayAvailability, DayAvailabilityStatus, Position } from '../types/api';
+import type { AvailabilityEntry, AvailabilityStatus, Position } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-const STATUS_ICONS: Record<DayAvailabilityStatus, IconName> = {
+const STATUS_ICONS: Record<AvailabilityStatus, IconName> = {
   unavailable: 'close-circle-outline',
   available: 'checkmark-circle-outline',
   flexible: 'swap-horizontal-outline',
 };
 
-const STATUS_ICON_COLORS: Record<DayAvailabilityStatus, string> = {
+const STATUS_ICON_COLORS: Record<AvailabilityStatus, string> = {
   unavailable: colors.textFaint,
   available: colors.success,
   flexible: colors.purple,
 };
 
-const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-function defaultDays(): DayAvailability[] {
-  return DAY_LABELS.map((_, dayOfWeek) => ({ dayOfWeek, status: 'unavailable', positions: [] }));
+function startOfWeekMonday(date = new Date()) {
+  const dayOfWeek = date.getDay(); // 0 = Sunday .. 6 = Saturday
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 }
 
-function summarize(day: DayAvailability): string {
-  if (day.status === 'unavailable') return 'Unavailable';
-  if (day.status === 'flexible') return 'Flexible — manager decides';
-  const time = day.startTime && day.endTime ? `${day.startTime}–${day.endTime}` : 'No time set';
-  const positions = day.positions?.length
-    ? day.positions.map((p) => POSITION_LABELS[p]).join(', ')
+function addWeeks(date: Date, weeks: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + weeks * 7);
+  return result;
+}
+
+function weekDates(monday: Date) {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function summarize(entry: AvailabilityEntry | undefined): string {
+  if (!entry) return 'Not set';
+  if (entry.status === 'unavailable') return 'Unavailable';
+  if (entry.status === 'flexible') return 'Flexible — manager decides';
+  const time = entry.startTime && entry.endTime ? `${entry.startTime}–${entry.endTime}` : 'No time set';
+  const positions = entry.positions?.length
+    ? entry.positions.map((p) => POSITION_LABELS[p]).join(', ')
     : 'No position set';
   return `${time} · ${positions}`;
 }
 
 export default function AvailabilityScreen() {
   const { authFetch } = useAuth();
-  const [days, setDays] = useState<DayAvailability[]>(defaultDays());
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [entries, setEntries] = useState<AvailabilityEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [openDay, setOpenDay] = useState<number | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [openDay, setOpenDay] = useState<Date | null>(null);
+  const [formStatus, setFormStatus] = useState<AvailabilityStatus>('unavailable');
+  const [formStartTime, setFormStartTime] = useState('09:00');
+  const [formEndTime, setFormEndTime] = useState('17:00');
+  const [formPositions, setFormPositions] = useState<Position[]>([]);
+
+  const today = new Date();
+  const monday = addWeeks(startOfWeekMonday(), weekOffset);
+  const days = weekDates(monday);
+  const sunday = days[6];
+  const weekFrom = monday.toISOString();
+  const weekTo = (() => {
+    const d = new Date(sunday);
+    d.setHours(23, 59, 59, 999);
+    return d.toISOString();
+  })();
+  const isCurrentWeek = weekOffset === 0;
+  const weekLabel = `${monday.toLocaleDateString([], { month: 'short', day: 'numeric' })} – ${sunday.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 
   const load = useCallback(async () => {
     try {
-      const availability = await authFetch((token) => availabilityApi.getMine(token));
-      setDays(availability.days);
+      const mine = await authFetch((token) =>
+        availabilityApi.getMine(token, { from: weekFrom, to: weekTo }),
+      );
+      setEntries(mine);
     } catch (err) {
-      setMessage(err instanceof HttpError ? err.message : 'Could not load availability');
+      setError(err instanceof HttpError ? err.message : 'Could not load availability');
     } finally {
       setIsLoading(false);
     }
-  }, [authFetch]);
+  }, [authFetch, weekFrom, weekTo]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const updateDay = (dayOfWeek: number, patch: Partial<DayAvailability>) => {
-    setDays((prev) =>
-      prev.map((day) => (day.dayOfWeek === dayOfWeek ? { ...day, ...patch } : day)),
-    );
+  const entryForDay = (day: Date) => entries.find((e) => isSameDay(new Date(e.date), day));
+
+  const openDayModal = (day: Date) => {
+    const existing = entryForDay(day);
+    setFormStatus(existing?.status ?? 'unavailable');
+    setFormStartTime(existing?.startTime ?? '09:00');
+    setFormEndTime(existing?.endTime ?? '17:00');
+    setFormPositions(existing?.positions ?? []);
+    setError(null);
+    setOpenDay(day);
   };
 
-  const togglePosition = (dayOfWeek: number, position: Position) => {
-    setDays((prev) =>
-      prev.map((day) => {
-        if (day.dayOfWeek !== dayOfWeek) return day;
-        const current = day.positions ?? [];
-        const positions = current.includes(position)
-          ? current.filter((p) => p !== position)
-          : [...current, position];
-        return { ...day, positions };
-      }),
+  const togglePosition = (position: Position) => {
+    setFormPositions((prev) =>
+      prev.includes(position) ? prev.filter((p) => p !== position) : [...prev, position],
     );
-  };
-
-  const setStatus = (dayOfWeek: number, status: DayAvailabilityStatus) => {
-    updateDay(dayOfWeek, {
-      status,
-      startTime: status === 'available' ? (days.find((d) => d.dayOfWeek === dayOfWeek)?.startTime ?? '09:00') : undefined,
-      endTime: status === 'available' ? (days.find((d) => d.dayOfWeek === dayOfWeek)?.endTime ?? '17:00') : undefined,
-    });
   };
 
   const onSave = async () => {
-    setMessage(null);
+    if (!openDay) return;
+    setError(null);
     setIsSaving(true);
     try {
-      await authFetch((token) => availabilityApi.updateMine(token, days));
-      setMessage('Saved');
+      await authFetch((token) =>
+        availabilityApi.updateMine(token, {
+          date: openDay.toISOString(),
+          status: formStatus,
+          startTime: formStatus === 'available' ? formStartTime : undefined,
+          endTime: formStatus === 'available' ? formEndTime : undefined,
+          positions: formStatus === 'available' ? formPositions : undefined,
+        }),
+      );
+      setOpenDay(null);
+      await load();
     } catch (err) {
-      setMessage(err instanceof HttpError ? err.message : 'Could not save availability');
+      setError(err instanceof HttpError ? err.message : 'Could not save availability');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const onClear = async () => {
+    if (!openDay) return;
+    setError(null);
+    setIsClearing(true);
+    try {
+      await authFetch((token) => availabilityApi.deleteMine(token, openDay.toISOString()));
+      setOpenDay(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not clear availability');
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -118,81 +184,103 @@ export default function AvailabilityScreen() {
     );
   }
 
-  const editingDay = openDay !== null ? days.find((d) => d.dayOfWeek === openDay) : undefined;
-
   return (
     <View style={styles.container}>
-      <View style={styles.sectionTitleRow}>
-        <Ionicons name="calendar-outline" size={16} color={colors.text} />
-        <Text style={styles.sectionTitleDark}>Weekly Availability</Text>
+      <View style={styles.weekNavRow}>
+        <Pressable style={styles.weekNavButton} onPress={() => setWeekOffset((w) => w - 1)}>
+          <Text style={styles.weekNavButtonText}>‹</Text>
+        </Pressable>
+
+        <View style={styles.weekNavTitle}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="calendar-outline" size={16} color={colors.text} />
+            <Text style={styles.sectionTitleDark}>{weekLabel}</Text>
+          </View>
+          {isCurrentWeek ? (
+            <View style={styles.currentWeekBadge}>
+              <Text style={styles.currentWeekBadgeText}>This Week</Text>
+            </View>
+          ) : (
+            <Pressable onPress={() => setWeekOffset(0)}>
+              <Text style={styles.jumpToTodayText}>Jump to this week</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <Pressable style={styles.weekNavButton} onPress={() => setWeekOffset((w) => w + 1)}>
+          <Text style={styles.weekNavButtonText}>›</Text>
+        </Pressable>
       </View>
 
+      {error && !openDay && <Text style={styles.error}>{error}</Text>}
+
       <ScrollView contentContainerStyle={styles.list}>
-        {days.map((day) => (
-          <Pressable
-            key={day.dayOfWeek}
-            style={styles.dayRow}
-            onPress={() => setOpenDay(day.dayOfWeek)}
-          >
-            <Ionicons
-              name={STATUS_ICONS[day.status]}
-              size={22}
-              color={STATUS_ICON_COLORS[day.status]}
-              style={styles.dayIcon}
-            />
-            <View style={styles.dayTextGroup}>
-              <Text style={styles.dayLabel}>{DAY_LABELS[day.dayOfWeek]}</Text>
-              <Text style={styles.daySummary}>{summarize(day)}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-          </Pressable>
-        ))}
+        {days.map((day, index) => {
+          const entry = entryForDay(day);
+          const status = entry?.status ?? null;
+          const isPast = day < today && !isSameDay(day, today);
+          return (
+            <Pressable
+              key={index}
+              style={[styles.dayRow, isPast && styles.dayRowPast]}
+              onPress={() => openDayModal(day)}
+            >
+              <Ionicons
+                name={status ? STATUS_ICONS[status] : 'ellipse-outline'}
+                size={22}
+                color={status ? STATUS_ICON_COLORS[status] : colors.textFaint}
+                style={styles.dayIcon}
+              />
+              <View style={styles.dayTextGroup}>
+                <Text style={styles.dayLabel}>
+                  {DAY_LABELS[index]} · {day.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                </Text>
+                <Text style={styles.daySummary}>{summarize(entry)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
-      {message && <Text style={styles.message}>{message}</Text>}
-
-      <Pressable
-        style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-        onPress={onSave}
-        disabled={isSaving}
+      <Modal
+        visible={openDay !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setOpenDay(null)}
       >
-        {isSaving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="save-outline" size={18} color="#fff" />
-            <Text style={styles.saveButtonText}>Save</Text>
-          </>
-        )}
-      </Pressable>
-
-      <Modal visible={openDay !== null} animationType="slide" transparent onRequestClose={() => setOpenDay(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            {editingDay && (
+            {openDay && (
               <>
-                <Text style={styles.modalTitle}>{DAY_LABELS[editingDay.dayOfWeek]}</Text>
+                <Text style={styles.modalTitle}>
+                  {openDay.toLocaleDateString([], {
+                    weekday: 'long',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </Text>
 
                 <View style={styles.statusRow}>
-                  {(['unavailable', 'available', 'flexible'] as DayAvailabilityStatus[]).map(
+                  {(['unavailable', 'available', 'flexible'] as AvailabilityStatus[]).map(
                     (status) => (
                       <Pressable
                         key={status}
                         style={[
                           styles.statusButton,
-                          editingDay.status === status && styles.statusButtonActive,
+                          formStatus === status && styles.statusButtonActive,
                         ]}
-                        onPress={() => setStatus(editingDay.dayOfWeek, status)}
+                        onPress={() => setFormStatus(status)}
                       >
                         <Ionicons
                           name={STATUS_ICONS[status]}
                           size={16}
-                          color={editingDay.status === status ? '#fff' : STATUS_ICON_COLORS[status]}
+                          color={formStatus === status ? '#fff' : STATUS_ICON_COLORS[status]}
                         />
                         <Text
                           style={[
                             styles.statusButtonText,
-                            editingDay.status === status && styles.statusButtonTextActive,
+                            formStatus === status && styles.statusButtonTextActive,
                           ]}
                         >
                           {status === 'unavailable'
@@ -206,32 +294,28 @@ export default function AvailabilityScreen() {
                   )}
                 </View>
 
-                {editingDay.status === 'available' && (
+                {formStatus === 'available' && (
                   <>
                     <View style={styles.timeRow}>
                       <TextInput
                         style={styles.timeInput}
                         placeholder="09:00"
-                        value={editingDay.startTime}
-                        onChangeText={(value) =>
-                          updateDay(editingDay.dayOfWeek, { startTime: value })
-                        }
+                        value={formStartTime}
+                        onChangeText={setFormStartTime}
                       />
                       <Text style={styles.timeSeparator}>–</Text>
                       <TextInput
                         style={styles.timeInput}
                         placeholder="17:00"
-                        value={editingDay.endTime}
-                        onChangeText={(value) =>
-                          updateDay(editingDay.dayOfWeek, { endTime: value })
-                        }
+                        value={formEndTime}
+                        onChangeText={setFormEndTime}
                       />
                     </View>
 
                     <Text style={styles.sectionLabel}>Positions</Text>
                     <View style={styles.positionsWrap}>
                       {POSITIONS.map((position) => {
-                        const selected = editingDay.positions?.includes(position) ?? false;
+                        const selected = formPositions.includes(position);
                         return (
                           <Pressable
                             key={position}
@@ -242,7 +326,7 @@ export default function AvailabilityScreen() {
                                 borderColor: POSITION_COLORS[position],
                               },
                             ]}
-                            onPress={() => togglePosition(editingDay.dayOfWeek, position)}
+                            onPress={() => togglePosition(position)}
                           >
                             <Ionicons
                               name={POSITION_ICONS[position]}
@@ -264,10 +348,41 @@ export default function AvailabilityScreen() {
                   </>
                 )}
 
-                <Pressable style={styles.doneButton} onPress={() => setOpenDay(null)}>
-                  <Ionicons name="checkmark" size={18} color="#fff" />
-                  <Text style={styles.doneButtonText}>Done</Text>
+                {error && <Text style={styles.error}>{error}</Text>}
+
+                <Pressable
+                  style={[styles.doneButton, isSaving && styles.buttonDisabled]}
+                  onPress={onSave}
+                  disabled={isSaving || isClearing}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={18} color="#fff" />
+                      <Text style={styles.doneButtonText}>Save</Text>
+                    </>
+                  )}
                 </Pressable>
+
+                <View style={styles.secondaryRow}>
+                  {entryForDay(openDay) && (
+                    <Pressable
+                      style={styles.clearButton}
+                      onPress={onClear}
+                      disabled={isSaving || isClearing}
+                    >
+                      {isClearing ? (
+                        <ActivityIndicator color={colors.danger} size="small" />
+                      ) : (
+                        <Text style={styles.clearButtonText}>Clear</Text>
+                      )}
+                    </Pressable>
+                  )}
+                  <Pressable style={styles.cancelButton} onPress={() => setOpenDay(null)}>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </Pressable>
+                </View>
               </>
             )}
           </View>
@@ -280,8 +395,29 @@ export default function AvailabilityScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionTitleDark: { fontSize: 13, fontWeight: '700', color: colors.text },
+  weekNavRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  weekNavTitle: { flex: 1, alignItems: 'center', gap: 2 },
+  weekNavButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...cardShadow,
+  },
+  weekNavButtonText: { fontSize: 18, fontWeight: '700', color: colors.text },
+  currentWeekBadge: {
+    backgroundColor: colors.infoBg,
+    borderRadius: 999,
+    paddingVertical: 2,
+    paddingHorizontal: 10,
+  },
+  currentWeekBadgeText: { fontSize: 11, fontWeight: '700', color: colors.infoText },
+  jumpToTodayText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  error: { color: colors.danger, marginBottom: 8 },
   list: { gap: 8, paddingBottom: 16 },
   dayRow: {
     flexDirection: 'row',
@@ -292,22 +428,11 @@ const styles = StyleSheet.create({
     padding: 14,
     ...cardShadow,
   },
+  dayRowPast: { opacity: 0.6 },
   dayIcon: { width: 22 },
   dayTextGroup: { flex: 1 },
   dayLabel: { fontSize: 16, fontWeight: '600', color: colors.text },
   daySummary: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  message: { textAlign: 'center', color: colors.textMuted, marginBottom: 8 },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.teal,
-    borderRadius: 10,
-    padding: 14,
-  },
-  saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -372,4 +497,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   doneButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  buttonDisabled: { opacity: 0.6 },
+  secondaryRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+  clearButton: { padding: 8 },
+  clearButtonText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
+  cancelButton: { padding: 8 },
+  cancelButtonText: { color: colors.textMuted, fontSize: 14 },
 });
