@@ -13,4 +13,6 @@ export type AppStackParamList = {
   Onboarding: undefined;
   Profile: undefined;
   BuildSchedule: undefined;
+  Messages: undefined;
+  Chat: { employeeId: string; employeeName: string };
 };

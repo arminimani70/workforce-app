@@ -3,7 +3,14 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
-import { availabilityApi, schedulingApi, tasksApi, timeClockApi, usersApi } from '../api/client';
+import {
+  availabilityApi,
+  messagesApi,
+  schedulingApi,
+  tasksApi,
+  timeClockApi,
+  usersApi,
+} from '../api/client';
 import type { AppStackParamList } from '../navigation/types';
 import type { Shift, TimeClockEntry } from '../types/api';
 import { currentWeekRange, formatElapsed, fullDayRange } from '../utils/time';
@@ -68,6 +75,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [availableDaysCount, setAvailableDaysCount] = useState<number | null>(null);
   const [teamSize, setTeamSize] = useState<number | null>(null);
   const [pendingTaskCount, setPendingTaskCount] = useState<number | null>(null);
+  const [unreadMessageCount, setUnreadMessageCount] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -130,6 +138,15 @@ export default function HomeScreen({ navigation }: Props) {
         // Leave the Tasks subtitle blank if the call fails.
       }
     })();
+
+    (async () => {
+      try {
+        const { count } = await authFetch((token) => messagesApi.unreadCount(token));
+        setUnreadMessageCount(count);
+      } catch {
+        // Leave the Messages subtitle blank if the call fails.
+      }
+    })();
   }, [authFetch]);
 
   useEffect(() => {
@@ -155,6 +172,13 @@ export default function HomeScreen({ navigation }: Props) {
       : pendingTaskCount === 0
         ? 'All caught up'
         : `${pendingTaskCount} open task${pendingTaskCount === 1 ? '' : 's'}`;
+
+  const messagesSubtitle =
+    unreadMessageCount === null
+      ? ' '
+      : unreadMessageCount === 0
+        ? 'No new messages'
+        : `${unreadMessageCount} unread message${unreadMessageCount === 1 ? '' : 's'}`;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
@@ -212,6 +236,14 @@ export default function HomeScreen({ navigation }: Props) {
         title="Tasks"
         subtitle={tasksSubtitle}
         onPress={() => navigation.navigate('Tasks')}
+      />
+
+      <DashboardCard
+        icon="chatbubbles-outline"
+        tint={colors.primaryDark}
+        title="Messages"
+        subtitle={messagesSubtitle}
+        onPress={() => navigation.navigate('Messages')}
       />
 
       <DashboardCard

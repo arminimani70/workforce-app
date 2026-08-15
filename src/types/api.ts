@@ -157,3 +157,22 @@ export interface SwapRequest {
   decidedBy?: string;
   createdAt: string;
 }
+
+// Direct 1:1 messages — senderId is always populated; recipientId is a bare id (only the
+// sender's identity matters for rendering a thread).
+export interface ChatMessage {
+  _id: string;
+  senderId: { _id: string; fullName: string; role: UserRole };
+  recipientId: string;
+  text: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface Conversation {
+  employeeId: { _id: string; fullName: string; role: UserRole };
+  lastMessage: string;
+  lastMessageAt: string;
+  lastMessageFromMe: boolean;
+  unreadCount: number;
+}

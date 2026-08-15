@@ -2,6 +2,8 @@ import type {
   ApiError,
   AvailabilityEntry,
   AvailabilityStatus,
+  ChatMessage,
+  Conversation,
   CoworkerShift,
   CurrentUser,
   OnboardingGuide,
@@ -258,6 +260,26 @@ export const swapRequestsApi = {
 
   deny: (accessToken: string, id: string) =>
     request<SwapRequest>(`/shifts/swap-requests/${id}/deny`, { method: 'PATCH', accessToken }),
+};
+
+export const messagesApi = {
+  send: (accessToken: string, dto: { recipientId: string; text: string }) =>
+    request<ChatMessage>('/messages', { method: 'POST', accessToken, body: dto }),
+
+  conversations: (accessToken: string) =>
+    request<Conversation[]>('/messages/conversations', { accessToken }),
+
+  unreadCount: (accessToken: string) =>
+    request<{ count: number }>('/messages/unread-count', { accessToken }),
+
+  thread: (accessToken: string, employeeId: string) =>
+    request<ChatMessage[]>(`/messages/with/${employeeId}`, { accessToken }),
+
+  markRead: (accessToken: string, employeeId: string) =>
+    request<{ acknowledged: boolean }>(`/messages/with/${employeeId}/read`, {
+      method: 'PATCH',
+      accessToken,
+    }),
 };
 
 export const onboardingApi = {

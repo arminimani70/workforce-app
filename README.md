@@ -152,6 +152,15 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   the whole batch. Arriving here via Schedule's "Tasks for this day" link filters both lists
   to that one date client-side (a "Show all tasks" link clears it) — there's no separate
   date-filtered endpoint, it's the same `GET /tasks/me` / `GET /tasks` data.
+- **Messages** — direct 1:1 chat with any other org member, no role restriction. The
+  conversation list (`GET /messages/conversations`) shows the other person, a preview of the
+  last message, and an unread badge, polling every 8 seconds while the screen is focused; a
+  "New Message" button opens a picker over the Team directory to start a new thread. Opening a
+  thread (`GET /messages/with/:employeeId`) polls every 4 seconds and marks it read
+  (`PATCH /messages/with/:employeeId/read`); messages render as bubbles (mine right-aligned,
+  theirs left) with a plain text input and send button (`POST /messages`). Text-only for
+  now — no image/PDF/Word attachments yet, though the backend schema already leaves room for
+  one. Home's Messages card shows the total unread count (`GET /messages/unread-count`).
 - **Onboarding** — a single plain-text guide per organization (`GET /onboarding`) that every
   member can read; owner/manager see an Edit button that swaps the read view for a multiline
   text box and a Save/Cancel pair (`PUT /onboarding`). Shows an empty state prompting

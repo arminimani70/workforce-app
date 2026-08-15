@@ -14,6 +14,8 @@ import TasksScreen from '../screens/TasksScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import BuildScheduleScreen from '../screens/BuildScheduleScreen';
+import MessagesScreen from '../screens/MessagesScreen';
+import ChatScreen from '../screens/ChatScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 import { colors } from '../theme/colors';
 
@@ -74,6 +76,16 @@ export default function RootNavigator() {
             name="BuildSchedule"
             component={BuildScheduleScreen}
             options={{ title: 'Build Schedule' }}
+          />
+          <AppStack.Screen
+            name="Messages"
+            component={MessagesScreen}
+            options={{ title: 'Messages' }}
+          />
+          <AppStack.Screen
+            name="Chat"
+            component={ChatScreen}
+            options={({ route }) => ({ title: route.params.employeeName })}
           />
         </AppStack.Navigator>
       ) : (
