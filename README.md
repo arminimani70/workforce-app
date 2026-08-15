@@ -163,17 +163,22 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   theirs left) with a plain text input and send button (`POST /messages`). Text-only for
   now — no image/PDF/Word attachments yet, though the backend schema already leaves room for
   one. Home's Messages card shows the total unread count (`GET /messages/unread-count`).
-- **Checklists** — opening/closing duty lists per (position, branch), reached from Schedule
-  rather than as its own top-level screen. Tapping one of "Your Shift"'s entries in Schedule's
-  day-detail popup opens that shift's checklist (`GET /checklists/shift/:shiftId`): an
-  **Opening** and a **Closing** section, each a list of items you tap to check off — every tap
-  saves immediately (`PATCH /checklists/shift/:shiftId/opening` / `/closing`), and unchecking
-  works the same way. If nobody's defined a checklist for that shift's position/branch yet,
-  the section just says so. Owner/manager get a **Manage Checklists** button on Schedule
-  (alongside Build Week Schedule/New Shift) that opens a list of every existing template plus
-  an editor: pick a **Position**, type a **Branch**, then freely add/remove line items for
-  each section and Save (`PUT /checklists/templates`) — picking a position+branch that already
-  has a template loads it for editing instead of starting blank.
+- **Checklists** — opening/closing duty lists per position, optionally narrowed to a branch,
+  reached from Schedule rather than as its own top-level screen. Tapping one of "Your Shift"'s
+  entries in Schedule's day-detail popup opens that shift's checklist
+  (`GET /checklists/shift/:shiftId`): an **Opening** and a **Closing** section, each a list of
+  items you tap to check off — every tap saves immediately
+  (`PATCH /checklists/shift/:shiftId/opening` / `/closing`), and unchecking works the same way.
+  If nobody's defined a checklist that applies to that shift's position, the section just says
+  so; if the shift has no position at all, a warning explains that a manager needs to set one.
+  Owner/manager get a **Manage Checklists** button on Schedule (alongside Build Week
+  Schedule/New Shift) that opens a list of every existing template plus an editor: pick a
+  **Position**, optionally type a **Branch** (leave it blank to make this the position's
+  default — applied to any shift with that position that doesn't have a more specific
+  branch-only template of its own, including shifts with no branch set at all, which is common
+  since Job Site is optional when scheduling), then freely add/remove line items for each
+  section and Save (`PUT /checklists/templates`) — picking a position+branch that already has
+  a template loads it for editing instead of starting blank.
 - **Onboarding** — a single plain-text guide per organization (`GET /onboarding`) that every
   member can read; owner/manager see an Edit button that swaps the read view for a multiline
   text box and a Save/Cancel pair (`PUT /onboarding`). Shows an empty state prompting

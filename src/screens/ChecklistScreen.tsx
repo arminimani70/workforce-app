@@ -151,15 +151,10 @@ export default function ChecklistScreen() {
         </View>
       )}
 
-      {(!checklist.position || !checklist.jobSite) && (
+      {!checklist.position && (
         <NoteBox variant="warning">
-          This shift is missing a {!checklist.position && !checklist.jobSite
-            ? 'position and branch'
-            : !checklist.position
-              ? 'position'
-              : 'branch'}
-          , so no checklist can be matched to it. Ask a manager to set{' '}
-          {!checklist.position && !checklist.jobSite ? 'them' : 'it'} on this shift.
+          This shift has no position set, so no checklist can be matched to it. Ask a manager
+          to set one on this shift.
         </NoteBox>
       )}
 

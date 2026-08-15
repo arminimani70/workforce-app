@@ -96,10 +96,6 @@ export default function ManageChecklistsScreen() {
       setError('Pick a position');
       return;
     }
-    if (!jobSite.trim()) {
-      setError('Enter a branch');
-      return;
-    }
     setError(null);
     setMessage(null);
     setIsSaving(true);
@@ -149,7 +145,7 @@ export default function ManageChecklistsScreen() {
                 color={POSITION_COLORS[template.position]}
               />
               <Text style={styles.templateText}>
-                {POSITION_LABELS[template.position]} · {template.jobSite}
+                {POSITION_LABELS[template.position]} · {template.jobSite || 'All branches'}
               </Text>
               <Text style={styles.templateMeta}>
                 {template.openingItems.length} opening · {template.closingItems.length} closing
@@ -188,10 +184,10 @@ export default function ManageChecklistsScreen() {
         })}
       </View>
 
-      <Text style={styles.sectionLabel}>Branch</Text>
+      <Text style={styles.sectionLabel}>Branch (optional — leave blank for every branch)</Text>
       <TextInput
         style={styles.input}
-        placeholder="e.g. Downtown"
+        placeholder="e.g. Downtown — blank applies to shifts with no branch too"
         value={jobSite}
         onChangeText={setJobSite}
         onBlur={onJobSiteBlur}
