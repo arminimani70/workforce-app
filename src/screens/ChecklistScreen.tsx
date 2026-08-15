@@ -8,6 +8,7 @@ import { checklistsApi, HttpError } from '../api/client';
 import type { ShiftChecklist } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
+import { NoteBox } from '../components/NoteBox';
 import type { AppStackParamList } from '../navigation/types';
 
 function ChecklistSection({
@@ -148,6 +149,18 @@ export default function ChecklistScreen() {
             </View>
           )}
         </View>
+      )}
+
+      {(!checklist.position || !checklist.jobSite) && (
+        <NoteBox variant="warning">
+          This shift is missing a {!checklist.position && !checklist.jobSite
+            ? 'position and branch'
+            : !checklist.position
+              ? 'position'
+              : 'branch'}
+          , so no checklist can be matched to it. Ask a manager to set{' '}
+          {!checklist.position && !checklist.jobSite ? 'them' : 'it'} on this shift.
+        </NoteBox>
       )}
 
       {error && <Text style={styles.error}>{error}</Text>}
