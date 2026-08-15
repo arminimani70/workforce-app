@@ -18,6 +18,9 @@ import MessagesScreen from '../screens/MessagesScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ChecklistScreen from '../screens/ChecklistScreen';
 import ManageChecklistsScreen from '../screens/ManageChecklistsScreen';
+import FormsScreen from '../screens/FormsScreen';
+import ManageFormsScreen from '../screens/ManageFormsScreen';
+import FormSubmissionsScreen from '../screens/FormSubmissionsScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 import { colors } from '../theme/colors';
 
@@ -98,6 +101,17 @@ export default function RootNavigator() {
             name="ManageChecklists"
             component={ManageChecklistsScreen}
             options={{ title: 'Manage Checklists' }}
+          />
+          <AppStack.Screen name="Forms" component={FormsScreen} options={{ title: 'Forms' }} />
+          <AppStack.Screen
+            name="ManageForms"
+            component={ManageFormsScreen}
+            options={{ title: 'Manage Forms' }}
+          />
+          <AppStack.Screen
+            name="FormSubmissions"
+            component={FormSubmissionsScreen}
+            options={{ title: 'Submission History' }}
           />
         </AppStack.Navigator>
       ) : (

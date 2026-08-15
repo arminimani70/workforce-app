@@ -179,6 +179,15 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   since Job Site is optional when scheduling), then freely add/remove line items for each
   section and Save (`PUT /checklists/templates`) — picking a position+branch that already has
   a template loads it for editing instead of starting blank.
+- **Forms** (Home dashboard card) — an org-wide catalog of ad hoc report types (e.g. "Damaged
+  Product", "Equipment Malfunction", "Urgent Supply Request") — unlike Checklists these aren't
+  tied to a position or branch, so any employee can submit any of them, whenever something
+  needs reporting. Tapping one in the list opens a popup with a text/number input per field
+  (`GET /forms/templates` for the catalog, `POST /forms/submissions` to send it). Owner/manager
+  get two extra buttons: **Manage Forms** — a list of existing templates plus an editor (title
+  + freely add/remove fields, each with a label and a Text/Number type,
+  `PUT /forms/templates`) — and **Submission History** — every submission ever made, newest
+  first, with who submitted it and its field values (`GET /forms/submissions`).
 - **Onboarding** — a single plain-text guide per organization (`GET /onboarding`) that every
   member can read; owner/manager see an Edit button that swaps the read view for a multiline
   text box and a Save/Cancel pair (`PUT /onboarding`). Shows an empty state prompting

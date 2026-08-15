@@ -7,6 +7,10 @@ import type {
   Conversation,
   CoworkerShift,
   CurrentUser,
+  FormField,
+  FormFieldValue,
+  FormSubmission,
+  FormTemplate,
   OnboardingGuide,
   OrgAvailabilityEntry,
   OrgMember,
@@ -316,6 +320,29 @@ export const checklistsApi = {
       accessToken,
       body: { completedItems },
     }),
+};
+
+export const formsApi = {
+  listTemplates: (accessToken: string) =>
+    request<FormTemplate[]>('/forms/templates', { accessToken }),
+
+  // Owner/manager only. Include id to update an existing template in place.
+  upsertTemplate: (
+    accessToken: string,
+    dto: { id?: string; title: string; fields: FormField[] },
+  ) =>
+    request<FormTemplate>('/forms/templates', { method: 'PUT', accessToken, body: dto }),
+
+  // Owner/manager only.
+  deleteTemplate: (accessToken: string, id: string) =>
+    request<void>(`/forms/templates/${id}`, { method: 'DELETE', accessToken }),
+
+  submit: (accessToken: string, dto: { formTemplateId: string; values: FormFieldValue[] }) =>
+    request<FormSubmission>('/forms/submissions', { method: 'POST', accessToken, body: dto }),
+
+  // Owner/manager only.
+  listSubmissions: (accessToken: string) =>
+    request<FormSubmission[]>('/forms/submissions', { accessToken }),
 };
 
 export const onboardingApi = {

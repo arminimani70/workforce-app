@@ -198,3 +198,34 @@ export interface ShiftChecklist {
   openingCompletedItems: string[];
   closingCompletedItems: string[];
 }
+
+export type FormFieldType = 'text' | 'number';
+
+export interface FormField {
+  label: string;
+  type: FormFieldType;
+}
+
+// Org-wide catalog of ad hoc report types — not tied to a position or branch, unlike
+// checklists; anyone can submit any of them whenever something needs reporting.
+export interface FormTemplate {
+  _id: string;
+  title: string;
+  fields: FormField[];
+}
+
+export interface FormFieldValue {
+  label: string;
+  value: string;
+}
+
+// A filled-out form, as submitted — values are a label+value snapshot, not a live reference
+// to the template's current fields.
+export interface FormSubmission {
+  _id: string;
+  formTemplateId: string;
+  formTitle: string;
+  employeeId: { _id: string; fullName: string; role: UserRole };
+  values: FormFieldValue[];
+  createdAt: string;
+}

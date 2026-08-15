@@ -252,6 +252,14 @@ export default function HomeScreen({ navigation }: Props) {
       />
 
       <DashboardCard
+        icon="document-text-outline"
+        tint={colors.success}
+        title="Forms"
+        subtitle="Report issues, orders, and more"
+        onPress={() => navigation.navigate('Forms')}
+      />
+
+      <DashboardCard
         icon="school-outline"
         tint={colors.indigo}
         title="Onboarding"

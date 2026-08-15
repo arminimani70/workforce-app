@@ -17,4 +17,7 @@ export type AppStackParamList = {
   Chat: { employeeId: string; employeeName: string };
   Checklist: { shiftId: string };
   ManageChecklists: undefined;
+  Forms: undefined;
+  ManageForms: undefined;
+  FormSubmissions: undefined;
 };
