@@ -132,9 +132,14 @@ export interface TaskBatchResult {
   task?: Task;
 }
 
+export interface OnboardingSection {
+  title: string;
+  content: string;
+}
+
 export interface OnboardingGuide {
   organizationId: string;
-  content: string;
+  sections: OnboardingSection[];
   updatedAt: string | null;
 }
 

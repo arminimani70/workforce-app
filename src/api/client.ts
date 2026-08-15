@@ -12,6 +12,7 @@ import type {
   FormSubmission,
   FormTemplate,
   OnboardingGuide,
+  OnboardingSection,
   OrgAvailabilityEntry,
   OrgMember,
   OrgTask,
@@ -348,6 +349,6 @@ export const formsApi = {
 export const onboardingApi = {
   get: (accessToken: string) => request<OnboardingGuide>('/onboarding', { accessToken }),
 
-  update: (accessToken: string, content: string) =>
-    request<OnboardingGuide>('/onboarding', { method: 'PUT', accessToken, body: { content } }),
+  update: (accessToken: string, sections: OnboardingSection[]) =>
+    request<OnboardingGuide>('/onboarding', { method: 'PUT', accessToken, body: { sections } }),
 };

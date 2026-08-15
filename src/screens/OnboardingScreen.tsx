@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,24 +11,32 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, onboardingApi } from '../api/client';
+import type { OnboardingSection } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
+
+function emptySection(): OnboardingSection {
+  return { title: '', content: '' };
+}
 
 export default function OnboardingScreen() {
   const { user, authFetch } = useAuth();
-  const [content, setContent] = useState('');
+  const [sections, setSections] = useState<OnboardingSection[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState<OnboardingSection[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
 
   const canManage = user?.role === 'owner' || user?.role === 'manager';
 
   const load = useCallback(async () => {
     try {
       const guide = await authFetch((token) => onboardingApi.get(token));
-      setContent(guide.content);
+      setSections(guide.sections);
       setUpdatedAt(guide.updatedAt);
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load the onboarding guide');
@@ -41,8 +49,16 @@ export default function OnboardingScreen() {
     load();
   }, [load]);
 
+  const visibleSections = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return sections;
+    return sections.filter(
+      (s) => s.title.toLowerCase().includes(query) || s.content.toLowerCase().includes(query),
+    );
+  }, [sections, search]);
+
   const onStartEdit = () => {
-    setDraft(content);
+    setDraft(sections.length > 0 ? sections.map((s) => ({ ...s })) : [emptySection()]);
     setError(null);
     setIsEditing(true);
   };
@@ -51,12 +67,29 @@ export default function OnboardingScreen() {
     setIsEditing(false);
   };
 
+  const addSection = () => setDraft((prev) => [...prev, emptySection()]);
+
+  const updateSectionTitle = (index: number, title: string) => {
+    setDraft((prev) => prev.map((s, i) => (i === index ? { ...s, title } : s)));
+  };
+
+  const updateSectionContent = (index: number, content: string) => {
+    setDraft((prev) => prev.map((s, i) => (i === index ? { ...s, content } : s)));
+  };
+
+  const removeSection = (index: number) => {
+    setDraft((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const onSave = async () => {
+    const cleaned = draft
+      .map((s) => ({ title: s.title.trim(), content: s.content.trim() }))
+      .filter((s) => s.title);
     setError(null);
     setIsSaving(true);
     try {
-      const guide = await authFetch((token) => onboardingApi.update(token, draft));
-      setContent(guide.content);
+      const guide = await authFetch((token) => onboardingApi.update(token, cleaned));
+      setSections(guide.sections);
       setUpdatedAt(guide.updatedAt);
       setIsEditing(false);
     } catch (err) {
@@ -99,14 +132,35 @@ export default function OnboardingScreen() {
 
       {isEditing ? (
         <View style={styles.editBox}>
-          <TextInput
-            style={styles.editInput}
-            multiline
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Welcome new hires! Cover the rules, dress code, how to clock in, who to ask for help…"
-            textAlignVertical="top"
-          />
+          {draft.map((section, index) => (
+            <View key={index} style={styles.editSectionBox}>
+              <View style={styles.editSectionHeaderRow}>
+                <TextInput
+                  style={styles.titleInput}
+                  value={section.title}
+                  onChangeText={(value) => updateSectionTitle(index, value)}
+                  placeholder="Section title, e.g. Dress Code"
+                />
+                <Pressable onPress={() => removeSection(index)} hitSlop={8}>
+                  <Ionicons name="close-circle" size={22} color={colors.danger} />
+                </Pressable>
+              </View>
+              <TextInput
+                style={styles.editInput}
+                multiline
+                value={section.content}
+                onChangeText={(value) => updateSectionContent(index, value)}
+                placeholder="What new hires need to know about this…"
+                textAlignVertical="top"
+              />
+            </View>
+          ))}
+
+          <Pressable style={styles.addSectionButton} onPress={addSection}>
+            <Ionicons name="add" size={16} color={colors.indigo} />
+            <Text style={styles.addSectionButtonText}>Add section</Text>
+          </Pressable>
+
           <View style={styles.editActions}>
             <Pressable style={styles.cancelButton} onPress={onCancelEdit} disabled={isSaving}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -127,11 +181,7 @@ export default function OnboardingScreen() {
             </Pressable>
           </View>
         </View>
-      ) : content ? (
-        <View style={styles.contentBox}>
-          <Text style={styles.contentText}>{content}</Text>
-        </View>
-      ) : (
+      ) : sections.length === 0 ? (
         <View style={styles.emptyBox}>
           <Ionicons name="book-outline" size={28} color={colors.textFaint} />
           <Text style={styles.emptyText}>No onboarding guide yet</Text>
@@ -139,6 +189,48 @@ export default function OnboardingScreen() {
             <Text style={styles.emptySubtext}>Tap Edit to write one for new hires</Text>
           )}
         </View>
+      ) : (
+        <>
+          <View style={styles.searchRow}>
+            <Ionicons name="search-outline" size={16} color={colors.textFaint} />
+            <TextInput
+              style={styles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search by title…"
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color={colors.textFaint} />
+              </Pressable>
+            )}
+          </View>
+
+          {visibleSections.length === 0 ? (
+            <Text style={styles.noResults}>No sections match "{search}"</Text>
+          ) : (
+            visibleSections.map((section) => {
+              const isOpen = expandedTitle === section.title;
+              return (
+                <Pressable
+                  key={section.title}
+                  style={styles.sectionCard}
+                  onPress={() => setExpandedTitle(isOpen ? null : section.title)}
+                >
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={styles.sectionCardTitle}>{section.title}</Text>
+                    <Ionicons
+                      name={isOpen ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color={colors.textFaint}
+                    />
+                  </View>
+                  {isOpen && <Text style={styles.sectionCardContent}>{section.content}</Text>}
+                </Pressable>
+              );
+            })
+          )}
+        </>
       )}
     </ScrollView>
   );
@@ -164,13 +256,27 @@ const styles = StyleSheet.create({
   editButtonText: { color: colors.indigo, fontSize: 13, fontWeight: '600' },
   updatedText: { fontSize: 12, color: colors.textFaint, marginTop: -4 },
   error: { color: colors.danger },
-  contentBox: {
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     ...cardShadow,
   },
-  contentText: { fontSize: 15, lineHeight: 22, color: colors.text },
+  searchInput: { flex: 1, fontSize: 14, color: colors.text },
+  noResults: { fontSize: 13, color: colors.textFaint, textAlign: 'center', marginTop: 12 },
+  sectionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    ...cardShadow,
+  },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionCardTitle: { fontSize: 15, fontWeight: '700', color: colors.text, flex: 1 },
+  sectionCardContent: { fontSize: 14, lineHeight: 21, color: colors.text, marginTop: 10 },
   emptyBox: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -181,20 +287,32 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: 14, fontWeight: '600', color: colors.textMuted },
   emptySubtext: { fontSize: 13, color: colors.textFaint },
-  editBox: {
+  editBox: { gap: 10 },
+  editSectionBox: {
     backgroundColor: colors.surface,
     borderRadius: 14,
     padding: 12,
-    gap: 10,
+    gap: 8,
     ...cardShadow,
   },
-  editInput: {
-    minHeight: 220,
+  editSectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  titleInput: {
+    flex: 1,
     fontSize: 15,
-    lineHeight: 22,
+    fontWeight: '700',
     color: colors.text,
-    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 4,
   },
+  editInput: {
+    minHeight: 100,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text,
+  },
+  addSectionButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  addSectionButtonText: { fontSize: 13, fontWeight: '600', color: colors.indigo },
   editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   cancelButton: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8 },
   cancelButtonText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },

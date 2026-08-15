@@ -188,10 +188,13 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   + freely add/remove fields, each with a label and a Text/Number type,
   `PUT /forms/templates`) — and **Submission History** — every submission ever made, newest
   first, with who submitted it and its field values (`GET /forms/submissions`).
-- **Onboarding** — a single plain-text guide per organization (`GET /onboarding`) that every
-  member can read; owner/manager see an Edit button that swaps the read view for a multiline
-  text box and a Save/Cancel pair (`PUT /onboarding`). Shows an empty state prompting
-  owner/manager to write one if the org hasn't yet.
+- **Onboarding** — a guide per organization (`GET /onboarding`) made of titled sections rather
+  than one long text blob. Each section is a card showing just its title; tapping one expands
+  it in place to read the content, tapping again collapses it. A search box above the list
+  filters by title (and content) as you type. Owner/manager see an Edit button that swaps the
+  read view for a list of title+content blocks they can freely add to or remove from, saved
+  together as one Save (`PUT /onboarding`, replaces the whole `sections` array). Shows an empty
+  state prompting owner/manager to write one if the org hasn't yet.
 - **Profile** — self-service only, no admin-editing-others flow. A large avatar (photo or
   initials) with "Choose Photo"/"Take Photo" buttons (`expo-image-picker`, resized to 400px
   wide and JPEG-compressed via `expo-image-manipulator` before upload as a base64 data URI —
