@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import type { OrgMember, OrgTask, Position, Task, TaskStatus } from '../types/ap
 import { cardShadow, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
+import { PopupModal } from '../components/PopupModal';
 import type { AppStackParamList } from '../navigation/types';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -360,13 +360,7 @@ export default function TasksScreen() {
         </>
       )}
 
-      <Modal
-        visible={isModalOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIsModalOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
+      <PopupModal visible={isModalOpen} onClose={() => setIsModalOpen(false)}>
           <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
             <View style={styles.modalTitleRow}>
               <Ionicons name="add-circle-outline" size={18} color={colors.text} />
@@ -539,8 +533,7 @@ export default function TasksScreen() {
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
           </ScrollView>
-        </View>
-      </Modal>
+      </PopupModal>
     </ScrollView>
   );
 }
@@ -594,11 +587,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   newTaskButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
   modalCard: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 16,

@@ -38,6 +38,14 @@ Connecteam-style app. Backend lives in a separate repo:
   scales to however many branches an org ends up with, no schema change needed. Rendered as a
   small colored pill wherever a branch name shows up next to a person (Schedule's day-detail
   popup, the week builder's Scheduled list).
+- `src/components/PopupModal.tsx` — every popup in the app (New Shift, Schedule's day-detail
+  and swap-request popups, Add to Schedule, the Availability day editor, New Task, Time Clock's
+  range calendar) is built on this one wrapper: tapping the dimmed area outside the card
+  dismisses it, tapping inside the card doesn't. One shared implementation means that behavior
+  can't drift between screens.
+- `src/components/TimeInput.tsx` — every `HH:mm` field (shift/availability start and end times)
+  is this component: a text field you can still type into, plus small up/down chevron buttons
+  that nudge the value by 15 minutes, wrapping around midnight.
 
 ## Getting started
 

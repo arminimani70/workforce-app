@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
@@ -7,6 +7,7 @@ import { HttpError, timeClockApi } from '../api/client';
 import type { TimeClockEntry } from '../types/api';
 import { formatElapsed, formatHoursMinutes } from '../utils/time';
 import { cardShadow, colors } from '../theme/colors';
+import { PopupModal } from '../components/PopupModal';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTH_LABEL_OPTIONS: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
@@ -248,13 +249,7 @@ export default function TimeClockScreen() {
         </View>
       </View>
 
-      <Modal
-        visible={isCalendarOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIsCalendarOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
+      <PopupModal visible={isCalendarOpen} onClose={() => setIsCalendarOpen(false)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Select a Date Range</Text>
 
@@ -348,8 +343,7 @@ export default function TimeClockScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
-      </Modal>
+      </PopupModal>
     </View>
   );
 }
@@ -412,11 +406,6 @@ const styles = StyleSheet.create({
   rangePickerText: { fontSize: 14, fontWeight: '600', color: colors.text },
   totalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   totalValue: { fontSize: 24, fontWeight: '700', color: colors.text },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
   modalCard: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 16,

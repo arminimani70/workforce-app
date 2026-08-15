@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,8 @@ import type { CoworkerShift, OrgMember, Position, Shift, SwapRequest } from '../
 import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
+import { PopupModal } from '../components/PopupModal';
+import { TimeInput } from '../components/TimeInput';
 import type { AppStackParamList } from '../navigation/types';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -693,13 +694,7 @@ export default function ScheduleScreen() {
         </Pressable>
       )}
 
-      <Modal
-        visible={isModalOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIsModalOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
+      <PopupModal visible={isModalOpen} onClose={() => setIsModalOpen(false)}>
           <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
             <Text style={styles.formTitle}>New Shift</Text>
 
@@ -749,19 +744,9 @@ export default function ScheduleScreen() {
 
             <Text style={styles.sectionLabel}>Time</Text>
             <View style={styles.timeRow}>
-              <TextInput
-                style={styles.timeInput}
-                placeholder="09:00"
-                value={modalStartTime}
-                onChangeText={setModalStartTime}
-              />
+              <TimeInput placeholder="09:00" value={modalStartTime} onChange={setModalStartTime} />
               <Text style={styles.timeSeparator}>–</Text>
-              <TextInput
-                style={styles.timeInput}
-                placeholder="17:00"
-                value={modalEndTime}
-                onChangeText={setModalEndTime}
-              />
+              <TimeInput placeholder="17:00" value={modalEndTime} onChange={setModalEndTime} />
             </View>
 
             <Text style={styles.sectionLabel}>For</Text>
@@ -838,16 +823,9 @@ export default function ScheduleScreen() {
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
           </ScrollView>
-        </View>
-      </Modal>
+      </PopupModal>
 
-      <Modal
-        visible={detailDay !== null}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setDetailDay(null)}
-      >
-        <View style={styles.modalBackdrop}>
+      <PopupModal visible={detailDay !== null} onClose={() => setDetailDay(null)}>
           <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
             {detailDay && (
               <>
@@ -966,16 +944,9 @@ export default function ScheduleScreen() {
               </>
             )}
           </ScrollView>
-        </View>
-      </Modal>
+      </PopupModal>
 
-      <Modal
-        visible={isSwapModalOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIsSwapModalOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
+      <PopupModal visible={isSwapModalOpen} onClose={() => setIsSwapModalOpen(false)}>
           <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
             <Text style={styles.formTitle}>Request Shift Swap</Text>
 
@@ -1059,8 +1030,7 @@ export default function ScheduleScreen() {
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
           </ScrollView>
-        </View>
-      </Modal>
+      </PopupModal>
     </ScrollView>
   );
 }
@@ -1247,11 +1217,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 14,
   },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
   modalCard: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 16,
@@ -1271,15 +1236,6 @@ const styles = StyleSheet.create({
   weekNavButtonText: { fontSize: 18, fontWeight: '700', color: '#333' },
   weekNavLabel: { fontSize: 14, fontWeight: '600', color: '#111' },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  timeInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 15,
-    textAlign: 'center',
-  },
   timeSeparator: { fontSize: 15, color: '#666' },
   cancelButton: { alignItems: 'center', padding: 8 },
   cancelButtonText: { color: '#666', fontSize: 14 },

@@ -1,14 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, HttpError } from '../api/client';
@@ -16,6 +7,8 @@ import { POSITIONS } from '../types/api';
 import type { AvailabilityEntry, AvailabilityStatus, Position } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
+import { PopupModal } from '../components/PopupModal';
+import { TimeInput } from '../components/TimeInput';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -243,13 +236,7 @@ export default function AvailabilityScreen() {
         })}
       </ScrollView>
 
-      <Modal
-        visible={openDay !== null}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setOpenDay(null)}
-      >
-        <View style={styles.modalBackdrop}>
+      <PopupModal visible={openDay !== null} onClose={() => setOpenDay(null)}>
           <View style={styles.modalCard}>
             {openDay && (
               <>
@@ -297,19 +284,9 @@ export default function AvailabilityScreen() {
                 {formStatus === 'available' && (
                   <>
                     <View style={styles.timeRow}>
-                      <TextInput
-                        style={styles.timeInput}
-                        placeholder="09:00"
-                        value={formStartTime}
-                        onChangeText={setFormStartTime}
-                      />
+                      <TimeInput placeholder="09:00" value={formStartTime} onChange={setFormStartTime} />
                       <Text style={styles.timeSeparator}>–</Text>
-                      <TextInput
-                        style={styles.timeInput}
-                        placeholder="17:00"
-                        value={formEndTime}
-                        onChangeText={setFormEndTime}
-                      />
+                      <TimeInput placeholder="17:00" value={formEndTime} onChange={setFormEndTime} />
                     </View>
 
                     <Text style={styles.sectionLabel}>Positions</Text>
@@ -386,8 +363,7 @@ export default function AvailabilityScreen() {
               </>
             )}
           </View>
-        </View>
-      </Modal>
+      </PopupModal>
     </View>
   );
 }
@@ -433,11 +409,6 @@ const styles = StyleSheet.create({
   dayTextGroup: { flex: 1 },
   dayLabel: { fontSize: 16, fontWeight: '600', color: colors.text },
   daySummary: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
   modalCard: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 16,
@@ -462,15 +433,6 @@ const styles = StyleSheet.create({
   statusButtonText: { fontSize: 13, fontWeight: '600', color: colors.text },
   statusButtonTextActive: { color: '#fff' },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  timeInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 15,
-    textAlign: 'center',
-  },
   timeSeparator: { fontSize: 15, color: colors.textMuted },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginTop: 8 },
   positionsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

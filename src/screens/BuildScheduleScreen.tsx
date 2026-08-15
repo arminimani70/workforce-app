@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,8 @@ import type { OrgAvailabilityEntry, OrgMember, Position, Shift } from '../types/
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
+import { PopupModal } from '../components/PopupModal';
+import { TimeInput } from '../components/TimeInput';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -354,13 +355,7 @@ export default function BuildScheduleScreen() {
         )}
       </Pressable>
 
-      <Modal
-        visible={modalTarget !== null}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setModalTarget(null)}
-      >
-        <View style={styles.modalBackdrop}>
+      <PopupModal visible={modalTarget !== null} onClose={() => setModalTarget(null)}>
           <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
             <Text style={styles.formTitle}>Add to Schedule</Text>
             {modalTarget && (
@@ -376,19 +371,9 @@ export default function BuildScheduleScreen() {
 
             <Text style={styles.sectionLabel}>Time</Text>
             <View style={styles.timeRow}>
-              <TextInput
-                style={styles.timeInput}
-                placeholder="09:00"
-                value={modalStartTime}
-                onChangeText={setModalStartTime}
-              />
+              <TimeInput placeholder="09:00" value={modalStartTime} onChange={setModalStartTime} />
               <Text style={styles.timeSeparator}>–</Text>
-              <TextInput
-                style={styles.timeInput}
-                placeholder="17:00"
-                value={modalEndTime}
-                onChangeText={setModalEndTime}
-              />
+              <TimeInput placeholder="17:00" value={modalEndTime} onChange={setModalEndTime} />
             </View>
 
             <Text style={styles.sectionLabel}>Position (optional)</Text>
@@ -445,8 +430,7 @@ export default function BuildScheduleScreen() {
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
           </ScrollView>
-        </View>
-      </Modal>
+      </PopupModal>
     </ScrollView>
   );
 }
@@ -544,11 +528,6 @@ const styles = StyleSheet.create({
   },
   publishButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   buttonDisabled: { opacity: 0.6 },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
   modalCard: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 16,
@@ -560,15 +539,6 @@ const styles = StyleSheet.create({
   modalSubtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 4 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginTop: 4 },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  timeInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 15,
-    textAlign: 'center',
-  },
   timeSeparator: { fontSize: 15, color: colors.textMuted },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
