@@ -3,6 +3,7 @@ import type {
   AvailabilityEntry,
   AvailabilityStatus,
   ChatMessage,
+  ChecklistTemplate,
   Conversation,
   CoworkerShift,
   CurrentUser,
@@ -12,6 +13,7 @@ import type {
   OrgTask,
   Position,
   Shift,
+  ShiftChecklist,
   SwapRequest,
   Task,
   TaskBatchResult,
@@ -279,6 +281,40 @@ export const messagesApi = {
     request<{ acknowledged: boolean }>(`/messages/with/${employeeId}/read`, {
       method: 'PATCH',
       accessToken,
+    }),
+};
+
+export const checklistsApi = {
+  // Owner/manager only.
+  upsertTemplate: (
+    accessToken: string,
+    dto: { position: Position; jobSite: string; openingItems: string[]; closingItems: string[] },
+  ) =>
+    request<ChecklistTemplate>('/checklists/templates', {
+      method: 'PUT',
+      accessToken,
+      body: dto,
+    }),
+
+  // Owner/manager only.
+  listTemplates: (accessToken: string) =>
+    request<ChecklistTemplate[]>('/checklists/templates', { accessToken }),
+
+  forShift: (accessToken: string, shiftId: string) =>
+    request<ShiftChecklist>(`/checklists/shift/${shiftId}`, { accessToken }),
+
+  updateOpening: (accessToken: string, shiftId: string, completedItems: string[]) =>
+    request<{ openingCompletedItems: string[] }>(`/checklists/shift/${shiftId}/opening`, {
+      method: 'PATCH',
+      accessToken,
+      body: { completedItems },
+    }),
+
+  updateClosing: (accessToken: string, shiftId: string, completedItems: string[]) =>
+    request<{ closingCompletedItems: string[] }>(`/checklists/shift/${shiftId}/closing`, {
+      method: 'PATCH',
+      accessToken,
+      body: { completedItems },
     }),
 };
 

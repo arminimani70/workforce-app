@@ -16,6 +16,8 @@ import ProfileScreen from '../screens/ProfileScreen';
 import BuildScheduleScreen from '../screens/BuildScheduleScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import ChatScreen from '../screens/ChatScreen';
+import ChecklistScreen from '../screens/ChecklistScreen';
+import ManageChecklistsScreen from '../screens/ManageChecklistsScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 import { colors } from '../theme/colors';
 
@@ -86,6 +88,16 @@ export default function RootNavigator() {
             name="Chat"
             component={ChatScreen}
             options={({ route }) => ({ title: route.params.employeeName })}
+          />
+          <AppStack.Screen
+            name="Checklist"
+            component={ChecklistScreen}
+            options={{ title: 'Checklist' }}
+          />
+          <AppStack.Screen
+            name="ManageChecklists"
+            component={ManageChecklistsScreen}
+            options={{ title: 'Manage Checklists' }}
           />
         </AppStack.Navigator>
       ) : (

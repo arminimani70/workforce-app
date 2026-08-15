@@ -15,4 +15,6 @@ export type AppStackParamList = {
   BuildSchedule: undefined;
   Messages: undefined;
   Chat: { employeeId: string; employeeName: string };
+  Checklist: { shiftId: string };
+  ManageChecklists: undefined;
 };

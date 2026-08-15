@@ -176,3 +176,25 @@ export interface Conversation {
   lastMessageFromMe: boolean;
   unreadCount: number;
 }
+
+// One per (position, jobSite) — what to do at the start and end of a shift for that
+// position at that branch.
+export interface ChecklistTemplate {
+  _id: string;
+  position: Position;
+  jobSite: string;
+  openingItems: string[];
+  closingItems: string[];
+}
+
+// The resolved checklist for one specific shift: the matching template's items (empty if none
+// defined) plus that shift's current completion progress.
+export interface ShiftChecklist {
+  shiftId: string;
+  position: Position | null;
+  jobSite: string | null;
+  openingItems: string[];
+  closingItems: string[];
+  openingCompletedItems: string[];
+  closingCompletedItems: string[];
+}

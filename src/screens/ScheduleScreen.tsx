@@ -688,6 +688,16 @@ export default function ScheduleScreen() {
       )}
 
       {canManage && (
+        <Pressable
+          style={styles.manageChecklistsButton}
+          onPress={() => navigation.navigate('ManageChecklists')}
+        >
+          <Ionicons name="checkbox-outline" size={18} color="#fff" />
+          <Text style={styles.newShiftButtonText}>Manage Checklists</Text>
+        </Pressable>
+      )}
+
+      {canManage && (
         <Pressable style={styles.newShiftButton} onPress={() => setIsModalOpen(true)}>
           <Ionicons name="add-circle-outline" size={18} color="#fff" />
           <Text style={styles.newShiftButtonText}>New Shift</Text>
@@ -847,7 +857,14 @@ export default function ScheduleScreen() {
                         <Text style={styles.noShift}>You're not scheduled this day</Text>
                       ) : (
                         dayShifts.map((shift) => (
-                          <View key={shift._id} style={styles.detailPersonRow}>
+                          <Pressable
+                            key={shift._id}
+                            style={styles.detailPersonRow}
+                            onPress={() => {
+                              setDetailDay(null);
+                              navigation.navigate('Checklist', { shiftId: shift._id });
+                            }}
+                          >
                             <Ionicons
                               name={shift.position ? POSITION_ICONS[shift.position] : 'time-outline'}
                               size={16}
@@ -858,7 +875,8 @@ export default function ScheduleScreen() {
                               {shift.position ? ` · ${POSITION_LABELS[shift.position]}` : ''}
                             </Text>
                             {shift.jobSite && <BranchTag jobSite={shift.jobSite} />}
-                          </View>
+                            <Ionicons name="checkbox-outline" size={16} color={colors.textFaint} />
+                          </Pressable>
                         ))
                       )}
 
@@ -1214,6 +1232,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: colors.teal,
+    borderRadius: 10,
+    padding: 14,
+  },
+  manageChecklistsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.indigo,
     borderRadius: 10,
     padding: 14,
   },
