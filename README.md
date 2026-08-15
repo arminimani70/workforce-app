@@ -42,7 +42,9 @@ Connecteam-style app. Backend lives in a separate repo:
   and swap-request popups, Add to Schedule, the Availability day editor, New Task, Time Clock's
   range calendar) is built on this one wrapper: tapping the dimmed area outside the card
   dismisses it, tapping inside the card doesn't. One shared implementation means that behavior
-  can't drift between screens.
+  can't drift between screens. The card is also lifted above the bottom safe area (the iOS
+  home indicator / Android gesture bar) so a button near the bottom of the card never crowds
+  the edge.
 - `src/components/TimeInput.tsx` — every `HH:mm` field (shift/availability start and end times)
   is this component: a text field you can still type into, plus small up/down chevron buttons
   that nudge the value by 15 minutes, wrapping around midnight.

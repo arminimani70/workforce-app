@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import {
   availabilityApi,
@@ -68,6 +69,7 @@ function DashboardCard({
 
 export default function HomeScreen({ navigation }: Props) {
   const { user, logout, authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [openEntry, setOpenEntry] = useState<TimeClockEntry | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [nextShift, setNextShift] = useState<Shift | null>(null);
@@ -181,7 +183,10 @@ export default function HomeScreen({ navigation }: Props) {
         : `${unreadMessageCount} unread message${unreadMessageCount === 1 ? '' : 's'}`;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
+    >
       <Pressable style={styles.header} onPress={() => navigation.navigate('Profile')}>
         {user?.avatarUrl ? (
           <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />

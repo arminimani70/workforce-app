@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,6 +14,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import { useHeaderHeight } from '@react-navigation/elements';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, messagesApi } from '../api/client';
 import type { ChatMessage } from '../types/api';
@@ -29,6 +32,8 @@ export default function ChatScreen() {
   const { user, authFetch } = useAuth();
   const route = useRoute<RouteProp<AppStackParamList, 'Chat'>>();
   const { employeeId } = route.params;
+  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [draft, setDraft] = useState('');
@@ -86,40 +91,42 @@ export default function ChatScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
+      keyboardVerticalOffset={headerHeight}
     >
-      <FlatList
-        ref={listRef}
-        data={reversed}
-        keyExtractor={(item) => item._id}
-        inverted
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.emptyRow}>
-            <Ionicons name="chatbubble-outline" size={16} color={colors.textFaint} />
-            <Text style={styles.empty}>No messages yet — say hello</Text>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const isMine = item.senderId._id === user?._id;
-          return (
-            <View style={[styles.bubbleRow, isMine && styles.bubbleRowMine]}>
-              <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>
-                  {item.text}
+      <Pressable style={styles.messageArea} onPress={Keyboard.dismiss}>
+        <FlatList
+          ref={listRef}
+          data={reversed}
+          keyExtractor={(item) => item._id}
+          inverted
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyRow}>
+              <Ionicons name="chatbubble-outline" size={16} color={colors.textFaint} />
+              <Text style={styles.empty}>No messages yet — say hello</Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const isMine = item.senderId._id === user?._id;
+            return (
+              <View style={[styles.bubbleRow, isMine && styles.bubbleRowMine]}>
+                <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
+                  <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>
+                    {item.text}
+                  </Text>
+                </View>
+                <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
+                  {formatMessageTime(item.createdAt)}
                 </Text>
               </View>
-              <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
-                {formatMessageTime(item.createdAt)}
-              </Text>
-            </View>
-          );
-        }}
-      />
+            );
+          }}
+        />
+      </Pressable>
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TextInput
           style={styles.input}
           placeholder="Message"
@@ -146,6 +153,7 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  messageArea: { flex: 1 },
   list: { padding: 16, gap: 8, flexGrow: 1, justifyContent: 'flex-end' },
   emptyRow: {
     flexDirection: 'row',
