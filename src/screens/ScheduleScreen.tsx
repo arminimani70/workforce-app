@@ -705,7 +705,7 @@ export default function ScheduleScreen() {
       )}
 
       <PopupModal visible={isModalOpen} onClose={() => setIsModalOpen(false)}>
-          <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+          <View style={styles.modalCard}>
             <Text style={styles.formTitle}>New Shift</Text>
 
             <Text style={styles.sectionLabel}>Week</Text>
@@ -832,11 +832,11 @@ export default function ScheduleScreen() {
             <Pressable style={styles.cancelButton} onPress={() => setIsModalOpen(false)}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
-          </ScrollView>
+          </View>
       </PopupModal>
 
       <PopupModal visible={detailDay !== null} onClose={() => setDetailDay(null)}>
-          <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+          <View style={styles.modalCard}>
             {detailDay && (
               <>
                 <Text style={styles.formTitle}>
@@ -961,11 +961,11 @@ export default function ScheduleScreen() {
                 </Pressable>
               </>
             )}
-          </ScrollView>
+          </View>
       </PopupModal>
 
       <PopupModal visible={isSwapModalOpen} onClose={() => setIsSwapModalOpen(false)}>
-          <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+          <View style={styles.modalCard}>
             <Text style={styles.formTitle}>Request Shift Swap</Text>
 
             {detailDay &&
@@ -1047,7 +1047,7 @@ export default function ScheduleScreen() {
             <Pressable style={styles.cancelButton} onPress={() => setIsSwapModalOpen(false)}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
-          </ScrollView>
+          </View>
       </PopupModal>
     </ScrollView>
   );
@@ -1249,7 +1249,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
-    maxHeight: '85%',
+    gap: 12,
   },
   weekNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   weekNavButton: {

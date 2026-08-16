@@ -148,15 +148,12 @@ export default function MessagesScreen() {
       <PopupModal visible={isNewMessageOpen} onClose={() => setIsNewMessageOpen(false)}>
         <View style={styles.modalCard}>
           <Text style={styles.formTitle}>New Message</Text>
-          <FlatList
-            data={members}
-            keyExtractor={(item) => item._id}
-            style={styles.pickerList}
-            ListEmptyComponent={
-              <Text style={styles.empty}>No other team members yet</Text>
-            }
-            renderItem={({ item }) => (
+          {members.length === 0 ? (
+            <Text style={styles.empty}>No other team members yet</Text>
+          ) : (
+            members.map((item) => (
               <Pressable
+                key={item._id}
                 style={styles.pickerRow}
                 onPress={() => {
                   setIsNewMessageOpen(false);
@@ -168,8 +165,8 @@ export default function MessagesScreen() {
                 </View>
                 <Text style={styles.pickerName}>{item.fullName}</Text>
               </Pressable>
-            )}
-          />
+            ))
+          )}
         </View>
       </PopupModal>
     </View>
@@ -232,10 +229,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
-    maxHeight: '70%',
   },
   formTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8 },
-  pickerList: { flexGrow: 0 },
   pickerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   pickerName: { fontSize: 15, fontWeight: '600', color: colors.text },
 });

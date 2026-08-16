@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
@@ -283,7 +283,7 @@ export default function TimeClockScreen() {
               ))}
             </View>
 
-            <ScrollView>
+            <View>
               {weeks.map((week, weekIndex) => (
                 <View key={weekIndex} style={styles.calendarWeekRow}>
                   {week.map((day, dayIndex) => {
@@ -328,7 +328,7 @@ export default function TimeClockScreen() {
                   })}
                 </View>
               ))}
-            </ScrollView>
+            </View>
 
             <View style={styles.modalActions}>
               <Pressable style={styles.cancelButton} onPress={() => setIsCalendarOpen(false)}>
@@ -411,7 +411,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
-    maxHeight: '80%',
     gap: 10,
   },
   modalTitle: { fontSize: 15, fontWeight: '700', color: colors.text },

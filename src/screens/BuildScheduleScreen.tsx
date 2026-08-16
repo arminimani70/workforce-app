@@ -356,7 +356,7 @@ export default function BuildScheduleScreen() {
       </Pressable>
 
       <PopupModal visible={modalTarget !== null} onClose={() => setModalTarget(null)}>
-          <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+          <View style={styles.modalCard}>
             <Text style={styles.formTitle}>Add to Schedule</Text>
             {modalTarget && (
               <Text style={styles.modalSubtitle}>
@@ -429,7 +429,7 @@ export default function BuildScheduleScreen() {
             <Pressable style={styles.cancelButton} onPress={() => setModalTarget(null)}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
-          </ScrollView>
+          </View>
       </PopupModal>
     </ScrollView>
   );
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
-    maxHeight: '85%',
+    gap: 12,
   },
   formTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 4 },
   modalSubtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 4 },

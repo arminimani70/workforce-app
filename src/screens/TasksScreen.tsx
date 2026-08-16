@@ -361,7 +361,7 @@ export default function TasksScreen() {
       )}
 
       <PopupModal visible={isModalOpen} onClose={() => setIsModalOpen(false)}>
-          <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+          <View style={styles.modalCard}>
             <View style={styles.modalTitleRow}>
               <Ionicons name="add-circle-outline" size={18} color={colors.text} />
               <Text style={styles.formTitle}>New Task</Text>
@@ -532,7 +532,7 @@ export default function TasksScreen() {
             <Pressable style={styles.cancelButton} onPress={() => setIsModalOpen(false)}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
-          </ScrollView>
+          </View>
       </PopupModal>
     </ScrollView>
   );
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
-    maxHeight: '85%',
+    gap: 12,
   },
   modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   formTitle: { fontSize: 15, fontWeight: '700', color: colors.text },

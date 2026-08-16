@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -143,7 +142,7 @@ export default function FormsScreen() {
       )}
 
       <PopupModal visible={activeTemplate !== null} onClose={() => setActiveTemplate(null)}>
-        <ScrollView style={styles.modalCard} contentContainerStyle={{ gap: 12 }}>
+        <View style={styles.modalCard}>
           <Text style={styles.formModalTitle}>{activeTemplate?.title}</Text>
           {activeTemplate?.fields.map((field, index) => (
             <View key={index}>
@@ -177,7 +176,7 @@ export default function FormsScreen() {
           <Pressable style={styles.cancelButton} onPress={() => setActiveTemplate(null)}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </Pressable>
-        </ScrollView>
+        </View>
       </PopupModal>
     </View>
   );
@@ -230,7 +229,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
-    maxHeight: '85%',
+    gap: 12,
   },
   formModalTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginBottom: 4 },
