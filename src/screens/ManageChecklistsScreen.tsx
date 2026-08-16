@@ -1,18 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
-import { checklistsApi, HttpError } from '../api/client';
+import { branchesApi, checklistsApi, HttpError } from '../api/client';
 import { POSITIONS } from '../types/api';
-import type { ChecklistTemplate, Position } from '../types/api';
+import type { Branch, ChecklistTemplate, Position } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
@@ -20,6 +12,7 @@ import { NoteBox } from '../components/NoteBox';
 export default function ManageChecklistsScreen() {
   const { authFetch } = useAuth();
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +25,12 @@ export default function ManageChecklistsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const result = await authFetch((token) => checklistsApi.listTemplates(token));
+      const [result, orgBranches] = await Promise.all([
+        authFetch((token) => checklistsApi.listTemplates(token)),
+        authFetch((token) => branchesApi.list(token)),
+      ]);
       setTemplates(result);
+      setBranches(orgBranches);
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load checklists');
     } finally {
@@ -45,6 +42,14 @@ export default function ManageChecklistsScreen() {
     load();
   }, [load]);
 
+  const applyExisting = (targetPosition: Position, targetJobSite: string) => {
+    const existing = templates.find(
+      (t) => t.position === targetPosition && t.jobSite === targetJobSite,
+    );
+    setOpeningItems(existing?.openingItems ?? []);
+    setClosingItems(existing?.closingItems ?? []);
+  };
+
   const editTemplate = (template: ChecklistTemplate) => {
     setPosition(template.position);
     setJobSite(template.jobSite);
@@ -55,25 +60,15 @@ export default function ManageChecklistsScreen() {
   };
 
   const startNew = (selectedPosition: Position) => {
-    const existing = templates.find(
-      (t) => t.position === selectedPosition && t.jobSite === jobSite.trim(),
-    );
     setPosition(selectedPosition);
-    setOpeningItems(existing?.openingItems ?? []);
-    setClosingItems(existing?.closingItems ?? []);
+    applyExisting(selectedPosition, jobSite);
     setMessage(null);
     setError(null);
   };
 
-  const onJobSiteBlur = () => {
-    if (!position) return;
-    const existing = templates.find(
-      (t) => t.position === position && t.jobSite === jobSite.trim(),
-    );
-    if (existing) {
-      setOpeningItems(existing.openingItems);
-      setClosingItems(existing.closingItems);
-    }
+  const selectJobSite = (value: string) => {
+    setJobSite(value);
+    if (position) applyExisting(position, value);
   };
 
   const addItem = (section: 'opening' | 'closing') => {
@@ -185,19 +180,35 @@ export default function ManageChecklistsScreen() {
       </View>
 
       <Text style={styles.sectionLabel}>Branch (optional — leave blank for every branch)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="e.g. Downtown — blank applies to shifts with no branch too"
-        value={jobSite}
-        onChangeText={setJobSite}
-        onBlur={onJobSiteBlur}
-      />
-      {jobSite.trim() && (
-        <View style={[styles.branchPreview, { borderColor: colorForBranch(jobSite.trim()) }]}>
-          <Text style={[styles.branchPreviewText, { color: colorForBranch(jobSite.trim()) }]}>
-            {jobSite.trim()}
+      <View style={styles.chipsWrap}>
+        <Pressable
+          style={[styles.chip, jobSite === '' && styles.chipActive]}
+          onPress={() => selectJobSite('')}
+        >
+          <Text style={[styles.chipText, jobSite === '' && styles.chipTextActive]}>
+            All branches
           </Text>
-        </View>
+        </Pressable>
+        {branches.map((branch) => {
+          const isActive = jobSite === branch.name;
+          const color = colorForBranch(branch.name);
+          return (
+            <Pressable
+              key={branch._id}
+              style={[styles.chip, isActive && { backgroundColor: color, borderColor: color }]}
+              onPress={() => selectJobSite(branch.name)}
+            >
+              <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                {branch.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {branches.length === 0 && (
+        <Text style={styles.noBranchesText}>
+          No branches yet — add one from Schedule &gt; Manage Branches
+        </Text>
       )}
 
       {(['opening', 'closing'] as const).map((section) => {
@@ -282,23 +293,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: '#333' },
   chipTextActive: { color: '#fff' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  branchPreview: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 3,
-    paddingHorizontal: 10,
-  },
-  branchPreviewText: { fontSize: 12, fontWeight: '700' },
+  noBranchesText: { fontSize: 13, color: colors.textFaint },
   itemsBox: {
     backgroundColor: colors.surface,
     borderRadius: 12,

@@ -1,20 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
-import { HttpError, schedulingApi, swapRequestsApi, timeClockApi, usersApi } from '../api/client';
+import {
+  branchesApi,
+  HttpError,
+  schedulingApi,
+  swapRequestsApi,
+  timeClockApi,
+  usersApi,
+} from '../api/client';
 import { POSITIONS } from '../types/api';
-import type { CoworkerShift, OrgMember, Position, Shift, SwapRequest } from '../types/api';
+import type { Branch, CoworkerShift, OrgMember, Position, Shift, SwapRequest } from '../types/api';
 import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
@@ -94,8 +93,9 @@ function combineDateAndTime(date: Date, hhmm: string): Date {
   return combined;
 }
 
-// A small colored pill for a branch name — jobSite is free text with no fixed list, so its
-// color comes from hashing the name (colorForBranch) rather than a lookup table.
+// A small colored pill for a branch name. Shift.jobSite stores a plain-text snapshot of the
+// branch's name rather than a reference to it, so the color still comes from hashing the name
+// (colorForBranch) rather than a per-branch lookup table.
 function BranchTag({ jobSite }: { jobSite: string }) {
   const color = colorForBranch(jobSite);
   return (
@@ -121,6 +121,7 @@ export default function ScheduleScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [jobSite, setJobSite] = useState('');
@@ -189,14 +190,16 @@ export default function ScheduleScreen() {
       if (canManage) {
         // Org-wide, not myShifts: a manager needs to confirm shifts they created for anyone,
         // not just ones where they themselves are the assigned employee.
-        const [all, orgMembers, pendingSwaps] = await Promise.all([
+        const [all, orgMembers, pendingSwaps, orgBranches] = await Promise.all([
           authFetch((token) => schedulingApi.all(token)),
           authFetch((token) => usersApi.list(token)),
           authFetch((token) => swapRequestsApi.pendingManager(token)),
+          authFetch((token) => branchesApi.list(token)),
         ]);
         setPendingShifts(all.filter((s) => s.approval === 'pending'));
         setMembers(orgMembers);
         setPendingManagerSwaps(pendingSwaps);
+        setBranches(orgBranches);
       }
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load schedule');
@@ -679,6 +682,16 @@ export default function ScheduleScreen() {
 
       {canManage && (
         <Pressable
+          style={styles.manageBranchesButton}
+          onPress={() => navigation.navigate('ManageBranches')}
+        >
+          <Ionicons name="business-outline" size={18} color="#fff" />
+          <Text style={styles.newShiftButtonText}>Manage Branches</Text>
+        </Pressable>
+      )}
+
+      {canManage && (
+        <Pressable
           style={styles.buildScheduleButton}
           onPress={() => navigation.navigate('BuildSchedule')}
         >
@@ -808,12 +821,28 @@ export default function ScheduleScreen() {
               })}
             </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Job site (optional)"
-              value={jobSite}
-              onChangeText={setJobSite}
-            />
+            <Text style={styles.sectionLabel}>Branch (optional)</Text>
+            {branches.length === 0 ? (
+              <Text style={styles.noBranchesText}>
+                No branches yet — add one from Manage Branches
+              </Text>
+            ) : (
+              <View style={styles.chipsWrap}>
+                {branches.map((branch) => (
+                  <Pressable
+                    key={branch._id}
+                    style={[styles.chip, jobSite === branch.name && styles.chipActive]}
+                    onPress={() => setJobSite(jobSite === branch.name ? '' : branch.name)}
+                  >
+                    <Text
+                      style={[styles.chipText, jobSite === branch.name && styles.chipTextActive]}
+                    >
+                      {branch.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
 
             {error && <Text style={styles.error}>{error}</Text>}
 
@@ -1226,6 +1255,15 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   newShiftButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  manageBranchesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.amber,
+    borderRadius: 10,
+    padding: 14,
+  },
   buildScheduleButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1268,6 +1306,7 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: '#666', fontSize: 14 },
   formTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginTop: 4 },
+  noBranchesText: { fontSize: 13, color: colors.textFaint },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     flexDirection: 'row',
@@ -1282,13 +1321,6 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
   chipText: { fontSize: 13, color: '#333' },
   chipTextActive: { color: '#fff' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
   button: {
     backgroundColor: '#2563eb',
     borderRadius: 8,

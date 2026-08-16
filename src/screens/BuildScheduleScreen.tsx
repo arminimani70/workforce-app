@@ -1,18 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
-import { availabilityApi, HttpError, schedulingApi, usersApi } from '../api/client';
+import { availabilityApi, branchesApi, HttpError, schedulingApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
-import type { OrgAvailabilityEntry, OrgMember, Position, Shift } from '../types/api';
+import type { Branch, OrgAvailabilityEntry, OrgMember, Position, Shift } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
@@ -79,8 +71,9 @@ interface ModalTarget {
   day: Date;
 }
 
-// A small colored pill for a branch name — jobSite is free text with no fixed list, so its
-// color comes from hashing the name (colorForBranch) rather than a lookup table.
+// A small colored pill for a branch name. Shift.jobSite stores a plain-text snapshot of the
+// branch's name rather than a reference to it, so the color still comes from hashing the name
+// (colorForBranch) rather than a per-branch lookup table.
 function BranchTag({ jobSite }: { jobSite: string }) {
   const color = colorForBranch(jobSite);
   return (
@@ -96,6 +89,7 @@ export default function BuildScheduleScreen() {
   const [availability, setAvailability] = useState<OrgAvailabilityEntry[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -123,14 +117,16 @@ export default function BuildScheduleScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [orgAvailability, allShifts, orgMembers] = await Promise.all([
+      const [orgAvailability, allShifts, orgMembers, orgBranches] = await Promise.all([
         authFetch((token) => availabilityApi.all(token, { from: weekFrom, to: weekTo })),
         authFetch((token) => schedulingApi.all(token)),
         authFetch((token) => usersApi.list(token)),
+        authFetch((token) => branchesApi.list(token)),
       ]);
       setAvailability(orgAvailability);
       setShifts(allShifts);
       setMembers(orgMembers);
+      setBranches(orgBranches);
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load schedule builder');
     } finally {
@@ -405,12 +401,33 @@ export default function BuildScheduleScreen() {
               })}
             </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Job site (optional)"
-              value={modalJobSite}
-              onChangeText={setModalJobSite}
-            />
+            <Text style={styles.sectionLabel}>Branch (optional)</Text>
+            {branches.length === 0 ? (
+              <Text style={styles.noBranchesText}>
+                No branches yet — add one from Manage Branches
+              </Text>
+            ) : (
+              <View style={styles.chipsWrap}>
+                {branches.map((branch) => (
+                  <Pressable
+                    key={branch._id}
+                    style={[styles.chip, modalJobSite === branch.name && styles.chipActive]}
+                    onPress={() =>
+                      setModalJobSite(modalJobSite === branch.name ? '' : branch.name)
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        modalJobSite === branch.name && styles.chipTextActive,
+                      ]}
+                    >
+                      {branch.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
 
             {error && <Text style={styles.error}>{error}</Text>}
 
@@ -538,6 +555,7 @@ const styles = StyleSheet.create({
   formTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 4 },
   modalSubtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 4 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginTop: 4 },
+  noBranchesText: { fontSize: 13, color: colors.textFaint },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   timeSeparator: { fontSize: 15, color: colors.textMuted },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -561,13 +579,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   branchTagText: { fontSize: 11, fontWeight: '700' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
   cancelButton: { alignItems: 'center', padding: 8 },
   cancelButtonText: { color: colors.textMuted, fontSize: 14 },
   button: {

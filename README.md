@@ -16,6 +16,10 @@ Connecteam-style app. Backend lives in a separate repo:
   or `npm run web`), in addition to iOS/Android/Expo Go
 - `expo-image-picker` + `expo-image-manipulator` — profile photo picking (library or camera)
   and client-side resize/compress before upload
+- `react-native-maps` (pinned to `1.20.1`, the version Expo SDK 54 bundles) — branch location
+  picking and the live geofence map behind the Time Clock button. Android needs a Google Maps
+  API key (`expo.android.config.googleMaps.apiKey` in `app.json`) to render map tiles in a
+  real build; iOS uses Apple Maps by default and needs no key
 
 ## Design system
 
@@ -88,13 +92,21 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   (next upcoming approved shift), Availability (days available this week), Team (member
   count), Tasks (count of the caller's own open tasks), and Onboarding, plus a "Today" section
   listing today's approved shifts. Has a Log out button.
-- **Time Clock** — one button that toggles clock-in/clock-out (`POST /time-clock/clock-in` /
-  `/clock-out`), best-effort GPS via `expo-location` (proceeds without location if permission
-  is denied). Shows a live HH:MM:SS elapsed timer while clocked in, and a total-hours summary
-  (`GET /time-clock/total?from=&to=`) for a date range picked from a popup calendar — tap the
-  range pill to open it, tap a start day then an end day (tapping again after a range is
-  already picked starts a new one), then Apply. No presets; every range is picked this way.
-  Defaults to month-to-date (the 1st of the current month through today) until changed.
+- **Time Clock** — the Clock In/Out circle floats over a live map (`react-native-maps`,
+  `showsUserLocation` + a continuously-updating `Location.watchPositionAsync` subscription so
+  the map recenters as you move) with a translucent fill so the map shows through underneath.
+  Tapping it toggles clock-in/clock-out (`POST /time-clock/clock-in` / `/clock-out`),
+  independently taking a best-effort one-off GPS fix via `expo-location` for the location
+  actually submitted (proceeds without one if permission is denied). If today's shift has a
+  branch, that branch's geofence radius is drawn as a circle on the map and compared
+  client-side (haversine) against your live position — straying outside it shows a non-blocking
+  warning with the approximate distance; clocking in still works regardless, this is guidance
+  only, not an enforced restriction. Below the button, a live HH:MM:SS elapsed timer while
+  clocked in, and a total-hours summary (`GET /time-clock/total?from=&to=`) for a date range
+  picked from a popup calendar — tap the range pill to open it, tap a start day then an end day
+  (tapping again after a range is already picked starts a new one), then Apply. No presets;
+  every range is picked this way. Defaults to month-to-date (the 1st of the current month
+  through today) until changed.
 - **Schedule** — a Monday–Sunday calendar of that week's **approved** shifts only; past days
   are greyed out. ‹ › arrows browse to any previous/future week (the fetch re-runs for
   whichever week is displayed); a "This Week" badge marks the current week, replaced by a
@@ -128,8 +140,9 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   section — every pending shift org-wide (`GET /shifts`), not just their own, with Confirm
   (`PATCH /shifts/:id/confirm`) and Reject (`PATCH /shifts/:id/reject`) buttons — and a
   "+ New Shift" button opening a popup: navigate week with ‹ › arrows, pick a day within it,
-  set an HH:mm start/end, pick who it's for (from the Team directory) and an optional position
-  (`POST /shifts`).
+  set an HH:mm start/end, pick who it's for (from the Team directory), an optional position,
+  and an optional branch (picked from the Branches list, not free-typed) (`POST /shifts`). A
+  **Manage Branches** button alongside it opens the branch editor (see below).
 - **Availability** — date-based, not a recurring weekly pattern: a ‹ › week-navigable calendar
   (same pattern as Schedule) so any future week can be set independently, with a "This Week"
   badge / "Jump to this week" link once you've browsed away. Tapping a day opens a popup for
@@ -173,12 +186,12 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   so; if the shift has no position at all, a warning explains that a manager needs to set one.
   Owner/manager get a **Manage Checklists** button on Schedule (alongside Build Week
   Schedule/New Shift) that opens a list of every existing template plus an editor: pick a
-  **Position**, optionally type a **Branch** (leave it blank to make this the position's
-  default — applied to any shift with that position that doesn't have a more specific
-  branch-only template of its own, including shifts with no branch set at all, which is common
-  since Job Site is optional when scheduling), then freely add/remove line items for each
-  section and Save (`PUT /checklists/templates`) — picking a position+branch that already has
-  a template loads it for editing instead of starting blank.
+  **Position**, optionally pick a **Branch** from the Branches list (leave it on "All
+  branches" to make this the position's default — applied to any shift with that position that
+  doesn't have a more specific branch-only template of its own, including shifts with no branch
+  set at all, which is common since branch is optional when scheduling), then freely add/remove
+  line items for each section and Save (`PUT /checklists/templates`) — picking a
+  position+branch that already has a template loads it for editing instead of starting blank.
 - **Forms** (Home dashboard card) — an org-wide catalog of ad hoc report types (e.g. "Damaged
   Product", "Equipment Malfunction", "Urgent Supply Request") — unlike Checklists these aren't
   tied to a position or branch, so any employee can submit any of them, whenever something
@@ -215,6 +228,15 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   (`PATCH /shifts/:id/reject`). A "Publish Week" button at the bottom
   (`PATCH /shifts/publish?from=&to=`) bulk-confirms every draft shift in the displayed week in
   one action, making the whole week visible to employees at once instead of shift by shift.
+- **Manage Branches** (owner/manager only, via a button on Schedule) — the org-wide list of
+  physical work locations that feeds every branch picker in the app (New Shift, Build
+  Schedule, Manage Checklists) and the Time Clock geofence map. Existing branches list first
+  (name + radius, tap to edit, trash to delete); the editor below has a name field, a radius
+  field (meters, 10–5000, defaults to 100), and a `react-native-maps` `MapView` to place the
+  point — tap anywhere on the map to drop the pin, drag the marker to fine-tune, or tap "Use my
+  current location" to jump straight to wherever you're standing (`expo-location`). A `Circle`
+  overlay on the map previews the geofence radius live as you type it. Save upserts
+  (`PUT /branches`, include `id` to edit in place instead of creating a new one).
 
 ## Scripts
 

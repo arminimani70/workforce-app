@@ -1,16 +1,21 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
+import MapView, { Circle } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
-import { HttpError, timeClockApi } from '../api/client';
-import type { TimeClockEntry } from '../types/api';
-import { formatElapsed, formatHoursMinutes } from '../utils/time';
+import { branchesApi, HttpError, schedulingApi, timeClockApi } from '../api/client';
+import type { Branch, TimeClockEntry } from '../types/api';
+import { formatElapsed, formatHoursMinutes, fullDayRange } from '../utils/time';
+import { distanceMeters, formatDistance } from '../utils/geo';
 import { cardShadow, colors } from '../theme/colors';
+import { NoteBox } from '../components/NoteBox';
 import { PopupModal } from '../components/PopupModal';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTH_LABEL_OPTIONS: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
+// Shown behind the clock-in circle before a live GPS fix arrives (or if permission is denied).
+const FALLBACK_REGION = { latitude: 35.6892, longitude: 51.389 };
 
 // Best-effort GPS: if permission is denied or location fails, clock in/out still proceeds
 // without a location, matching the backend's optional lat/lng.
@@ -25,6 +30,12 @@ async function getLocation(): Promise<{ lat: number; lng: number } | undefined> 
   } catch {
     return undefined;
   }
+}
+
+function findBranchForJobSite(branches: Branch[], jobSite: string | undefined): Branch | null {
+  if (!jobSite) return null;
+  const needle = jobSite.trim().toLowerCase();
+  return branches.find((b) => b.name.trim().toLowerCase() === needle) ?? null;
 }
 
 function dayKey(date: Date): number {
@@ -100,6 +111,69 @@ export default function TimeClockScreen() {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [pickStart, setPickStart] = useState<Date | null>(null);
   const [pickEnd, setPickEnd] = useState<Date | null>(null);
+
+  // Live GPS for the map behind the clock-in circle — separate from getLocation() above, which
+  // takes a one-off fix at the moment of the actual clock-in/out submission.
+  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [todayBranch, setTodayBranch] = useState<Branch | null>(null);
+  const mapRef = useRef<MapView>(null);
+
+  const loadTodayBranch = useCallback(async () => {
+    try {
+      const [shifts, branches] = await Promise.all([
+        authFetch((token) => schedulingApi.myShifts(token, fullDayRange())),
+        authFetch((token) => branchesApi.list(token)),
+      ]);
+      const approved = shifts.filter((s) => s.approval === 'approved' && s.jobSite);
+      const now = Date.now();
+      const current = approved.find(
+        (s) => new Date(s.startTime).getTime() <= now && now <= new Date(s.endTime).getTime(),
+      );
+      const next = approved
+        .filter((s) => new Date(s.startTime).getTime() > now)
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0];
+      setTodayBranch(findBranchForJobSite(branches, (current ?? next)?.jobSite));
+    } catch {
+      setTodayBranch(null);
+    }
+  }, [authFetch]);
+
+  useEffect(() => {
+    loadTodayBranch();
+  }, [loadTodayBranch]);
+
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | undefined;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 5 },
+          (position) => {
+            const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+            setMyLocation(coords);
+            mapRef.current?.animateToRegion({
+              latitude: coords.lat,
+              longitude: coords.lng,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            });
+          },
+        );
+      } catch {
+        // No live map centering if GPS fails — the map still shows the fallback region.
+      }
+    })();
+    return () => subscription?.remove();
+  }, []);
+
+  const distanceToBranch =
+    todayBranch && myLocation
+      ? distanceMeters(myLocation, { lat: todayBranch.lat, lng: todayBranch.lng })
+      : null;
+  const isFarFromBranch =
+    distanceToBranch !== null && todayBranch !== null && distanceToBranch > todayBranch.radiusMeters;
 
   const loadStatus = useCallback(async () => {
     try {
@@ -215,24 +289,58 @@ export default function TimeClockScreen() {
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Pressable
-        style={[
-          styles.button,
-          openEntry ? styles.buttonClockOut : styles.buttonClockIn,
-          isSubmitting && styles.buttonDisabled,
-        ]}
-        onPress={onPress}
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <Ionicons name={openEntry ? 'stop-circle-outline' : 'play-circle-outline'} size={32} color="#fff" />
-            <Text style={styles.buttonText}>{openEntry ? 'Clock Out' : 'Clock In'}</Text>
-          </>
-        )}
-      </Pressable>
+      <View style={styles.clockCircleWrap}>
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFillObject}
+          initialRegion={{
+            latitude: myLocation?.lat ?? todayBranch?.lat ?? FALLBACK_REGION.latitude,
+            longitude: myLocation?.lng ?? todayBranch?.lng ?? FALLBACK_REGION.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          showsUserLocation
+          scrollEnabled={false}
+          zoomEnabled={false}
+          pitchEnabled={false}
+          rotateEnabled={false}
+          toolbarEnabled={false}
+        >
+          {todayBranch && (
+            <Circle
+              center={{ latitude: todayBranch.lat, longitude: todayBranch.lng }}
+              radius={todayBranch.radiusMeters}
+              strokeColor={colors.primary}
+              fillColor="rgba(37,99,235,0.15)"
+            />
+          )}
+        </MapView>
+        <Pressable
+          style={[
+            styles.button,
+            openEntry ? styles.buttonClockOut : styles.buttonClockIn,
+            isSubmitting && styles.buttonDisabled,
+          ]}
+          onPress={onPress}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons name={openEntry ? 'stop-circle-outline' : 'play-circle-outline'} size={32} color="#fff" />
+              <Text style={styles.buttonText}>{openEntry ? 'Clock Out' : 'Clock In'}</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+
+      {isFarFromBranch && todayBranch && (
+        <NoteBox variant="warning">
+          You're {formatDistance(distanceToBranch!)} from {todayBranch.name} — clocking in still
+          works, this is just a heads up.
+        </NoteBox>
+      )}
 
       <View style={styles.totalsBox}>
         <Pressable style={styles.rangePicker} onPress={openCalendar}>
@@ -368,17 +476,23 @@ const styles = StyleSheet.create({
   },
   timerSpacer: { height: 40 + 24 },
   error: { color: colors.danger, marginBottom: 12 },
-  button: {
-    borderRadius: 999,
+  // The clock-in button floats over a live map — a translucent circle so the map (and the
+  // employee's live position on it) shows through underneath.
+  clockCircleWrap: {
     width: 160,
     height: 160,
+    borderRadius: 999,
+    overflow: 'hidden',
+    ...cardShadow,
+  },
+  button: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    ...cardShadow,
   },
-  buttonClockIn: { backgroundColor: colors.success },
-  buttonClockOut: { backgroundColor: colors.danger },
+  buttonClockIn: { backgroundColor: 'rgba(22,163,74,0.8)' },
+  buttonClockOut: { backgroundColor: 'rgba(220,38,38,0.8)' },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   totalsBox: {

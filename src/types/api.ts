@@ -234,3 +234,14 @@ export interface FormSubmission {
   values: FormFieldValue[];
   createdAt: string;
 }
+
+// The org-wide, canonical list of physical work locations. Shift.jobSite and
+// ChecklistTemplate.jobSite stay plain-text snapshots of a branch's `name`, not a reference to
+// this — picking a branch just fills that text field with its current name.
+export interface Branch {
+  _id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radiusMeters: number;
+}

@@ -21,6 +21,7 @@ import ManageChecklistsScreen from '../screens/ManageChecklistsScreen';
 import FormsScreen from '../screens/FormsScreen';
 import ManageFormsScreen from '../screens/ManageFormsScreen';
 import FormSubmissionsScreen from '../screens/FormSubmissionsScreen';
+import ManageBranchesScreen from '../screens/ManageBranchesScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 import { colors } from '../theme/colors';
 
@@ -112,6 +113,11 @@ export default function RootNavigator() {
             name="FormSubmissions"
             component={FormSubmissionsScreen}
             options={{ title: 'Submission History' }}
+          />
+          <AppStack.Screen
+            name="ManageBranches"
+            component={ManageBranchesScreen}
+            options={{ title: 'Manage Branches' }}
           />
         </AppStack.Navigator>
       ) : (

@@ -2,6 +2,7 @@ import type {
   ApiError,
   AvailabilityEntry,
   AvailabilityStatus,
+  Branch,
   ChatMessage,
   ChecklistTemplate,
   Conversation,
@@ -351,4 +352,19 @@ export const onboardingApi = {
 
   update: (accessToken: string, sections: OnboardingSection[]) =>
     request<OnboardingGuide>('/onboarding', { method: 'PUT', accessToken, body: { sections } }),
+};
+
+export const branchesApi = {
+  // Any authenticated user — populates branch pickers and the clock-in geofence map.
+  list: (accessToken: string) => request<Branch[]>('/branches', { accessToken }),
+
+  // Owner/manager only. Include id to update an existing branch in place.
+  upsert: (
+    accessToken: string,
+    dto: { id?: string; name: string; lat: number; lng: number; radiusMeters?: number },
+  ) => request<Branch>('/branches', { method: 'PUT', accessToken, body: dto }),
+
+  // Owner/manager only.
+  delete: (accessToken: string, id: string) =>
+    request<void>(`/branches/${id}`, { method: 'DELETE', accessToken }),
 };
