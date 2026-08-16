@@ -92,10 +92,11 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   (next upcoming approved shift), Availability (days available this week), Team (member
   count), Tasks (count of the caller's own open tasks), and Onboarding, plus a "Today" section
   listing today's approved shifts. Has a Log out button.
-- **Time Clock** — the Clock In/Out circle floats over a live map (`react-native-maps`,
-  `showsUserLocation` + a continuously-updating `Location.watchPositionAsync` subscription so
-  the map recenters as you move) with a translucent fill so the map shows through underneath.
-  Tapping it toggles clock-in/clock-out (`POST /time-clock/clock-in` / `/clock-out`),
+- **Time Clock** — a live map (`react-native-maps`, `showsUserLocation` + a
+  continuously-updating `Location.watchPositionAsync` subscription so it recenters as you move)
+  fills the whole screen as a background; the Clock In/Out circle floats on top of it with a
+  translucent fill so the map shows through the button itself. Tapping it toggles
+  clock-in/clock-out (`POST /time-clock/clock-in` / `/clock-out`),
   independently taking a best-effort one-off GPS fix via `expo-location` for the location
   actually submitted (proceeds without one if permission is denied). If today's shift has a
   branch, that branch's geofence radius is drawn as a circle on the map and compared

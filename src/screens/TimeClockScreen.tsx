@@ -262,7 +262,7 @@ export default function TimeClockScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -273,48 +273,44 @@ export default function TimeClockScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.statusRow}>
-        <Ionicons
-          name={openEntry ? 'radio-button-on' : 'radio-button-off-outline'}
-          size={16}
-          color={openEntry ? colors.success : colors.textFaint}
-        />
-        <Text style={styles.status}>{openEntry ? 'Clocked in' : 'Not clocked in'}</Text>
-      </View>
-      {openEntry ? (
-        <Text style={styles.timer}>{formatElapsed(elapsedMs)}</Text>
-      ) : (
-        <View style={styles.timerSpacer} />
-      )}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        initialRegion={{
+          latitude: myLocation?.lat ?? todayBranch?.lat ?? FALLBACK_REGION.latitude,
+          longitude: myLocation?.lng ?? todayBranch?.lng ?? FALLBACK_REGION.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }}
+        showsUserLocation
+      >
+        {todayBranch && (
+          <Circle
+            center={{ latitude: todayBranch.lat, longitude: todayBranch.lng }}
+            radius={todayBranch.radiusMeters}
+            strokeColor={colors.primary}
+            fillColor="rgba(37,99,235,0.15)"
+          />
+        )}
+      </MapView>
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      <View style={styles.content}>
+        <View style={styles.statusRow}>
+          <Ionicons
+            name={openEntry ? 'radio-button-on' : 'radio-button-off-outline'}
+            size={16}
+            color={openEntry ? colors.success : colors.textFaint}
+          />
+          <Text style={styles.status}>{openEntry ? 'Clocked in' : 'Not clocked in'}</Text>
+        </View>
+        {openEntry ? (
+          <Text style={styles.timer}>{formatElapsed(elapsedMs)}</Text>
+        ) : (
+          <View style={styles.timerSpacer} />
+        )}
 
-      <View style={styles.clockCircleWrap}>
-        <MapView
-          ref={mapRef}
-          style={StyleSheet.absoluteFillObject}
-          initialRegion={{
-            latitude: myLocation?.lat ?? todayBranch?.lat ?? FALLBACK_REGION.latitude,
-            longitude: myLocation?.lng ?? todayBranch?.lng ?? FALLBACK_REGION.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          showsUserLocation
-          scrollEnabled={false}
-          zoomEnabled={false}
-          pitchEnabled={false}
-          rotateEnabled={false}
-          toolbarEnabled={false}
-        >
-          {todayBranch && (
-            <Circle
-              center={{ latitude: todayBranch.lat, longitude: todayBranch.lng }}
-              radius={todayBranch.radiusMeters}
-              strokeColor={colors.primary}
-              fillColor="rgba(37,99,235,0.15)"
-            />
-          )}
-        </MapView>
+        {error && <Text style={styles.error}>{error}</Text>}
+
         <Pressable
           style={[
             styles.button,
@@ -333,27 +329,27 @@ export default function TimeClockScreen() {
             </>
           )}
         </Pressable>
-      </View>
 
-      {isFarFromBranch && todayBranch && (
-        <NoteBox variant="warning">
-          You're {formatDistance(distanceToBranch!)} from {todayBranch.name} — clocking in still
-          works, this is just a heads up.
-        </NoteBox>
-      )}
+        {isFarFromBranch && todayBranch && (
+          <NoteBox variant="warning">
+            You're {formatDistance(distanceToBranch!)} from {todayBranch.name} — clocking in
+            still works, this is just a heads up.
+          </NoteBox>
+        )}
 
-      <View style={styles.totalsBox}>
-        <Pressable style={styles.rangePicker} onPress={openCalendar}>
-          <Ionicons name="calendar-outline" size={16} color={colors.primary} />
-          <Text style={styles.rangePickerText}>{formatRangeLabel(selectedFrom, selectedTo)}</Text>
-          <Ionicons name="chevron-down" size={14} color={colors.textFaint} />
-        </Pressable>
+        <View style={styles.totalsBox}>
+          <Pressable style={styles.rangePicker} onPress={openCalendar}>
+            <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+            <Text style={styles.rangePickerText}>{formatRangeLabel(selectedFrom, selectedTo)}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.textFaint} />
+          </Pressable>
 
-        <View style={styles.totalRow}>
-          <Ionicons name="time-outline" size={20} color={colors.textMuted} />
-          <Text style={styles.totalValue}>
-            {totalSeconds === null ? '—' : formatHoursMinutes(totalSeconds)}
-          </Text>
+          <View style={styles.totalRow}>
+            <Ionicons name="time-outline" size={20} color={colors.textMuted} />
+            <Text style={styles.totalValue}>
+              {totalSeconds === null ? '—' : formatHoursMinutes(totalSeconds)}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -457,13 +453,23 @@ export default function TimeClockScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  // The map fills the whole screen as a live background; `content` floats on top of it with a
+  // transparent background so the map shows through everywhere except elements that paint
+  // their own (the translucent clock-in circle, the solid totals card).
+  container: { flex: 1 },
+  map: { ...StyleSheet.absoluteFillObject },
+  content: {
     flex: 1,
     alignItems: 'center',
     padding: 24,
     gap: 8,
     paddingTop: 48,
-    backgroundColor: colors.background,
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   status: { fontSize: 22, fontWeight: '700', color: colors.text },
@@ -476,20 +482,15 @@ const styles = StyleSheet.create({
   },
   timerSpacer: { height: 40 + 24 },
   error: { color: colors.danger, marginBottom: 12 },
-  // The clock-in button floats over a live map — a translucent circle so the map (and the
-  // employee's live position on it) shows through underneath.
-  clockCircleWrap: {
+  // A translucent circle so the live map underneath still shows through it.
+  button: {
+    borderRadius: 999,
     width: 160,
     height: 160,
-    borderRadius: 999,
-    overflow: 'hidden',
-    ...cardShadow,
-  },
-  button: {
-    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    ...cardShadow,
   },
   buttonClockIn: { backgroundColor: 'rgba(22,163,74,0.8)' },
   buttonClockOut: { backgroundColor: 'rgba(220,38,38,0.8)' },
