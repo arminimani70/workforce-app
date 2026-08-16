@@ -36,7 +36,7 @@ export default function OnboardingScreen() {
   const load = useCallback(async () => {
     try {
       const guide = await authFetch((token) => onboardingApi.get(token));
-      setSections(guide.sections);
+      setSections(guide.sections ?? []);
       setUpdatedAt(guide.updatedAt);
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load the onboarding guide');
