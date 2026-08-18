@@ -8,7 +8,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import MapView, { Circle, Marker, type LatLng, type MapPressEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
@@ -16,6 +15,7 @@ import { branchesApi, HttpError } from '../api/client';
 import type { Branch } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
 import { NoteBox } from '../components/NoteBox';
+import { AppMapCircle, AppMapMarker, AppMapView, type LatLng, type MapPressEvent } from '../components/AppMap';
 
 const DEFAULT_RADIUS = 100;
 // Falls back to a harmless default map center (no GPS fix yet, or permission not granted) so
@@ -37,7 +37,7 @@ export default function ManageBranchesScreen() {
   const [point, setPoint] = useState<LatLng>(FALLBACK_REGION);
   const [isLocating, setIsLocating] = useState(false);
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<AppMapView>(null);
 
   const load = useCallback(async () => {
     try {
@@ -216,24 +216,24 @@ export default function ManageBranchesScreen() {
         Tap the map to place the branch, or use your current location if you're standing there.
       </NoteBox>
 
-      <MapView
+      <AppMapView
         ref={mapRef}
         style={styles.map}
         initialRegion={{ ...point, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
         onPress={onMapPress}
       >
-        <Marker
+        <AppMapMarker
           coordinate={point}
           draggable
           onDragEnd={(e) => setPoint(e.nativeEvent.coordinate)}
         />
-        <Circle
+        <AppMapCircle
           center={point}
           radius={Number(radiusText) || DEFAULT_RADIUS}
           strokeColor={colors.primary}
           fillColor="rgba(59,130,246,0.15)"
         />
-      </MapView>
+      </AppMapView>
 
       <Pressable style={styles.locateButton} onPress={useMyLocation} disabled={isLocating}>
         {isLocating ? (

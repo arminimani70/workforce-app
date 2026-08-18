@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
-import MapView, { Circle } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { branchesApi, HttpError, schedulingApi, timeClockApi } from '../api/client';
@@ -11,6 +10,7 @@ import { distanceMeters, formatDistance } from '../utils/geo';
 import { cardShadow, colors } from '../theme/colors';
 import { NoteBox } from '../components/NoteBox';
 import { PopupModal } from '../components/PopupModal';
+import { AppMapCircle, AppMapView } from '../components/AppMap';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTH_LABEL_OPTIONS: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
@@ -116,7 +116,7 @@ export default function TimeClockScreen() {
   // takes a one-off fix at the moment of the actual clock-in/out submission.
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [todayBranch, setTodayBranch] = useState<Branch | null>(null);
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<AppMapView>(null);
 
   const loadTodayBranch = useCallback(async () => {
     try {
@@ -273,7 +273,7 @@ export default function TimeClockScreen() {
 
   return (
     <View style={styles.container}>
-      <MapView
+      <AppMapView
         ref={mapRef}
         style={styles.map}
         initialRegion={{
@@ -285,14 +285,14 @@ export default function TimeClockScreen() {
         showsUserLocation
       >
         {todayBranch && (
-          <Circle
+          <AppMapCircle
             center={{ latitude: todayBranch.lat, longitude: todayBranch.lng }}
             radius={todayBranch.radiusMeters}
             strokeColor={colors.primary}
             fillColor="rgba(37,99,235,0.15)"
           />
         )}
-      </MapView>
+      </AppMapView>
 
       <View style={styles.content}>
         <View style={styles.statusRow}>
