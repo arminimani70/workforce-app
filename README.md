@@ -19,7 +19,12 @@ Connecteam-style app. Backend lives in a separate repo:
 - `react-native-maps` (pinned to `1.20.1`, the version Expo SDK 54 bundles) — branch location
   picking and the live geofence map behind the Time Clock button. Android needs a Google Maps
   API key (`expo.android.config.googleMaps.apiKey` in `app.json`) to render map tiles in a
-  real build; iOS uses Apple Maps by default and needs no key
+  real build; iOS uses Apple Maps by default and needs no key. It doesn't support web at all —
+  `src/components/AppMap.tsx`/`.web.tsx` is a small platform-specific wrapper so bundling for
+  web substitutes a static placeholder instead of crashing; every screen imports MapView/
+  Circle/Marker from there, never from `react-native-maps` directly
+- `expo-notifications` (pinned to `0.32.17`) — local "shift starts in 1 hour" reminders,
+  entirely on-device (see the Home screen entry below)
 
 ## Design system
 
@@ -91,7 +96,13 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Home** — dashboard cards for Time Clock (live elapsed time when clocked in), Schedule
   (next upcoming approved shift), Availability (days available this week), Team (member
   count), Tasks (count of the caller's own open tasks), and Onboarding, plus a "Today" section
-  listing today's approved shifts. Has a Log out button.
+  listing today's approved shifts. Has a Log out button. Every time this screen loads, it also
+  re-syncs local "shift starts in 1 hour" reminder notifications (`src/utils/shiftReminders.ts`,
+  `expo-notifications`) against the caller's current approved shifts — entirely on-device, no
+  backend involved: each shift gets a notification scheduled for (start time − 1 hour),
+  identified by the shift's own id so re-syncing overwrites rather than duplicates, and
+  reminders for shifts no longer upcoming (rejected, rescheduled, already started) are
+  cancelled. Best-effort — proceeds silently if notification permission is denied.
 - **Time Clock** — a live map (`react-native-maps`, `showsUserLocation` + a
   continuously-updating `Location.watchPositionAsync` subscription so it recenters as you move)
   fills the whole screen as a background; the Clock In/Out circle floats on top of it with a
@@ -102,8 +113,10 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   branch, that branch's geofence radius is drawn as a circle on the map and compared
   client-side (haversine) against your live position — straying outside it shows a non-blocking
   warning with the approximate distance; clocking in still works regardless, this is guidance
-  only, not an enforced restriction. Below the button, a live HH:MM:SS elapsed timer while
-  clocked in, and a total-hours summary (`GET /time-clock/total?from=&to=`) for a date range
+  only, not an enforced restriction. Below the button while clocked in, a live HH:MM:SS elapsed
+  timer, with a small subtitle underneath naming the branch and position of whichever shift
+  resolved the geofence (e.g. "Downtown · Front Desk") when either is known. Further down, a
+  total-hours summary (`GET /time-clock/total?from=&to=`) for a date range
   picked from a popup calendar — tap the range pill to open it, tap a start day then an end day
   (tapping again after a range is already picked starts a new one), then Apply. No presets;
   every range is picked this way. Defaults to month-to-date (the 1st of the current month

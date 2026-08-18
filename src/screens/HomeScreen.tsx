@@ -15,6 +15,7 @@ import {
 import type { AppStackParamList } from '../navigation/types';
 import type { Shift, TimeClockEntry } from '../types/api';
 import { currentWeekRange, formatElapsed, fullDayRange } from '../utils/time';
+import { syncShiftReminders } from '../utils/shiftReminders';
 import { cardShadow, colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Home'>;
@@ -97,6 +98,7 @@ export default function HomeScreen({ navigation }: Props) {
           .filter((s) => new Date(s.startTime).getTime() >= Date.now())
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         setNextShift(upcoming[0] ?? null);
+        syncShiftReminders(shifts);
       } catch {
         // Leave as "no upcoming shift" if the call fails.
       }

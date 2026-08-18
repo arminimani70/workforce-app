@@ -34,7 +34,8 @@
           "photosPermission": "Workforce uses your photo library to set your profile picture.",
           "cameraPermission": "Workforce uses your camera to take a profile picture."
         }
-      ]
+      ],
+      "expo-notifications"
     ]
   }
 }

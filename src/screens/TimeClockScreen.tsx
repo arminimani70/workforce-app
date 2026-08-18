@@ -4,7 +4,8 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { branchesApi, HttpError, schedulingApi, timeClockApi } from '../api/client';
-import type { Branch, TimeClockEntry } from '../types/api';
+import type { Branch, Position, TimeClockEntry } from '../types/api';
+import { POSITION_LABELS } from '../constants/positions';
 import { formatElapsed, formatHoursMinutes, fullDayRange } from '../utils/time';
 import { distanceMeters, formatDistance } from '../utils/geo';
 import { cardShadow, colors } from '../theme/colors';
@@ -116,6 +117,7 @@ export default function TimeClockScreen() {
   // takes a one-off fix at the moment of the actual clock-in/out submission.
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [todayBranch, setTodayBranch] = useState<Branch | null>(null);
+  const [todayPosition, setTodayPosition] = useState<Position | null>(null);
   const mapRef = useRef<AppMapView>(null);
 
   const loadTodayBranch = useCallback(async () => {
@@ -132,9 +134,12 @@ export default function TimeClockScreen() {
       const next = approved
         .filter((s) => new Date(s.startTime).getTime() > now)
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0];
-      setTodayBranch(findBranchForJobSite(branches, (current ?? next)?.jobSite));
+      const relevant = current ?? next;
+      setTodayBranch(findBranchForJobSite(branches, relevant?.jobSite));
+      setTodayPosition(relevant?.position ?? null);
     } catch {
       setTodayBranch(null);
+      setTodayPosition(null);
     }
   }, [authFetch]);
 
@@ -269,6 +274,12 @@ export default function TimeClockScreen() {
   }
 
   const elapsedMs = openEntry ? now - new Date(openEntry.clockInTime).getTime() : 0;
+  const shiftContextLabel = [
+    todayBranch?.name,
+    todayPosition ? POSITION_LABELS[todayPosition] : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const weeks = chunkIntoWeeks(monthGrid(calendarMonth.getFullYear(), calendarMonth.getMonth()));
 
   return (
@@ -304,7 +315,10 @@ export default function TimeClockScreen() {
           <Text style={styles.status}>{openEntry ? 'Clocked in' : 'Not clocked in'}</Text>
         </View>
         {openEntry ? (
-          <Text style={styles.timer}>{formatElapsed(elapsedMs)}</Text>
+          <View style={styles.timerBlock}>
+            <Text style={styles.timer}>{formatElapsed(elapsedMs)}</Text>
+            {shiftContextLabel && <Text style={styles.shiftContext}>{shiftContextLabel}</Text>}
+          </View>
         ) : (
           <View style={styles.timerSpacer} />
         )}
@@ -473,12 +487,18 @@ const styles = StyleSheet.create({
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   status: { fontSize: 22, fontWeight: '700', color: colors.text },
+  timerBlock: { alignItems: 'center', marginBottom: 24 },
   timer: {
     fontSize: 32,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     color: colors.text,
-    marginBottom: 24,
+  },
+  shiftContext: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginTop: 2,
   },
   timerSpacer: { height: 40 + 24 },
   error: { color: colors.danger, marginBottom: 12 },
