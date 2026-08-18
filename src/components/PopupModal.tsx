@@ -1,17 +1,19 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { cardShadow, colors } from '../theme/colors';
 
-// Wraps every popup in the app with the same behavior: tapping the dimmed area outside the
-// card dismisses it, while taps inside the card (buttons, inputs, empty space between them)
-// don't — the card is wrapped in its own no-op Pressable so it "absorbs" the touch instead of
-// letting it bubble up to the backdrop. Also lifts the card above the bottom safe area (the
-// iOS home indicator / Android gesture bar) so buttons near the bottom of the card stay easy
-// to tap instead of crowding the edge.
+// Wraps every popup in the app with the same behavior and the same look: a centered dialog
+// card, rounded on all four corners, that fades in — identical on iOS and Android instead of
+// each screen growing its own bottom sheet. Tapping the dimmed backdrop dismisses it, while
+// taps inside the card (buttons, inputs, empty space between them) don't — the card is wrapped
+// in its own no-op Pressable so it "absorbs" the touch instead of letting it bubble up to the
+// backdrop.
 // The card itself is capped below the screen height and its content scrolls — content that
 // would otherwise be pushed off-screen (a long form, a tall list, the keyboard covering the
 // bottom of a short screen) stays reachable instead. Individual screens should NOT wrap their
-// own content in another ScrollView; this one already does it for every popup in the app.
+// own content in another ScrollView; this one already does it for every popup in the app, and
+// should NOT paint their own background/corner radius on the outermost view they pass in —
+// this component already does that too.
 export function PopupModal({
   visible,
   onClose,
@@ -21,17 +23,11 @@ export function PopupModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable onPress={() => {}}>
-          <ScrollView
-            style={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            contentContainerStyle={{ paddingBottom: insets.bottom }}
-          >
+        <Pressable onPress={() => {}} style={styles.cardShell}>
+          <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             {children}
           </ScrollView>
         </Pressable>
@@ -43,12 +39,23 @@ export function PopupModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  // The maxHeight has to live on the ScrollView itself (not an ancestor View) — that's what
-  // actually bounds its viewport so it knows content overflows and needs to scroll.
+  cardShell: {
+    width: '100%',
+    maxWidth: 440,
+  },
+  // The maxHeight (and the card's visual chrome) has to live on the ScrollView itself, not an
+  // ancestor View — that's what actually bounds its viewport so it knows content overflows and
+  // needs to scroll, instead of just growing past the screen.
   scroll: {
-    maxHeight: '90%',
+    maxHeight: '85%',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...cardShadow,
   },
 });

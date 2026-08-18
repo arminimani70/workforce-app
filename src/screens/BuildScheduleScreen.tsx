@@ -546,9 +546,6 @@ const styles = StyleSheet.create({
   publishButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   buttonDisabled: { opacity: 0.6 },
   modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
     padding: 20,
     gap: 12,
   },

@@ -522,9 +522,6 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   totalValue: { fontSize: 24, fontWeight: '700', color: colors.text },
   modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
     padding: 20,
     gap: 10,
   },

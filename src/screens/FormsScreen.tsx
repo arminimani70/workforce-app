@@ -225,9 +225,6 @@ const styles = StyleSheet.create({
   },
   manageButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
     padding: 20,
     gap: 12,
   },

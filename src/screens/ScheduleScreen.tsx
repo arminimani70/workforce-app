@@ -1283,9 +1283,6 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   modalCard: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
     padding: 20,
     gap: 12,
   },

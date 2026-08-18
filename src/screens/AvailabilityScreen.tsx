@@ -410,9 +410,6 @@ const styles = StyleSheet.create({
   dayLabel: { fontSize: 16, fontWeight: '600', color: colors.text },
   daySummary: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
     padding: 20,
     gap: 12,
   },

@@ -225,9 +225,6 @@ const styles = StyleSheet.create({
   },
   newMessageButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
     padding: 20,
   },
   formTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8 },
