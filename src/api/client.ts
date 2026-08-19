@@ -318,6 +318,7 @@ export const checklistsApi = {
       title?: string;
       openingItems: string[];
       closingItems: string[];
+      allowPhoto?: boolean;
     },
   ) =>
     request<ChecklistTemplate>('/checklists/templates', {

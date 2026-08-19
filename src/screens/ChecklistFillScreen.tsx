@@ -19,6 +19,7 @@ function ChecklistItemRow({
   status,
   isSaving,
   isUploadingPhoto,
+  allowPhoto,
   onMark,
   onPhoto,
 }: {
@@ -26,8 +27,9 @@ function ChecklistItemRow({
   status?: ChecklistItemStatus;
   isSaving: boolean;
   isUploadingPhoto: boolean;
+  allowPhoto: boolean;
   onMark: (done: boolean) => void;
-  onPhoto: (fromCamera: boolean) => void;
+  onPhoto: () => void;
 }) {
   return (
     <View style={styles.itemRow}>
@@ -59,25 +61,19 @@ function ChecklistItemRow({
         )}
       </View>
 
-      {status && (
+      {status && allowPhoto && (
         <View style={styles.photoRow}>
           {isUploadingPhoto ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : status.photoUrl ? (
-            <Pressable onPress={() => onPhoto(false)}>
+            <Pressable onPress={onPhoto}>
               <Image source={{ uri: status.photoUrl }} style={styles.photoThumb} />
             </Pressable>
           ) : (
-            <>
-              <Pressable style={styles.photoButton} onPress={() => onPhoto(true)}>
-                <Ionicons name="camera-outline" size={14} color={colors.primary} />
-                <Text style={styles.photoButtonText}>Camera</Text>
-              </Pressable>
-              <Pressable style={styles.photoButton} onPress={() => onPhoto(false)}>
-                <Ionicons name="image-outline" size={14} color={colors.primary} />
-                <Text style={styles.photoButtonText}>Photo</Text>
-              </Pressable>
-            </>
+            <Pressable style={styles.photoButton} onPress={onPhoto}>
+              <Ionicons name="camera-outline" size={14} color={colors.primary} />
+              <Text style={styles.photoButtonText}>Take Photo</Text>
+            </Pressable>
           )}
         </View>
       )}
@@ -93,6 +89,7 @@ function ChecklistFillSection({
   statuses,
   savingKey,
   uploadingKey,
+  allowPhoto,
   isSubmitting,
   onMark,
   onPhoto,
@@ -105,9 +102,10 @@ function ChecklistFillSection({
   statuses: ChecklistItemStatus[];
   savingKey: string | null;
   uploadingKey: string | null;
+  allowPhoto: boolean;
   isSubmitting: boolean;
   onMark: (item: string, done: boolean) => void;
-  onPhoto: (item: string, fromCamera: boolean) => void;
+  onPhoto: (item: string) => void;
   onSubmit: () => void;
 }) {
   const answeredCount = items.filter((item) => statuses.some((s) => s.item === item)).length;
@@ -135,8 +133,9 @@ function ChecklistFillSection({
               status={statuses.find((s) => s.item === item)}
               isSaving={savingKey === `${section}:${item}`}
               isUploadingPhoto={uploadingKey === `${section}:${item}`}
+              allowPhoto={allowPhoto}
               onMark={(done) => onMark(item, done)}
-              onPhoto={(fromCamera) => onPhoto(item, fromCamera)}
+              onPhoto={() => onPhoto(item)}
             />
           ))}
 
@@ -216,7 +215,9 @@ export default function ChecklistFillScreen() {
     }
   };
 
-  const attachPhoto = async (section: Section, item: string, fromCamera: boolean) => {
+  // Camera-only, deliberately — an attach-from-library option would let someone submit an old
+  // or borrowed photo as "proof" instead of one taken of the actual item right now.
+  const attachPhoto = async (section: Section, item: string) => {
     if (!checklist) return;
     const field = section === 'opening' ? 'openingStatuses' : 'closingStatuses';
     const status = checklist[field].find((s) => s.item === item);
@@ -224,23 +225,18 @@ export default function ChecklistFillScreen() {
 
     setError(null);
     try {
-      const permission = fromCamera
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (permission.status !== 'granted') {
-        setError('Permission denied');
+        setError('Camera permission denied');
         return;
       }
 
-      const pickerOptions: ImagePicker.ImagePickerOptions = {
+      const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
-      };
-      const result = fromCamera
-        ? await ImagePicker.launchCameraAsync(pickerOptions)
-        : await ImagePicker.launchImageLibraryAsync(pickerOptions);
+      });
       if (result.canceled || result.assets.length === 0) return;
 
       setUploadingKey(`${section}:${item}`);
@@ -345,9 +341,10 @@ export default function ChecklistFillScreen() {
         statuses={checklist.openingStatuses}
         savingKey={savingKey}
         uploadingKey={uploadingKey}
+        allowPhoto={checklist.allowPhoto}
         isSubmitting={submittingSection === 'opening'}
         onMark={(item, done) => mark('opening', item, done)}
-        onPhoto={(item, fromCamera) => attachPhoto('opening', item, fromCamera)}
+        onPhoto={(item) => attachPhoto('opening', item)}
         onSubmit={() => submit('opening')}
       />
 
@@ -359,9 +356,10 @@ export default function ChecklistFillScreen() {
         statuses={checklist.closingStatuses}
         savingKey={savingKey}
         uploadingKey={uploadingKey}
+        allowPhoto={checklist.allowPhoto}
         isSubmitting={submittingSection === 'closing'}
         onMark={(item, done) => mark('closing', item, done)}
-        onPhoto={(item, fromCamera) => attachPhoto('closing', item, fromCamera)}
+        onPhoto={(item) => attachPhoto('closing', item)}
         onSubmit={() => submit('closing')}
       />
     </ScrollView>

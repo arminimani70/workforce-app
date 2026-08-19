@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
@@ -23,6 +23,7 @@ export default function ChecklistSubmissionsScreen() {
   const [submissions, setSubmissions] = useState<ChecklistSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewerPhoto, setViewerPhoto] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -106,13 +107,23 @@ export default function ChecklistSubmissionsScreen() {
                 />
                 <Text style={styles.itemText}>{status.item}</Text>
                 {status.photoUrl && (
-                  <Image source={{ uri: status.photoUrl }} style={styles.itemPhoto} />
+                  <Pressable onPress={() => setViewerPhoto(status.photoUrl!)}>
+                    <Image source={{ uri: status.photoUrl }} style={styles.itemPhoto} />
+                  </Pressable>
                 )}
               </View>
             ))}
           </View>
         )}
       />
+
+      <Modal visible={viewerPhoto !== null} animationType="fade" transparent onRequestClose={() => setViewerPhoto(null)}>
+        <Pressable style={styles.viewerBackdrop} onPress={() => setViewerPhoto(null)}>
+          {viewerPhoto && (
+            <Image source={{ uri: viewerPhoto }} style={styles.viewerImage} resizeMode="contain" />
+          )}
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -142,4 +153,11 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemText: { fontSize: 13, color: colors.text, flex: 1 },
   itemPhoto: { width: 40, height: 40, borderRadius: 6 },
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerImage: { width: '100%', height: '80%' },
 });

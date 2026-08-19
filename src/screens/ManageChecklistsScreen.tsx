@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -29,6 +29,7 @@ export default function ManageChecklistsScreen() {
   const [title, setTitle] = useState('');
   const [openingItems, setOpeningItems] = useState<string[]>([]);
   const [closingItems, setClosingItems] = useState<string[]>([]);
+  const [allowPhoto, setAllowPhoto] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +57,7 @@ export default function ManageChecklistsScreen() {
     setTitle(existing?.title ?? '');
     setOpeningItems(existing?.openingItems ?? []);
     setClosingItems(existing?.closingItems ?? []);
+    setAllowPhoto(existing?.allowPhoto ?? false);
   };
 
   const editTemplate = (template: ChecklistTemplate) => {
@@ -64,6 +66,7 @@ export default function ManageChecklistsScreen() {
     setTitle(template.title);
     setOpeningItems(template.openingItems);
     setClosingItems(template.closingItems);
+    setAllowPhoto(template.allowPhoto);
     setMessage(null);
     setError(null);
   };
@@ -111,6 +114,7 @@ export default function ManageChecklistsScreen() {
           title: title.trim(),
           openingItems: openingItems.map((i) => i.trim()).filter(Boolean),
           closingItems: closingItems.map((i) => i.trim()).filter(Boolean),
+          allowPhoto,
         }),
       );
       setMessage('Saved');
@@ -278,6 +282,16 @@ export default function ManageChecklistsScreen() {
         );
       })}
 
+      <View style={styles.photoToggleRow}>
+        <View style={styles.photoToggleTextGroup}>
+          <Text style={styles.sectionTitleDark}>Allow photo attachments</Text>
+          <Text style={styles.photoToggleSubtext}>
+            Employees can take a live camera photo to prove an item is done
+          </Text>
+        </View>
+        <Switch value={allowPhoto} onValueChange={setAllowPhoto} />
+      </View>
+
       {message && <NoteBox variant="success">{message}</NoteBox>}
       {error && <Text style={styles.error}>{error}</Text>}
 
@@ -353,6 +367,17 @@ const styles = StyleSheet.create({
   },
   addItemButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
   addItemButtonText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  photoToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    ...cardShadow,
+  },
+  photoToggleTextGroup: { flex: 1, gap: 2 },
+  photoToggleSubtext: { fontSize: 12, color: colors.textMuted },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -187,6 +187,9 @@ export interface ChecklistTemplate {
   title: string;
   openingItems: string[];
   closingItems: string[];
+  // Off by default — a manager opts a checklist into photo attachments rather than every
+  // checklist growing camera buttons.
+  allowPhoto: boolean;
 }
 
 // Every item's done/not-done status is explicit once answered — an item simply absent from
@@ -211,6 +214,7 @@ export interface LiveChecklist {
   closingItems: string[];
   openingStatuses: ChecklistItemStatus[];
   closingStatuses: ChecklistItemStatus[];
+  allowPhoto: boolean;
 }
 
 export type ChecklistSection = 'opening' | 'closing';
