@@ -25,30 +25,24 @@ import type { AppStackParamList } from '../navigation/types';
 
 type Section = 'opening' | 'closing';
 
-// One task, collapsed to a status icon + name by default — tapping it opens Done/Not Done,
-// an optional note, and (when the checklist allows it) a photo, mirroring the tap-to-expand
-// task cards in Connecteam-style checklists.
+// One task, collapsed to a status icon + name by default — tapping it opens Done/Not Done and
+// an optional note, mirroring the tap-to-expand task cards in Connecteam-style checklists.
+// Photos aren't per item — see the batch step in the submit confirmation modal below.
 function ChecklistItemCard({
   item,
   status,
   isExpanded,
   isSaving,
-  isUploadingPhoto,
-  allowPhoto,
   onToggleExpand,
   onMark,
-  onPhoto,
   onSaveNote,
 }: {
   item: string;
   status?: ChecklistItemStatus;
   isExpanded: boolean;
   isSaving: boolean;
-  isUploadingPhoto: boolean;
-  allowPhoto: boolean;
   onToggleExpand: () => void;
   onMark: (done: boolean) => void;
-  onPhoto: () => void;
   onSaveNote: (note: string) => void;
 }) {
   const [noteText, setNoteText] = useState(status?.note ?? '');
@@ -110,23 +104,6 @@ function ChecklistItemCard({
               multiline
             />
           )}
-
-          {status && allowPhoto && (
-            <View style={styles.photoRow}>
-              {isUploadingPhoto ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : status.photoUrl ? (
-                <Pressable onPress={onPhoto}>
-                  <Image source={{ uri: status.photoUrl }} style={styles.photoThumb} />
-                </Pressable>
-              ) : (
-                <Pressable style={styles.photoButton} onPress={onPhoto}>
-                  <Ionicons name="camera-outline" size={14} color={colors.primary} />
-                  <Text style={styles.photoButtonText}>Take Photo</Text>
-                </Pressable>
-              )}
-            </View>
-          )}
         </View>
       )}
     </View>
@@ -141,12 +118,9 @@ function ChecklistFillSection({
   statuses,
   expandedKey,
   savingKey,
-  uploadingKey,
-  allowPhoto,
   isSubmitting,
   onToggleExpand,
   onMark,
-  onPhoto,
   onSaveNote,
   onSubmit,
 }: {
@@ -157,12 +131,9 @@ function ChecklistFillSection({
   statuses: ChecklistItemStatus[];
   expandedKey: string | null;
   savingKey: string | null;
-  uploadingKey: string | null;
-  allowPhoto: boolean;
   isSubmitting: boolean;
   onToggleExpand: (item: string) => void;
   onMark: (item: string, done: boolean) => void;
-  onPhoto: (item: string) => void;
   onSaveNote: (item: string, note: string) => void;
   onSubmit: () => void;
 }) {
@@ -196,11 +167,8 @@ function ChecklistFillSection({
               status={statuses.find((s) => s.item === item)}
               isExpanded={expandedKey === `${section}:${item}`}
               isSaving={savingKey === `${section}:${item}`}
-              isUploadingPhoto={uploadingKey === `${section}:${item}`}
-              allowPhoto={allowPhoto}
               onToggleExpand={() => onToggleExpand(item)}
               onMark={(done) => onMark(item, done)}
-              onPhoto={() => onPhoto(item)}
               onSaveNote={(note) => onSaveNote(item, note)}
             />
           ))}
@@ -234,10 +202,11 @@ export default function ChecklistFillScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [submittingSection, setSubmittingSection] = useState<Section | null>(null);
   const [signatureSection, setSignatureSection] = useState<Section | null>(null);
   const [signature, setSignature] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -303,13 +272,9 @@ export default function ChecklistFillScreen() {
     setError(null);
     try {
       if (section === 'opening') {
-        await authFetch((token) =>
-          checklistsApi.updateOpening(token, position, jobSite, item, status.done, undefined, note),
-        );
+        await authFetch((token) => checklistsApi.updateOpening(token, position, jobSite, item, status.done, note));
       } else {
-        await authFetch((token) =>
-          checklistsApi.updateClosing(token, position, jobSite, item, status.done, undefined, note),
-        );
+        await authFetch((token) => checklistsApi.updateClosing(token, position, jobSite, item, status.done, note));
       }
     } catch (err) {
       setChecklist({ ...checklist, [field]: current });
@@ -317,14 +282,17 @@ export default function ChecklistFillScreen() {
     }
   };
 
-  // Camera-only, deliberately — an attach-from-library option would let someone submit an old
-  // or borrowed photo as "proof" instead of one taken of the actual item right now.
-  const attachPhoto = async (section: Section, item: string) => {
-    if (!checklist) return;
-    const field = section === 'opening' ? 'openingStatuses' : 'closingStatuses';
-    const status = checklist[field].find((s) => s.item === item);
-    if (!status) return;
+  const openSignature = (section: Section) => {
+    setSignature('');
+    setPhotos([]);
+    setSignatureSection(section);
+  };
 
+  // Camera-only, deliberately — an attach-from-library option would let someone submit an old
+  // or borrowed photo as "proof" instead of one taken at the moment of submitting. One batch for
+  // the whole round (capped at 8), not one per item.
+  const capturePhoto = async () => {
+    if (photos.length >= 8) return;
     setError(null);
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -341,7 +309,7 @@ export default function ChecklistFillScreen() {
       });
       if (result.canceled || result.assets.length === 0) return;
 
-      setUploadingKey(`${section}:${item}`);
+      setIsCapturingPhoto(true);
       const manipulated = await manipulateAsync(
         result.assets[0].uri,
         [{ resize: { width: 400 } }],
@@ -351,36 +319,16 @@ export default function ChecklistFillScreen() {
         setError('Could not process the image');
         return;
       }
-      const dataUri = `data:image/jpeg;base64,${manipulated.base64}`;
-
-      if (section === 'opening') {
-        await authFetch((token) =>
-          checklistsApi.updateOpening(token, position, jobSite, item, status.done, dataUri),
-        );
-      } else {
-        await authFetch((token) =>
-          checklistsApi.updateClosing(token, position, jobSite, item, status.done, dataUri),
-        );
-      }
-
-      setChecklist((prev) =>
-        prev
-          ? {
-              ...prev,
-              [field]: prev[field].map((s) => (s.item === item ? { ...s, photoUrl: dataUri } : s)),
-            }
-          : prev,
-      );
+      setPhotos((prev) => [...prev, `data:image/jpeg;base64,${manipulated.base64}`]);
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not attach photo');
     } finally {
-      setUploadingKey(null);
+      setIsCapturingPhoto(false);
     }
   };
 
-  const openSignature = (section: Section) => {
-    setSignature('');
-    setSignatureSection(section);
+  const removePhoto = (index: number) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const confirmSubmit = async () => {
@@ -390,9 +338,9 @@ export default function ChecklistFillScreen() {
     setError(null);
     try {
       if (section === 'opening') {
-        await authFetch((token) => checklistsApi.submitOpening(token, position, jobSite, signature));
+        await authFetch((token) => checklistsApi.submitOpening(token, position, jobSite, signature, photos));
       } else {
-        await authFetch((token) => checklistsApi.submitClosing(token, position, jobSite, signature));
+        await authFetch((token) => checklistsApi.submitClosing(token, position, jobSite, signature, photos));
       }
       setSignatureSection(null);
       // The backend archives this section to history and resets it to blank — reload so the
@@ -451,12 +399,9 @@ export default function ChecklistFillScreen() {
         statuses={checklist.openingStatuses}
         expandedKey={expandedKey}
         savingKey={savingKey}
-        uploadingKey={uploadingKey}
-        allowPhoto={checklist.allowPhoto}
         isSubmitting={submittingSection === 'opening'}
         onToggleExpand={(item) => toggleExpand('opening', item)}
         onMark={(item, done) => mark('opening', item, done)}
-        onPhoto={(item) => attachPhoto('opening', item)}
         onSaveNote={(item, note) => saveNote('opening', item, note)}
         onSubmit={() => openSignature('opening')}
       />
@@ -469,12 +414,9 @@ export default function ChecklistFillScreen() {
         statuses={checklist.closingStatuses}
         expandedKey={expandedKey}
         savingKey={savingKey}
-        uploadingKey={uploadingKey}
-        allowPhoto={checklist.allowPhoto}
         isSubmitting={submittingSection === 'closing'}
         onToggleExpand={(item) => toggleExpand('closing', item)}
         onMark={(item, done) => mark('closing', item, done)}
-        onPhoto={(item) => attachPhoto('closing', item)}
         onSaveNote={(item, note) => saveNote('closing', item, note)}
         onSubmit={() => openSignature('closing')}
       />
@@ -482,6 +424,31 @@ export default function ChecklistFillScreen() {
       <Modal visible={signatureSection !== null} animationType="fade" transparent onRequestClose={() => setSignatureSection(null)}>
         <View style={styles.signatureBackdrop}>
           <View style={styles.signatureCard}>
+            {checklist.allowPhoto && (
+              <>
+                <Text style={styles.signatureTitle}>Photos (optional, up to 8)</Text>
+                <View style={styles.photoGrid}>
+                  {photos.map((uri, index) => (
+                    <View key={index} style={styles.photoThumbWrap}>
+                      <Image source={{ uri }} style={styles.photoThumb} />
+                      <Pressable style={styles.photoRemoveButton} onPress={() => removePhoto(index)}>
+                        <Ionicons name="close" size={12} color="#fff" />
+                      </Pressable>
+                    </View>
+                  ))}
+                  {photos.length < 8 && (
+                    <Pressable style={styles.photoAddButton} onPress={capturePhoto} disabled={isCapturingPhoto}>
+                      {isCapturingPhoto ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              </>
+            )}
+
             <Text style={styles.signatureTitle}>Sign to confirm submission</Text>
             <SignaturePad key={signatureSection ?? 'none'} onChange={setSignature} />
             {error && <Text style={styles.error}>{error}</Text>}
@@ -579,19 +546,30 @@ const styles = StyleSheet.create({
     minHeight: 36,
     textAlignVertical: 'top',
   },
-  photoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  photoButton: {
-    flexDirection: 'row',
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photoThumbWrap: { width: 64, height: 64 },
+  photoThumb: { width: 64, height: 64, borderRadius: 8 },
+  photoRemoveButton: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.danger,
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+  },
+  photoAddButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 999,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  photoButtonText: { fontSize: 12, fontWeight: '600', color: colors.primary },
-  photoThumb: { width: 64, height: 64, borderRadius: 8 },
   submitButton: {
     flexDirection: 'row',
     alignItems: 'center',

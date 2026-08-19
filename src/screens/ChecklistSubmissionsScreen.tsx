@@ -20,8 +20,11 @@ function formatSubmittedAt(iso: string) {
 
 // The signature's coordinates come from whatever width the signer's device happened to have —
 // there's no stored canvas size to render against, so fit a viewBox to the path's own bounding
-// box (plus a little padding) instead, and let SVG scale that to fill the display box.
-function SignaturePreview({ path }: { path: string }) {
+// box (plus a little padding) instead, and let SVG scale that to fill the display box. path can
+// be missing on submissions created before signatures were required, so this renders nothing
+// rather than crashing on those older rows.
+function SignaturePreview({ path }: { path?: string }) {
+  if (!path) return null;
   const points = [...path.matchAll(/[ML](-?[\d.]+),(-?[\d.]+)/g)].map((m) => ({
     x: Number(m[1]),
     y: Number(m[2]),
@@ -131,22 +134,29 @@ export default function ChecklistSubmissionsScreen() {
                     color={status.done ? colors.success : colors.danger}
                   />
                   <Text style={styles.itemText}>{status.item}</Text>
-                  {status.photoUrl && (
-                    <Pressable onPress={() => setViewerPhoto(status.photoUrl!)}>
-                      <Image source={{ uri: status.photoUrl }} style={styles.itemPhoto} />
-                    </Pressable>
-                  )}
                 </View>
                 {status.note && <Text style={styles.noteText}>{status.note}</Text>}
               </View>
             ))}
 
-            <View style={styles.signatureBlock}>
-              <Text style={styles.signatureLabel}>Signed by {item.submittedBy.fullName}</Text>
-              <View style={styles.signatureBox}>
-                <SignaturePreview path={item.signature} />
+            {item.photos && item.photos.length > 0 && (
+              <View style={styles.photoGrid}>
+                {item.photos.map((uri, index) => (
+                  <Pressable key={index} onPress={() => setViewerPhoto(uri)}>
+                    <Image source={{ uri }} style={styles.itemPhoto} />
+                  </Pressable>
+                ))}
               </View>
-            </View>
+            )}
+
+            {item.signature && (
+              <View style={styles.signatureBlock}>
+                <Text style={styles.signatureLabel}>Signed by {item.submittedBy.fullName}</Text>
+                <View style={styles.signatureBox}>
+                  <SignaturePreview path={item.signature} />
+                </View>
+              </View>
+            )}
           </View>
         )}
       />
@@ -187,8 +197,9 @@ const styles = StyleSheet.create({
   itemBlock: { gap: 2 },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemText: { fontSize: 13, color: colors.text, flex: 1 },
-  itemPhoto: { width: 40, height: 40, borderRadius: 6 },
   noteText: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic', marginLeft: 20 },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  itemPhoto: { width: 52, height: 52, borderRadius: 8 },
   signatureBlock: { marginTop: 6, gap: 4 },
   signatureLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted },
   signatureBox: {

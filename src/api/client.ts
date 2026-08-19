@@ -344,13 +344,12 @@ export const checklistsApi = {
     jobSite: string,
     item: string,
     done: boolean,
-    photoUrl?: string,
     note?: string,
   ) =>
     request<unknown>('/checklists/current/opening', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite, item, done, photoUrl, note },
+      body: { position, jobSite, item, done, note },
     }),
 
   updateClosing: (
@@ -359,28 +358,40 @@ export const checklistsApi = {
     jobSite: string,
     item: string,
     done: boolean,
-    photoUrl?: string,
     note?: string,
   ) =>
     request<unknown>('/checklists/current/closing', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite, item, done, photoUrl, note },
+      body: { position, jobSite, item, done, note },
     }),
 
   // signature is required — SVG path data for a hand-drawn signature, not a raster image.
-  submitOpening: (accessToken: string, position: Position, jobSite: string, signature: string) =>
+  // photos is an optional batch of up to 8 base64 data URIs for the round as a whole.
+  submitOpening: (
+    accessToken: string,
+    position: Position,
+    jobSite: string,
+    signature: string,
+    photos: string[],
+  ) =>
     request<ChecklistSubmission>('/checklists/current/opening/submit', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite, signature },
+      body: { position, jobSite, signature, photos },
     }),
 
-  submitClosing: (accessToken: string, position: Position, jobSite: string, signature: string) =>
+  submitClosing: (
+    accessToken: string,
+    position: Position,
+    jobSite: string,
+    signature: string,
+    photos: string[],
+  ) =>
     request<ChecklistSubmission>('/checklists/current/closing/submit', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite, signature },
+      body: { position, jobSite, signature, photos },
     }),
 
   // Owner/manager only.

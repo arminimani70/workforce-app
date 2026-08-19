@@ -193,13 +193,11 @@ export interface ChecklistTemplate {
 }
 
 // Every item's done/not-done status is explicit once answered — an item simply absent from
-// the array means it hasn't been marked either way yet. photoUrl is an optional
-// proof-of-completion photo (base64 data URI), attached after the item is marked. note is an
-// optional free-text note, same "attached after marking" convention.
+// the array means it hasn't been marked either way yet. note is an optional free-text note,
+// attached after the item is marked. There's no per-item photo — see ChecklistSubmission.photos.
 export interface ChecklistItemStatus {
   item: string;
   done: boolean;
-  photoUrl?: string;
   note?: string;
 }
 
@@ -233,6 +231,9 @@ export interface ChecklistSubmission {
   submittedBy: { _id: string; fullName: string; role: UserRole };
   // SVG path data for the hand-drawn signature captured at submit time, not a raster image.
   signature: string;
+  // Proof-of-completion photos for the round as a whole (up to 8), captured once at submit time
+  // rather than per item.
+  photos: string[];
   createdAt: string;
 }
 

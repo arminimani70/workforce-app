@@ -246,43 +246,46 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   /checklists/current?position=&jobSite=`) shows an optional heading (the template's title) above
   an **Opening** and a **Closing** section, each rendering its items as tap-to-expand cards —
   Connecteam-style — rather than always-open rows: collapsed, a card shows a status icon
-  (unmarked/done/not-done) and the item text; tapping it expands **Done**/**Not Done** buttons,
-  an optional **note** text field, and (when the checklist's template has `allowPhoto` on) a
-  **Take Photo** button. Every tap saves immediately (`PATCH /checklists/current/opening` /
-  `/closing`, `{ position, jobSite?, item, done }`); a note saves on blur if changed (`{ ...,
-  note }`). The photo control is camera only, deliberately (`ImagePicker.launchCameraAsync`, no
-  gallery/library option), so a photo is always taken of the actual item right then rather than
-  an old or borrowed one being uploaded as "proof"; picking one resizes it to 400px wide and
-  compresses it client-side (`expo-image-manipulator`) before sending it as a base64 data URI
-  (`{ ..., photoUrl }`), and a thumbnail replaces the button once one's attached (tap it to
-  retake). Checklists with photos turned off show no camera UI at all. Each section also shows a
-  thin progress bar (in addition to the existing "answered/total" counter) that fills as items
-  get marked. Once every item in a section is answered, a **Submit** button appears; tapping it
-  opens a signature step — a **SignaturePad** (`src/components/SignaturePad.tsx`, drawn with
+  (unmarked/done/not-done) and the item text; tapping it expands **Done**/**Not Done** buttons
+  and an optional **note** text field. Every tap saves immediately (`PATCH
+  /checklists/current/opening` / `/closing`, `{ position, jobSite?, item, done }`); a note saves
+  on blur if changed (`{ ..., note }`). There's no per-item photo — a checklist round doesn't need
+  a picture of every single task. Each section also shows a thin progress bar (in addition to the
+  existing "answered/total" counter) that fills as items get marked. Once every item in a section
+  is answered, a **Submit** button appears; tapping it opens a confirmation step covering the
+  round as a whole rather than one item at a time: if the checklist's template has `allowPhoto`
+  on, up to **8 photos** can be attached first — camera only, deliberately
+  (`ImagePicker.launchCameraAsync`, no gallery/library option, so a photo is always taken right
+  then rather than an old or borrowed one uploaded as "proof"), each resized to 400px wide and
+  compressed client-side (`expo-image-manipulator`) before being queued as a base64 data URI; a
+  grid of thumbnails (removable via a small × badge) sits above a "＋" tile to add another, capped
+  at 8. Below that, a **SignaturePad** (`src/components/SignaturePad.tsx`, drawn with
   `react-native-svg` and a `PanResponder`, capturing strokes as SVG path data rather than
-  rasterizing to an image) that must have a stroke on it before **Confirm & Submit** is enabled.
-  Confirming (`PATCH .../opening/submit` / `/closing/submit`, `{ position, jobSite?, signature }`)
-  archives that section's current answers (including any photos, notes, and the signature) as a
-  new history entry and **resets the section back to blank** right there on screen — with a brief
-  "submitted" confirmation banner — so the same sheet is immediately ready for the next person to
-  fill, rather than staying marked "done" for the rest of the day. Owner/manager get **Manage
-  Checklists** and **Submission History** buttons at the bottom of the list screen (mirroring
-  Stock), plus the existing **Manage Checklists** button on Schedule. The manager editor opens a
-  list of every existing template plus an editor: pick a **Position**, optionally pick a
-  **Branch** from the Branches list (leave it on "All branches" to make this the position's
+  rasterizing to an image) must have a stroke on it before **Confirm & Submit** is enabled.
+  Confirming (`PATCH .../opening/submit` / `/closing/submit`, `{ position, jobSite?, signature,
+  photos }`) archives that section's current answers (including any notes, photos, and the
+  signature) as a new history entry and **resets the section back to blank** right there on
+  screen — with a brief "submitted" confirmation banner — so the same sheet is immediately ready
+  for the next person to fill, rather than staying marked "done" for the rest of the day.
+  Checklists with photos turned off skip straight to the signature step. Owner/manager get
+  **Manage Checklists** and **Submission History** buttons at the bottom of the list screen
+  (mirroring Stock), plus the existing **Manage Checklists** button on Schedule. The manager
+  editor opens a list of every existing template plus an editor: pick a **Position**, optionally
+  pick a **Branch** from the Branches list (leave it on "All branches" to make this the position's
   default — applied to any pick of that position with no more specific branch template of its
   own), give it an optional **Title** (shown as the checklist's heading, so the same position can
   read differently at different branches), freely add/remove line items for each section, and
-  flip an **Allow photo attachments** switch to opt this checklist into the camera-only
-  proof-of-completion flow above; Save (`PUT /checklists/templates`) — picking a position+branch
-  that already has a template loads it (including its photo setting) for editing instead of
-  starting blank. A **View Submissions** button at the top of that same screen opens **Checklist
-  Submissions** (`GET /checklists/submissions`) — every submitted round ever, newest first,
-  showing who submitted it, whether it was the Opening or Closing section, the position/branch,
-  each answered item with a check/x icon and its note (if any) shown underneath, a thumbnail next
-  to any item that had a photo attached (tapping it opens a full-screen viewer), and the captured
-  signature rendered from its SVG path data at the bottom of the card (fit to a viewBox computed
-  from the path's own bounding box, since the drawing surface's original pixel size isn't stored).
+  flip an **Allow photo attachments** switch to opt this checklist into the photo-batch step
+  above; Save (`PUT /checklists/templates`) — picking a position+branch that already has a
+  template loads it (including its photo setting) for editing instead of starting blank. A **View
+  Submissions** button at the top of that same screen opens **Checklist Submissions** (`GET
+  /checklists/submissions`) — every submitted round ever, newest first, showing who submitted it,
+  whether it was the Opening or Closing section, the position/branch, each answered item with a
+  check/x icon and its note (if any) shown underneath, a grid of the round's attached photos (if
+  any — tapping one opens a full-screen viewer), and the captured signature rendered from its SVG
+  path data at the bottom of the card (fit to a viewBox computed from the path's own bounding box,
+  since the drawing surface's original pixel size isn't stored). Submissions from before the
+  signature/photo fields existed just render without them instead of crashing.
 - **Forms** (Home dashboard card) — the single hub for every fill-out-and-submit flow in the
   app. Two built-in rows sit above the ad hoc catalog: **Opening/Closing Checklist** (see
   Checklists below) and **Wastage Report** (see Wastage below), both plain navigations to their
