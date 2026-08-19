@@ -6,21 +6,16 @@ import type { RouteProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { branchesApi, checklistsApi, HttpError } from '../api/client';
 import { POSITIONS } from '../types/api';
-import type { Branch, ChecklistItemStatus, Position, TodayChecklist } from '../types/api';
+import type { Branch, ChecklistItemStatus, LiveChecklist, Position } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import type { AppStackParamList } from '../navigation/types';
-
-function formatSubmittedAt(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 function ChecklistSection({
   title,
   icon,
   items,
   statuses,
-  submittedAt,
   savingItem,
   isSubmitting,
   onMark,
@@ -30,7 +25,6 @@ function ChecklistSection({
   icon: keyof typeof Ionicons.glyphMap;
   items: string[];
   statuses: ChecklistItemStatus[];
-  submittedAt: string | null;
   savingItem: string | null;
   isSubmitting: boolean;
   onMark: (item: string, done: boolean) => void;
@@ -112,27 +106,20 @@ function ChecklistSection({
             );
           })}
 
-          {submittedAt ? (
-            <View style={styles.submittedRow}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.successText} />
-              <Text style={styles.submittedText}>Submitted at {formatSubmittedAt(submittedAt)}</Text>
-            </View>
-          ) : (
-            <Pressable
-              style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
-              onPress={onSubmit}
-              disabled={!canSubmit || isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="paper-plane-outline" size={14} color="#fff" />
-                  <Text style={styles.submitButtonText}>Submit</Text>
-                </>
-              )}
-            </Pressable>
-          )}
+          <Pressable
+            style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
+            onPress={onSubmit}
+            disabled={!canSubmit || isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="paper-plane-outline" size={14} color="#fff" />
+                <Text style={styles.submitButtonText}>Submit</Text>
+              </>
+            )}
+          </Pressable>
         </>
       )}
     </View>
@@ -147,11 +134,12 @@ export default function ChecklistScreen() {
   const [position, setPosition] = useState<Position | null>(initial?.position ?? null);
   const [jobSite, setJobSite] = useState(initial?.jobSite ?? '');
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [checklist, setChecklist] = useState<TodayChecklist | null>(null);
+  const [checklist, setChecklist] = useState<LiveChecklist | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [savingItem, setSavingItem] = useState<string | null>(null);
   const [submittingSection, setSubmittingSection] = useState<'opening' | 'closing' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     authFetch((token) => branchesApi.list(token))
@@ -164,7 +152,9 @@ export default function ChecklistScreen() {
       setIsLoading(true);
       setError(null);
       try {
-        const result = await authFetch((token) => checklistsApi.today(token, forPosition, forJobSite));
+        const result = await authFetch((token) =>
+          checklistsApi.current(token, forPosition, forJobSite),
+        );
         setChecklist(result);
       } catch (err) {
         setError(err instanceof HttpError ? err.message : 'Could not load checklist');
@@ -216,7 +206,11 @@ export default function ChecklistScreen() {
       } else {
         await authFetch((token) => checklistsApi.submitClosing(token, position, jobSite));
       }
+      // The backend archives this section to history and resets it to blank — reload so the
+      // form comes back empty, ready for whoever fills it next.
       await load(position, jobSite);
+      setMessage(`${section === 'opening' ? 'Opening' : 'Closing'} checklist submitted`);
+      setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not submit checklist');
     } finally {
@@ -226,6 +220,13 @@ export default function ChecklistScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {message && (
+        <View style={styles.messageBox}>
+          <Ionicons name="checkmark-circle" size={16} color={colors.successText} />
+          <Text style={styles.messageText}>{message}</Text>
+        </View>
+      )}
+
       <Text style={styles.sectionLabel}>Position</Text>
       <View style={styles.chipsWrap}>
         {POSITIONS.map((p) => {
@@ -274,7 +275,7 @@ export default function ChecklistScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
 
       {!position ? (
-        <Text style={styles.empty}>Pick a position to load today's checklist</Text>
+        <Text style={styles.empty}>Pick a position to load the checklist</Text>
       ) : isLoading || !checklist ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" />
@@ -288,7 +289,6 @@ export default function ChecklistScreen() {
             icon="sunny-outline"
             items={checklist.openingItems}
             statuses={checklist.openingStatuses}
-            submittedAt={checklist.openingSubmittedAt}
             savingItem={savingItem}
             isSubmitting={submittingSection === 'opening'}
             onMark={(item, done) => mark('opening', item, done)}
@@ -300,7 +300,6 @@ export default function ChecklistScreen() {
             icon="moon-outline"
             items={checklist.closingItems}
             statuses={checklist.closingStatuses}
-            submittedAt={checklist.closingSubmittedAt}
             savingItem={savingItem}
             isSubmitting={submittingSection === 'closing'}
             onMark={(item, done) => mark('closing', item, done)}
@@ -317,6 +316,15 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 10 },
   center: { paddingVertical: 24, alignItems: 'center' },
   error: { color: colors.danger },
+  messageBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.successBg,
+    borderRadius: 8,
+    padding: 10,
+  },
+  messageText: { color: colors.successText, fontSize: 13, fontWeight: '600' },
   checklistTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginTop: 4 },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -373,14 +381,4 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: { opacity: 0.4 },
   submitButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  submittedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.successBg,
-    borderRadius: 8,
-    padding: 8,
-    marginTop: 4,
-  },
-  submittedText: { color: colors.successText, fontSize: 13, fontWeight: '600' },
 });

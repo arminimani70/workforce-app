@@ -13,6 +13,7 @@ import type {
   FormFieldValue,
   FormSubmission,
   FormTemplate,
+  LiveChecklist,
   OnboardingGuide,
   OnboardingSection,
   OrgAvailabilityEntry,
@@ -26,7 +27,6 @@ import type {
   SwapRequest,
   TimeClockEntry,
   TimeTotal,
-  TodayChecklist,
   TokenPair,
   WastageEntry,
   WastageReason,
@@ -330,9 +330,9 @@ export const checklistsApi = {
   listTemplates: (accessToken: string) =>
     request<ChecklistTemplate[]>('/checklists/templates', { accessToken }),
 
-  today: (accessToken: string, position: Position, jobSite: string) =>
-    request<TodayChecklist>(
-      `/checklists/today?position=${position}${jobSite ? `&jobSite=${encodeURIComponent(jobSite)}` : ''}`,
+  current: (accessToken: string, position: Position, jobSite: string) =>
+    request<LiveChecklist>(
+      `/checklists/current?position=${position}${jobSite ? `&jobSite=${encodeURIComponent(jobSite)}` : ''}`,
       { accessToken },
     ),
 
@@ -343,7 +343,7 @@ export const checklistsApi = {
     item: string,
     done: boolean,
   ) =>
-    request<unknown>('/checklists/today/opening', {
+    request<unknown>('/checklists/current/opening', {
       method: 'PATCH',
       accessToken,
       body: { position, jobSite, item, done },
@@ -356,21 +356,21 @@ export const checklistsApi = {
     item: string,
     done: boolean,
   ) =>
-    request<unknown>('/checklists/today/closing', {
+    request<unknown>('/checklists/current/closing', {
       method: 'PATCH',
       accessToken,
       body: { position, jobSite, item, done },
     }),
 
   submitOpening: (accessToken: string, position: Position, jobSite: string) =>
-    request<unknown>('/checklists/today/opening/submit', {
+    request<ChecklistSubmission>('/checklists/current/opening/submit', {
       method: 'PATCH',
       accessToken,
       body: { position, jobSite },
     }),
 
   submitClosing: (accessToken: string, position: Position, jobSite: string) =>
-    request<unknown>('/checklists/today/closing/submit', {
+    request<ChecklistSubmission>('/checklists/current/closing/submit', {
       method: 'PATCH',
       accessToken,
       body: { position, jobSite },

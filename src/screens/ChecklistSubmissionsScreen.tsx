@@ -4,45 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { checklistsApi, HttpError } from '../api/client';
-import type { ChecklistItemStatus, ChecklistSubmission } from '../types/api';
+import type { ChecklistSubmission } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
 function formatSubmittedAt(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function SubmittedSection({
-  title,
-  statuses,
-  submittedAt,
-}: {
-  title: string;
-  statuses: ChecklistItemStatus[];
-  submittedAt: string | null;
-}) {
-  if (!submittedAt) return null;
-  return (
-    <View style={styles.subSection}>
-      <Text style={styles.subSectionTitle}>
-        {title} · submitted {formatSubmittedAt(submittedAt)}
-      </Text>
-      {statuses.map((status, index) => (
-        <View key={index} style={styles.itemRow}>
-          <Ionicons
-            name={status.done ? 'checkmark-circle' : 'close-circle'}
-            size={14}
-            color={status.done ? colors.success : colors.danger}
-          />
-          <Text style={styles.itemText}>{status.item}</Text>
-        </View>
-      ))}
-    </View>
-  );
+  return new Date(iso).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export default function ChecklistSubmissionsScreen() {
@@ -92,9 +64,15 @@ export default function ChecklistSubmissionsScreen() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.headerRow}>
-              <Ionicons name="checkbox-outline" size={16} color={colors.teal} />
-              <Text style={styles.employeeName}>{item.employeeId.fullName}</Text>
-              <Text style={styles.dateText}>{formatDate(item.date)}</Text>
+              <Ionicons
+                name={item.section === 'opening' ? 'sunny-outline' : 'moon-outline'}
+                size={16}
+                color={colors.teal}
+              />
+              <Text style={styles.employeeName}>
+                {item.submittedBy.fullName} · {item.section === 'opening' ? 'Opening' : 'Closing'}
+              </Text>
+              <Text style={styles.dateText}>{formatSubmittedAt(item.createdAt)}</Text>
             </View>
             <View style={styles.badgeRow}>
               <View
@@ -119,16 +97,16 @@ export default function ChecklistSubmissionsScreen() {
               )}
             </View>
 
-            <SubmittedSection
-              title="Opening"
-              statuses={item.openingStatuses}
-              submittedAt={item.openingSubmittedAt}
-            />
-            <SubmittedSection
-              title="Closing"
-              statuses={item.closingStatuses}
-              submittedAt={item.closingSubmittedAt}
-            />
+            {item.statuses.map((status, index) => (
+              <View key={index} style={styles.itemRow}>
+                <Ionicons
+                  name={status.done ? 'checkmark-circle' : 'close-circle'}
+                  size={14}
+                  color={status.done ? colors.success : colors.danger}
+                />
+                <Text style={styles.itemText}>{status.item}</Text>
+              </View>
+            ))}
           </View>
         )}
       />
@@ -158,8 +136,6 @@ const styles = StyleSheet.create({
   positionBadgeText: { fontSize: 11, fontWeight: '700' },
   branchTag: { borderWidth: 1, borderRadius: 999, paddingVertical: 2, paddingHorizontal: 8 },
   branchTagText: { fontSize: 11, fontWeight: '700' },
-  subSection: { marginTop: 4, gap: 3 },
-  subSectionTitle: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemText: { fontSize: 13, color: colors.text },
 });

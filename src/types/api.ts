@@ -196,11 +196,12 @@ export interface ChecklistItemStatus {
   done: boolean;
 }
 
-// The resolved checklist for today, for a given position+branch — not tied to a shift, so it
-// can be opened and filled even on a day with no shift scheduled. openingSubmittedAt/
-// closingSubmittedAt are null until that section has been explicitly submitted.
-export interface TodayChecklist {
-  date: string;
+// The live, shared checklist for a position+branch — not tied to a shift or a day, since
+// several people can hold the same position at the same branch across a day. Persists
+// indefinitely: it only changes because someone marks/submits it, or a manager edits the
+// underlying template. Submitting a section archives it (see ChecklistSubmission) and resets
+// just that section back to empty here.
+export interface LiveChecklist {
   position: Position;
   jobSite: string | null;
   title: string | null;
@@ -208,22 +209,21 @@ export interface TodayChecklist {
   closingItems: string[];
   openingStatuses: ChecklistItemStatus[];
   closingStatuses: ChecklistItemStatus[];
-  openingSubmittedAt: string | null;
-  closingSubmittedAt: string | null;
 }
 
-// One per (employee, day, position, branch) with at least one section submitted — what
-// owner/manager see in the checklist review list.
+export type ChecklistSection = 'opening' | 'closing';
+
+// An immutable snapshot of one section at the moment it was submitted — what owner/manager see
+// in the checklist review list. Not linked to a specific live sheet, since that sheet gets
+// reused indefinitely.
 export interface ChecklistSubmission {
   _id: string;
-  employeeId: { _id: string; fullName: string; role: UserRole };
-  date: string;
   position: Position;
   jobSite: string;
-  openingStatuses: ChecklistItemStatus[];
-  closingStatuses: ChecklistItemStatus[];
-  openingSubmittedAt: string | null;
-  closingSubmittedAt: string | null;
+  section: ChecklistSection;
+  statuses: ChecklistItemStatus[];
+  submittedBy: { _id: string; fullName: string; role: UserRole };
+  createdAt: string;
 }
 
 export type FormFieldType = 'text' | 'number';
