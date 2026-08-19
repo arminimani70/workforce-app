@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   // ancestor View — that's what actually bounds its viewport so it knows content overflows and
   // needs to scroll, instead of just growing past the screen.
   scroll: {
-    maxHeight: '85%',
+    maxHeight: '92%',
     backgroundColor: colors.surface,
     borderRadius: 20,
     overflow: 'hidden',
