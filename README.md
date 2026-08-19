@@ -113,9 +113,15 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   branch, that branch's geofence radius is drawn as a circle on the map and compared
   client-side (haversine) against your live position — straying outside it shows a non-blocking
   warning with the approximate distance; clocking in still works regardless, this is guidance
-  only, not an enforced restriction. Below the button while clocked in, a live HH:MM:SS elapsed
-  timer, with a small subtitle underneath naming the branch and position of whichever shift
-  resolved the geofence (e.g. "Downtown · Front Desk") when either is known. Further down, a
+  only, not an enforced restriction. Starting 3 hours before that shift (and for as long as
+  it's already underway), an info note above the button names it — e.g. "Shift at 08:00 ·
+  Downtown · Front Desk" — so there's advance warning before it's time to clock in; the note
+  goes away once you actually do. Below the button while clocked in, a live HH:MM:SS elapsed
+  timer, with a small subtitle underneath — "Started at 08:05 · Downtown · Front Desk" — naming
+  the actual clock-in time plus the branch/position of whichever shift resolved the geofence,
+  when either is known. Both labels re-resolve every 5 minutes while the screen is open, not
+  just on load, so the notice and the current-vs-next shift pick stay correct if the screen is
+  left open across the 3-hour or shift-start boundary. Further down, a
   total-hours summary (`GET /time-clock/total?from=&to=`) for a date range
   picked from a popup calendar — tap the range pill to open it, tap a start day then an end day
   (tapping again after a range is already picked starts a new one), then Apply. No presets;
