@@ -22,6 +22,7 @@ export default function ManageChecklistsScreen() {
 
   const [position, setPosition] = useState<Position | null>(null);
   const [jobSite, setJobSite] = useState('');
+  const [title, setTitle] = useState('');
   const [openingItems, setOpeningItems] = useState<string[]>([]);
   const [closingItems, setClosingItems] = useState<string[]>([]);
 
@@ -48,6 +49,7 @@ export default function ManageChecklistsScreen() {
     const existing = templates.find(
       (t) => t.position === targetPosition && t.jobSite === targetJobSite,
     );
+    setTitle(existing?.title ?? '');
     setOpeningItems(existing?.openingItems ?? []);
     setClosingItems(existing?.closingItems ?? []);
   };
@@ -55,6 +57,7 @@ export default function ManageChecklistsScreen() {
   const editTemplate = (template: ChecklistTemplate) => {
     setPosition(template.position);
     setJobSite(template.jobSite);
+    setTitle(template.title);
     setOpeningItems(template.openingItems);
     setClosingItems(template.closingItems);
     setMessage(null);
@@ -101,6 +104,7 @@ export default function ManageChecklistsScreen() {
         checklistsApi.upsertTemplate(token, {
           position,
           jobSite: jobSite.trim(),
+          title: title.trim(),
           openingItems: openingItems.map((i) => i.trim()).filter(Boolean),
           closingItems: closingItems.map((i) => i.trim()).filter(Boolean),
         }),
@@ -144,9 +148,16 @@ export default function ManageChecklistsScreen() {
                 size={16}
                 color={POSITION_COLORS[template.position]}
               />
-              <Text style={styles.templateText}>
-                {POSITION_LABELS[template.position]} · {template.jobSite || 'All branches'}
-              </Text>
+              <View style={styles.templateTextGroup}>
+                <Text style={styles.templateText}>
+                  {template.title || `${POSITION_LABELS[template.position]} · ${template.jobSite || 'All branches'}`}
+                </Text>
+                {template.title && (
+                  <Text style={styles.templateSubtext}>
+                    {POSITION_LABELS[template.position]} · {template.jobSite || 'All branches'}
+                  </Text>
+                )}
+              </View>
               <Text style={styles.templateMeta}>
                 {template.openingItems.length} opening · {template.closingItems.length} closing
               </Text>
@@ -215,6 +226,14 @@ export default function ManageChecklistsScreen() {
           No branches yet — add one from Schedule &gt; Manage Branches
         </Text>
       )}
+
+      <Text style={styles.sectionLabel}>Title (optional heading shown on the checklist)</Text>
+      <TextInput
+        style={styles.itemInput}
+        placeholder="e.g. Morning Opening — Front Desk"
+        value={title}
+        onChangeText={setTitle}
+      />
 
       {(['opening', 'closing'] as const).map((section) => {
         const items = section === 'opening' ? openingItems : closingItems;
@@ -285,7 +304,9 @@ const styles = StyleSheet.create({
     padding: 12,
     ...cardShadow,
   },
-  templateText: { fontSize: 14, fontWeight: '600', color: colors.text, flex: 1 },
+  templateTextGroup: { flex: 1 },
+  templateText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  templateSubtext: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   templateMeta: { fontSize: 12, color: colors.textMuted },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {

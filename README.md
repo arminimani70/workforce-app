@@ -240,19 +240,25 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Checklists** — opening/closing duty lists per position, optionally narrowed to a branch,
   reached from Schedule rather than as its own top-level screen. Tapping one of "Your Shift"'s
   entries in Schedule's day-detail popup opens that shift's checklist
-  (`GET /checklists/shift/:shiftId`): an **Opening** and a **Closing** section, each a list of
-  items you tap to check off — every tap saves immediately
-  (`PATCH /checklists/shift/:shiftId/opening` / `/closing`), and unchecking works the same way.
-  If nobody's defined a checklist that applies to that shift's position, the section just says
-  so; if the shift has no position at all, a warning explains that a manager needs to set one.
-  Owner/manager get a **Manage Checklists** button on Schedule (alongside Build Week
-  Schedule/New Shift) that opens a list of every existing template plus an editor: pick a
-  **Position**, optionally pick a **Branch** from the Branches list (leave it on "All
-  branches" to make this the position's default — applied to any shift with that position that
-  doesn't have a more specific branch-only template of its own, including shifts with no branch
-  set at all, which is common since branch is optional when scheduling), then freely add/remove
-  line items for each section and Save (`PUT /checklists/templates`) — picking a
-  position+branch that already has a template loads it for editing instead of starting blank.
+  (`GET /checklists/shift/:shiftId`): an optional heading (the template's title, when a manager
+  set one) above an **Opening** and a **Closing** section, each a list of items with a
+  **Done**/**Not Done** button pair per item instead of a single checkbox — there's no neutral
+  "unanswered but treated as not done" state; an item just shows unmarked (neither button
+  highlighted) until you explicitly pick one, and a "answered/total" counter in the section
+  header tracks progress. Every tap saves immediately (`PATCH
+  /checklists/shift/:shiftId/opening` / `/closing`, `{ item, done }`), and switching between Done
+  and Not Done works the same way. If nobody's defined a checklist that applies to that shift's
+  position, the section just says so; if the shift has no position at all, a warning explains
+  that a manager needs to set one. Owner/manager get a **Manage Checklists** button on Schedule
+  (alongside Build Week Schedule/New Shift) that opens a list of every existing template plus an
+  editor: pick a **Position**, optionally pick a **Branch** from the Branches list (leave it on
+  "All branches" to make this the position's default — applied to any shift with that position
+  that doesn't have a more specific branch-only template of its own, including shifts with no
+  branch set at all, which is common since branch is optional when scheduling), give it an
+  optional **Title** (shown as the checklist's heading, so the same position can read
+  differently at different branches), then freely add/remove line items for each section and
+  Save (`PUT /checklists/templates`) — picking a position+branch that already has a template
+  loads it for editing instead of starting blank.
 - **Forms** (Home dashboard card) — an org-wide catalog of ad hoc report types (e.g. "Damaged
   Product", "Equipment Malfunction", "Urgent Supply Request") — unlike Checklists these aren't
   tied to a position or branch, so any employee can submit any of them, whenever something
@@ -298,6 +304,26 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   current location" to jump straight to wherever you're standing (`expo-location`). A `Circle`
   overlay on the map previews the geofence radius live as you type it. Save upserts
   (`PUT /branches`, include `id` to edit in place instead of creating a new one).
+- **Stock** (Home dashboard card) — manager-built, named product-count lists, one branch per
+  list but any number of lists per branch (e.g. "Bar Stock" and "Kitchen Stock" both at the same
+  branch). The list of available lists (`GET /stock/templates`) shows each one's branch as a
+  colored `BranchTag`; tapping one opens a popup with a numeric input per product, labeled with
+  that product's unit — the employee only ever enters a quantity, never a product name, since
+  the manager fixed those when building the list (`POST /stock/submissions`). Owner/manager get
+  two extra buttons: **Manage Lists** — pick a branch, give the list a title, freely add/remove
+  product rows (each a name + unit), Save upserts (`PUT /stock/templates`, include `id` to edit
+  in place) — and **Submission History** — every stock count ever submitted, newest first, with
+  who submitted it, which branch/list, and each product's counted quantity
+  (`GET /stock/submissions`).
+- **Wastage** (Home dashboard card) — reporting damaged/expired/spilled product. A single
+  always-available form: pick a **Branch** (from the Branches list) and a **Reason** (from an
+  org-wide, manager-editable catalog) as chips, then type the **Product Name** and **Amount** by
+  hand — those two are always free text since there's no fixed product catalog to pick from,
+  unlike Stock's manager-built lists (`POST /wastage/entries`). Owner/manager get two extra
+  buttons: **Manage Reasons** — a simple add/rename/delete list of reason labels
+  (`PUT /wastage/reasons`, `DELETE /wastage/reasons/:id`) that populates the Reason chips for
+  everyone — and **Entry History** — every wastage report ever submitted, newest first, with
+  who reported it, the branch, product, amount, and reason (`GET /wastage/entries`).
 
 ## Scripts
 

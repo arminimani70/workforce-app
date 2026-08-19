@@ -204,13 +204,22 @@ export interface Conversation {
 }
 
 // One per (position, jobSite) — what to do at the start and end of a shift for that
-// position at that branch.
+// position at that branch. title is a manager-set heading for that branch's checklist (e.g.
+// "Morning Opening — Front Desk"), independent of jobSite itself.
 export interface ChecklistTemplate {
   _id: string;
   position: Position;
   jobSite: string;
+  title: string;
   openingItems: string[];
   closingItems: string[];
+}
+
+// Every item's done/not-done status is explicit once answered — an item simply absent from
+// the array means it hasn't been marked either way yet.
+export interface ChecklistItemStatus {
+  item: string;
+  done: boolean;
 }
 
 // The resolved checklist for one specific shift: the matching template's items (empty if none
@@ -219,10 +228,11 @@ export interface ShiftChecklist {
   shiftId: string;
   position: Position | null;
   jobSite: string | null;
+  title: string | null;
   openingItems: string[];
   closingItems: string[];
-  openingCompletedItems: string[];
-  closingCompletedItems: string[];
+  openingStatuses: ChecklistItemStatus[];
+  closingStatuses: ChecklistItemStatus[];
 }
 
 export type FormFieldType = 'text' | 'number';
@@ -265,4 +275,59 @@ export interface Branch {
   lat: number;
   lng: number;
   radiusMeters: number;
+}
+
+export interface StockItem {
+  productName: string;
+  unit: string;
+}
+
+// A manager-built, named list of products to count at one branch (jobSite is a plain-text
+// branch-name snapshot). An employee submitting only ever fills in a quantity per row here —
+// productName/unit are fixed by whoever built the list.
+export interface StockTemplate {
+  _id: string;
+  organizationId: string;
+  jobSite: string;
+  title: string;
+  items: StockItem[];
+}
+
+export interface StockEntryValue extends StockItem {
+  quantity: number;
+}
+
+// A submitted stock count — snapshots the template's title/branch plus each row's counted
+// quantity, so it stays readable even if the template is later edited or deleted.
+export interface StockSubmission {
+  _id: string;
+  organizationId: string;
+  stockTemplateId: string;
+  templateTitle: string;
+  jobSite: string;
+  employeeId: { _id: string; fullName: string; role: UserRole };
+  entries: StockEntryValue[];
+  createdAt: string;
+}
+
+// An org-wide, manager-editable catalog of wastage reasons that populates the reason picker on
+// the wastage submission form.
+export interface WastageReason {
+  _id: string;
+  organizationId: string;
+  label: string;
+}
+
+// One reported wastage event. jobSite and reason are picked from existing lists (branches,
+// WastageReason) but stored as plain-text snapshots; productName/amount are free text the
+// employee types by hand.
+export interface WastageEntry {
+  _id: string;
+  organizationId: string;
+  employeeId: { _id: string; fullName: string; role: UserRole };
+  jobSite: string;
+  reason: string;
+  productName: string;
+  amount: string;
+  createdAt: string;
 }

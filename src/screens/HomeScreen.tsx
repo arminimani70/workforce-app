@@ -323,6 +323,22 @@ export default function HomeScreen({ navigation }: Props) {
       />
 
       <DashboardCard
+        icon="cube-outline"
+        tint={colors.warning}
+        title="Stock"
+        subtitle="Count products at your branch"
+        onPress={() => navigation.navigate('Stock')}
+      />
+
+      <DashboardCard
+        icon="trash-bin-outline"
+        tint={colors.danger}
+        title="Wastage"
+        subtitle="Report damaged or expired product"
+        onPress={() => navigation.navigate('Wastage')}
+      />
+
+      <DashboardCard
         icon="school-outline"
         tint={colors.indigo}
         title="Onboarding"

@@ -21,4 +21,10 @@ export type AppStackParamList = {
   ManageForms: undefined;
   FormSubmissions: undefined;
   ManageBranches: undefined;
+  Stock: undefined;
+  ManageStock: undefined;
+  StockSubmissions: undefined;
+  Wastage: undefined;
+  ManageWastageReasons: undefined;
+  WastageEntries: undefined;
 };

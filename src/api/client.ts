@@ -21,6 +21,9 @@ import type {
   Shift,
   ShiftChecklist,
   ShiftEditRequest,
+  StockItem,
+  StockSubmission,
+  StockTemplate,
   SwapRequest,
   Task,
   TaskBatchResult,
@@ -28,6 +31,8 @@ import type {
   TimeClockEntry,
   TimeTotal,
   TokenPair,
+  WastageEntry,
+  WastageReason,
 } from '../types/api';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
@@ -339,7 +344,13 @@ export const checklistsApi = {
   // Owner/manager only.
   upsertTemplate: (
     accessToken: string,
-    dto: { position: Position; jobSite: string; openingItems: string[]; closingItems: string[] },
+    dto: {
+      position: Position;
+      jobSite: string;
+      title?: string;
+      openingItems: string[];
+      closingItems: string[];
+    },
   ) =>
     request<ChecklistTemplate>('/checklists/templates', {
       method: 'PUT',
@@ -354,18 +365,18 @@ export const checklistsApi = {
   forShift: (accessToken: string, shiftId: string) =>
     request<ShiftChecklist>(`/checklists/shift/${shiftId}`, { accessToken }),
 
-  updateOpening: (accessToken: string, shiftId: string, completedItems: string[]) =>
-    request<{ openingCompletedItems: string[] }>(`/checklists/shift/${shiftId}/opening`, {
+  updateOpening: (accessToken: string, shiftId: string, item: string, done: boolean) =>
+    request<unknown>(`/checklists/shift/${shiftId}/opening`, {
       method: 'PATCH',
       accessToken,
-      body: { completedItems },
+      body: { item, done },
     }),
 
-  updateClosing: (accessToken: string, shiftId: string, completedItems: string[]) =>
-    request<{ closingCompletedItems: string[] }>(`/checklists/shift/${shiftId}/closing`, {
+  updateClosing: (accessToken: string, shiftId: string, item: string, done: boolean) =>
+    request<unknown>(`/checklists/shift/${shiftId}/closing`, {
       method: 'PATCH',
       accessToken,
-      body: { completedItems },
+      body: { item, done },
     }),
 };
 
@@ -412,4 +423,52 @@ export const branchesApi = {
   // Owner/manager only.
   delete: (accessToken: string, id: string) =>
     request<void>(`/branches/${id}`, { method: 'DELETE', accessToken }),
+};
+
+export const stockApi = {
+  // Owner/manager only. Include id to update an existing list in place.
+  upsertTemplate: (
+    accessToken: string,
+    dto: { id?: string; jobSite: string; title: string; items: StockItem[] },
+  ) => request<StockTemplate>('/stock/templates', { method: 'PUT', accessToken, body: dto }),
+
+  // Any authenticated user — the catalog to pick a stock list from.
+  listTemplates: (accessToken: string) =>
+    request<StockTemplate[]>('/stock/templates', { accessToken }),
+
+  // Owner/manager only.
+  deleteTemplate: (accessToken: string, id: string) =>
+    request<void>(`/stock/templates/${id}`, { method: 'DELETE', accessToken }),
+
+  submit: (
+    accessToken: string,
+    dto: { stockTemplateId: string; quantities: { productName: string; quantity: number }[] },
+  ) => request<StockSubmission>('/stock/submissions', { method: 'POST', accessToken, body: dto }),
+
+  // Owner/manager only.
+  listSubmissions: (accessToken: string) =>
+    request<StockSubmission[]>('/stock/submissions', { accessToken }),
+};
+
+export const wastageApi = {
+  // Owner/manager only. Include id to rename an existing reason in place.
+  upsertReason: (accessToken: string, dto: { id?: string; label: string }) =>
+    request<WastageReason>('/wastage/reasons', { method: 'PUT', accessToken, body: dto }),
+
+  // Any authenticated user — populates the reason picker on the submission form.
+  listReasons: (accessToken: string) =>
+    request<WastageReason[]>('/wastage/reasons', { accessToken }),
+
+  // Owner/manager only.
+  deleteReason: (accessToken: string, id: string) =>
+    request<void>(`/wastage/reasons/${id}`, { method: 'DELETE', accessToken }),
+
+  create: (
+    accessToken: string,
+    dto: { jobSite: string; reason: string; productName: string; amount: string },
+  ) => request<WastageEntry>('/wastage/entries', { method: 'POST', accessToken, body: dto }),
+
+  // Owner/manager only.
+  listEntries: (accessToken: string) =>
+    request<WastageEntry[]>('/wastage/entries', { accessToken }),
 };

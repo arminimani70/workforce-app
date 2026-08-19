@@ -22,6 +22,12 @@ import FormsScreen from '../screens/FormsScreen';
 import ManageFormsScreen from '../screens/ManageFormsScreen';
 import FormSubmissionsScreen from '../screens/FormSubmissionsScreen';
 import ManageBranchesScreen from '../screens/ManageBranchesScreen';
+import StockScreen from '../screens/StockScreen';
+import ManageStockScreen from '../screens/ManageStockScreen';
+import StockSubmissionsScreen from '../screens/StockSubmissionsScreen';
+import WastageScreen from '../screens/WastageScreen';
+import ManageWastageReasonsScreen from '../screens/ManageWastageReasonsScreen';
+import WastageEntriesScreen from '../screens/WastageEntriesScreen';
 import type { AppStackParamList, AuthStackParamList } from './types';
 import { colors } from '../theme/colors';
 
@@ -118,6 +124,32 @@ export default function RootNavigator() {
             name="ManageBranches"
             component={ManageBranchesScreen}
             options={{ title: 'Manage Branches' }}
+          />
+          <AppStack.Screen name="Stock" component={StockScreen} options={{ title: 'Stock' }} />
+          <AppStack.Screen
+            name="ManageStock"
+            component={ManageStockScreen}
+            options={{ title: 'Manage Stock Lists' }}
+          />
+          <AppStack.Screen
+            name="StockSubmissions"
+            component={StockSubmissionsScreen}
+            options={{ title: 'Stock History' }}
+          />
+          <AppStack.Screen
+            name="Wastage"
+            component={WastageScreen}
+            options={{ title: 'Wastage' }}
+          />
+          <AppStack.Screen
+            name="ManageWastageReasons"
+            component={ManageWastageReasonsScreen}
+            options={{ title: 'Manage Reasons' }}
+          />
+          <AppStack.Screen
+            name="WastageEntries"
+            component={WastageEntriesScreen}
+            options={{ title: 'Wastage History' }}
           />
         </AppStack.Navigator>
       ) : (
