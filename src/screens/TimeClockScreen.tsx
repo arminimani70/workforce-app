@@ -12,6 +12,7 @@ import { useTodayShiftContext } from '../hooks/useTodayShiftContext';
 import { cardShadow, colors } from '../theme/colors';
 import { NoteBox } from '../components/NoteBox';
 import { PopupModal } from '../components/PopupModal';
+import { BranchTag } from '../components/BranchTag';
 import { AppMapCircle, AppMapView } from '../components/AppMap';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -285,7 +286,15 @@ export default function TimeClockScreen() {
         {openEntry ? (
           <View style={styles.timerBlock}>
             <Text style={styles.timer}>{formatElapsed(elapsedMs)}</Text>
-            {shiftContextLabel && <Text style={styles.shiftContext}>{shiftContextLabel}</Text>}
+            {shiftContextLabel && (
+              todayBranch ? (
+                <View style={styles.shiftContextTag}>
+                  <BranchTag jobSite={todayBranch.name} label={shiftContextLabel} />
+                </View>
+              ) : (
+                <Text style={styles.shiftContext}>{shiftContextLabel}</Text>
+              )
+            )}
           </View>
         ) : (
           <View style={styles.timerSpacer} />
@@ -468,6 +477,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
+  shiftContextTag: { marginTop: 6 },
   timerSpacer: { height: 40 + 24 },
   error: { color: colors.danger, marginBottom: 12 },
   // A translucent circle so the live map underneath still shows through it.

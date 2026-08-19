@@ -41,12 +41,16 @@ Connecteam-style app. Backend lives in a separate repo:
   iconed, and colored (`POSITION_LABELS`/`POSITION_ICONS`/`POSITION_COLORS`); every screen with
   a position chip or a position-tagged row (Availability, Schedule, Tasks, the week builder)
   imports from here, so they can't drift out of sync with each other.
-- `colorForBranch(jobSite)` in `theme/colors.ts` — `jobSite` is free text (there's no Branch
-  entity in the backend), so a branch's color comes from hashing its name against a fixed
-  palette rather than a lookup table: the same name always lands on the same color, and it
-  scales to however many branches an org ends up with, no schema change needed. Rendered as a
-  small colored pill wherever a branch name shows up next to a person (Schedule's day-detail
-  popup, the week builder's Scheduled list).
+- `colorForBranch(jobSite)` in `theme/colors.ts` — `Shift.jobSite`/`ChecklistTemplate.jobSite`
+  store a plain-text snapshot of the branch name rather than a reference to the `Branch`
+  collection, so a branch's color comes from hashing that name against a fixed palette rather
+  than a lookup table: the same name always lands on the same color, and it scales to however
+  many branches an org ends up with, no schema change needed. `src/components/BranchTag.tsx`
+  wraps this as two shared components — `BranchTag` (a colored pill, optionally with a custom
+  `label` while still coloring from `jobSite`) and `BranchDot` (a compact colored dot for dense
+  rows) — used everywhere a branch needs to be visually tied to a shift or a person: Schedule's
+  day-detail popup and "Working Today" list, the week builder's Scheduled list, and Time Clock's
+  branch/position box under the timer.
 - `src/components/PopupModal.tsx` — every popup in the app (New Shift, Schedule's day-detail
   and swap-request popups, Add to Schedule, the Availability day editor, New Task, Time Clock's
   range calendar) is built on this one wrapper: tapping the dimmed area outside the card

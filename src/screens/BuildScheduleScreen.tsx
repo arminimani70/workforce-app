@@ -5,11 +5,12 @@ import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, branchesApi, HttpError, schedulingApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { Branch, OrgAvailabilityEntry, OrgMember, Position, Shift } from '../types/api';
-import { cardShadow, colorForBranch, colors } from '../theme/colors';
+import { cardShadow, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
 import { PopupModal } from '../components/PopupModal';
 import { TimeInput } from '../components/TimeInput';
+import { BranchTag } from '../components/BranchTag';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -69,18 +70,6 @@ interface ModalTarget {
   employeeId: string;
   employeeName: string;
   day: Date;
-}
-
-// A small colored pill for a branch name. Shift.jobSite stores a plain-text snapshot of the
-// branch's name rather than a reference to it, so the color still comes from hashing the name
-// (colorForBranch) rather than a per-branch lookup table.
-function BranchTag({ jobSite }: { jobSite: string }) {
-  const color = colorForBranch(jobSite);
-  return (
-    <View style={[styles.branchTag, { backgroundColor: `${color}1a`, borderColor: color }]}>
-      <Text style={[styles.branchTagText, { color }]}>{jobSite}</Text>
-    </View>
-  );
 }
 
 export default function BuildScheduleScreen() {
@@ -569,13 +558,6 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: '#333' },
   chipTextActive: { color: '#fff' },
-  branchTag: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  branchTagText: { fontSize: 11, fontWeight: '700' },
   cancelButton: { alignItems: 'center', padding: 8 },
   cancelButtonText: { color: colors.textMuted, fontSize: 14 },
   button: {

@@ -15,10 +15,11 @@ import {
 import { POSITIONS } from '../types/api';
 import type { Branch, CoworkerShift, OrgMember, Position, Shift, SwapRequest } from '../types/api';
 import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
-import { cardShadow, colorForBranch, colors } from '../theme/colors';
+import { cardShadow, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { PopupModal } from '../components/PopupModal';
 import { TimeInput } from '../components/TimeInput';
+import { BranchDot, BranchTag } from '../components/BranchTag';
 import type { AppStackParamList } from '../navigation/types';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -91,18 +92,6 @@ function combineDateAndTime(date: Date, hhmm: string): Date {
   const combined = new Date(date);
   combined.setHours(hours, minutes, 0, 0);
   return combined;
-}
-
-// A small colored pill for a branch name. Shift.jobSite stores a plain-text snapshot of the
-// branch's name rather than a reference to it, so the color still comes from hashing the name
-// (colorForBranch) rather than a per-branch lookup table.
-function BranchTag({ jobSite }: { jobSite: string }) {
-  const color = colorForBranch(jobSite);
-  return (
-    <View style={[styles.branchTag, { backgroundColor: `${color}1a`, borderColor: color }]}>
-      <Text style={[styles.branchTagText, { color }]}>{jobSite}</Text>
-    </View>
-  );
 }
 
 export default function ScheduleScreen() {
@@ -658,9 +647,12 @@ export default function ScheduleScreen() {
         ) : (
           todayCoworkers.map((shift) => (
             <View key={shift._id} style={styles.coworkerRow}>
-              <Text style={styles.coworkerName}>
-                {shift.employeeId._id === user?._id ? 'You' : shift.employeeId.fullName}
-              </Text>
+              <View style={styles.coworkerNameRow}>
+                {shift.jobSite && <BranchDot jobSite={shift.jobSite} />}
+                <Text style={styles.coworkerName}>
+                  {shift.employeeId._id === user?._id ? 'You' : shift.employeeId.fullName}
+                </Text>
+              </View>
               <Text style={styles.coworkerMeta}>
                 {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
                 {shift.position ? ` · ${POSITION_LABELS[shift.position]}` : ''}
@@ -1122,13 +1114,6 @@ const styles = StyleSheet.create({
   detailPersonInfo: { flex: 1 },
   detailPersonText: { fontSize: 14, fontWeight: '600', color: colors.text },
   detailPersonMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
-  branchTag: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  branchTagText: { fontSize: 11, fontWeight: '700' },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.warningText },
   pendingBox: {
     backgroundColor: colors.warningBg,
@@ -1243,6 +1228,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 4,
   },
+  coworkerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   coworkerName: { fontSize: 14, fontWeight: '600', color: colors.text },
   coworkerMeta: { fontSize: 13, color: colors.textMuted },
   newShiftButton: {
