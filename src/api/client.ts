@@ -119,11 +119,15 @@ export const usersApi = {
 };
 
 export const timeClockApi = {
-  clockIn: (accessToken: string, location?: { lat: number; lng: number }) =>
+  clockIn: (
+    accessToken: string,
+    location: { lat: number; lng: number } | undefined,
+    extra?: { dayStart: string; dayEnd: string; reason?: string },
+  ) =>
     request<TimeClockEntry>('/time-clock/clock-in', {
       method: 'POST',
       accessToken,
-      body: location ?? {},
+      body: { ...location, ...extra },
     }),
 
   clockOut: (accessToken: string, location?: { lat: number; lng: number }) =>

@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +14,7 @@ import { useAuth } from '../auth/AuthContext';
 import { HttpError, timeClockApi } from '../api/client';
 import type { TimeClockEntry } from '../types/api';
 import { POSITION_LABELS } from '../constants/positions';
-import { formatElapsed, formatHoursMinutes } from '../utils/time';
+import { formatElapsed, formatHoursMinutes, fullDayRange } from '../utils/time';
 import { distanceMeters, formatDistance } from '../utils/geo';
 import { useTodayShiftContext } from '../hooks/useTodayShiftContext';
 import { cardShadow, colors } from '../theme/colors';
@@ -79,6 +86,14 @@ function chunkIntoWeeks(cells: (Date | null)[]): (Date | null)[][] {
   return weeks;
 }
 
+// The clock-in endpoint needs the caller's local "today" bounds (not the server's) to check for
+// a shift scheduled today — fullDayRange() already computes that in the device's timezone for
+// other range queries, just under from/to naming instead of dayStart/dayEnd.
+function todayBounds() {
+  const { from, to } = fullDayRange();
+  return { dayStart: from, dayEnd: to };
+}
+
 function formatRangeLabel(from: Date, to: Date): string {
   if (isSameDay(from, to)) {
     return from.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
@@ -110,6 +125,11 @@ export default function TimeClockScreen() {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [pickStart, setPickStart] = useState<Date | null>(null);
   const [pickEnd, setPickEnd] = useState<Date | null>(null);
+
+  const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
+  const [emergencyReason, setEmergencyReason] = useState('');
+  const [emergencyError, setEmergencyError] = useState<string | null>(null);
+  const [isEmergencySubmitting, setIsEmergencySubmitting] = useState(false);
 
   // Live GPS for the map behind the clock-in circle — separate from getLocation() above, which
   // takes a one-off fix at the moment of the actual clock-in/out submission.
@@ -197,13 +217,45 @@ export default function TimeClockScreen() {
       const location = await getLocation();
       const entry = openEntry
         ? await authFetch((token) => timeClockApi.clockOut(token, location))
-        : await authFetch((token) => timeClockApi.clockIn(token, location));
+        : await authFetch((token) => timeClockApi.clockIn(token, location, todayBounds()));
       setOpenEntry(entry.clockOutTime ? null : entry);
       await loadTotal();
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Something went wrong');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openEmergency = () => {
+    setEmergencyReason('');
+    setEmergencyError(null);
+    setIsEmergencyOpen(true);
+  };
+
+  // A shift-less clock-in: the person needs to start work today with nothing scheduled (called
+  // in unexpectedly, covering someone, etc). The backend normally rejects a clock-in with no
+  // approved shift that day — passing a reason here is what makes it accept one anyway.
+  const onSubmitEmergency = async () => {
+    const reason = emergencyReason.trim();
+    if (!reason) {
+      setEmergencyError('Enter a reason for starting work');
+      return;
+    }
+    setEmergencyError(null);
+    setIsEmergencySubmitting(true);
+    try {
+      const location = await getLocation();
+      const entry = await authFetch((token) =>
+        timeClockApi.clockIn(token, location, { ...todayBounds(), reason }),
+      );
+      setOpenEntry(entry.clockOutTime ? null : entry);
+      await loadTotal();
+      setIsEmergencyOpen(false);
+    } catch (err) {
+      setEmergencyError(err instanceof HttpError ? err.message : 'Something went wrong');
+    } finally {
+      setIsEmergencySubmitting(false);
     }
   };
 
@@ -325,9 +377,17 @@ export default function TimeClockScreen() {
 
         {isFarFromBranch && todayBranch && (
           <NoteBox variant="warning">
-            You're {formatDistance(distanceToBranch!)} from {todayBranch.name} — clocking in
-            still works, this is just a heads up.
+            You're outside {todayBranch.name}'s allowed radius by about{' '}
+            {formatDistance(distanceToBranch! - todayBranch.radiusMeters)} — clocking in still
+            works, this is just a heads up.
           </NoteBox>
+        )}
+
+        {!openEntry && (
+          <Pressable style={styles.emergencyButton} onPress={openEmergency}>
+            <Ionicons name="warning-outline" size={16} color={colors.warningText} />
+            <Text style={styles.emergencyButtonText}>Emergency Clock In</Text>
+          </Pressable>
         )}
 
         <View style={styles.totalsBox}>
@@ -441,6 +501,48 @@ export default function TimeClockScreen() {
             </View>
           </View>
       </PopupModal>
+
+      <PopupModal visible={isEmergencyOpen} onClose={() => setIsEmergencyOpen(false)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Emergency Clock In</Text>
+            <Text style={styles.emergencyHint}>
+              You don't have a shift scheduled today. Explain why you need to start work and
+              you'll be clocked in anyway.
+            </Text>
+
+            <TextInput
+              style={styles.emergencyInput}
+              placeholder="e.g. covering a no-show, called in urgently"
+              value={emergencyReason}
+              onChangeText={setEmergencyReason}
+              multiline
+              numberOfLines={3}
+            />
+
+            {emergencyError && <Text style={styles.error}>{emergencyError}</Text>}
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.cancelButton}
+                onPress={() => setIsEmergencyOpen(false)}
+                disabled={isEmergencySubmitting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.applyButton, isEmergencySubmitting && styles.buttonDisabled]}
+                onPress={onSubmitEmergency}
+                disabled={isEmergencySubmitting}
+              >
+                {isEmergencySubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.applyButtonText}>Clock In</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+      </PopupModal>
     </View>
   );
 }
@@ -496,6 +598,28 @@ const styles = StyleSheet.create({
   buttonClockOut: { backgroundColor: 'rgba(220,38,38,0.8)' },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  emergencyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: colors.warningBg,
+  },
+  emergencyButtonText: { color: colors.warningText, fontSize: 13, fontWeight: '700' },
+  emergencyHint: { fontSize: 13, color: colors.textMuted },
+  emergencyInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
   totalsBox: {
     marginTop: 40,
     width: '100%',
