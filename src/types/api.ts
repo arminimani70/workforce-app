@@ -74,11 +74,11 @@ export interface Shift {
   createdBy: string;
 }
 
-// GET /shifts/coworkers populates employeeId into { _id, fullName, role } instead of a
-// plain id string, so it needs its own shape rather than reusing Shift.
+// GET /shifts/coworkers populates employeeId into { _id, fullName, role, avatarUrl } instead
+// of a plain id string, so it needs its own shape rather than reusing Shift.
 export interface CoworkerShift {
   _id: string;
-  employeeId: { _id: string; fullName: string; role: UserRole };
+  employeeId: { _id: string; fullName: string; role: UserRole; avatarUrl?: string };
   startTime: string;
   endTime: string;
   jobSite?: string;

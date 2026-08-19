@@ -1,44 +1,52 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
-import {
-  branchesApi,
-  HttpError,
-  schedulingApi,
-  swapRequestsApi,
-  timeClockApi,
-  usersApi,
-} from '../api/client';
+import { branchesApi, HttpError, schedulingApi, swapRequestsApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
 import type { Branch, CoworkerShift, OrgMember, Position, Shift, SwapRequest } from '../types/api';
-import { formatHoursMinutes, fullDayRange, monthToDateRange } from '../utils/time';
 import { cardShadow, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { PopupModal } from '../components/PopupModal';
 import { TimeInput } from '../components/TimeInput';
-import { BranchDot, BranchTag } from '../components/BranchTag';
+import { BranchTag } from '../components/BranchTag';
 import type { AppStackParamList } from '../navigation/types';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-type ViewScope = 'me' | 'branch' | 'all';
+type ViewScope = 'me' | 'all';
 
 const SCOPE_LABELS: Record<ViewScope, string> = {
   me: 'Me',
-  branch: 'My Branch',
-  all: 'All Branches',
+  all: 'Everyone',
 };
 
 const SCOPE_ICONS: Record<ViewScope, keyof typeof Ionicons.glyphMap> = {
   me: 'person-outline',
-  branch: 'business-outline',
-  all: 'globe-outline',
+  all: 'people-outline',
 };
+
+function initials(fullName: string | undefined) {
+  if (!fullName) return '?';
+  return fullName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+}
 
 function startOfWeekMonday(date = new Date()) {
   const dayOfWeek = date.getDay(); // 0 = Sunday .. 6 = Saturday
@@ -75,18 +83,6 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// Names a couple of coworkers and folds the rest into a count, so a branch with 100 people
-// doesn't try to cram 100 names into one line — full names are still all in the day-detail
-// popup, this is just the calendar row's at-a-glance summary.
-const MAX_NAMED_COWORKERS = 2;
-
-function summarizeCoworkers(coworkers: CoworkerShift[]): string {
-  const names = coworkers.slice(0, MAX_NAMED_COWORKERS).map((c) => c.employeeId.fullName);
-  const remaining = coworkers.length - names.length;
-  if (remaining <= 0) return `With ${names.join(', ')}`;
-  return `With ${names.join(', ')} +${remaining} more`;
-}
-
 // Combines a calendar day with an "HH:mm" string into a full local Date.
 function combineDateAndTime(date: Date, hhmm: string): Date {
   const [hours, minutes] = hhmm.split(':').map(Number);
@@ -101,11 +97,9 @@ export default function ScheduleScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [weekShifts, setWeekShifts] = useState<Shift[]>([]);
   const [pendingShifts, setPendingShifts] = useState<Shift[]>([]);
-  const [todayCoworkers, setTodayCoworkers] = useState<CoworkerShift[]>([]);
   const [weekCoworkers, setWeekCoworkers] = useState<CoworkerShift[]>([]);
-  const [viewScope, setViewScope] = useState<ViewScope>('branch');
+  const [viewScope, setViewScope] = useState<ViewScope>('me');
   const [detailDay, setDetailDay] = useState<Date | null>(null);
-  const [monthTotalSeconds, setMonthTotalSeconds] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -165,16 +159,12 @@ export default function ScheduleScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [week, total, coworkers, weekWideCoworkers, mySwaps] = await Promise.all([
+      const [week, weekWideCoworkers, mySwaps] = await Promise.all([
         authFetch((token) => schedulingApi.myShifts(token, { from: weekFrom, to: weekTo })),
-        authFetch((token) => timeClockApi.total(token, monthToDateRange())),
-        authFetch((token) => schedulingApi.coworkers(token, fullDayRange())),
         authFetch((token) => schedulingApi.coworkers(token, { from: weekFrom, to: weekTo })),
         authFetch((token) => swapRequestsApi.mine(token)),
       ]);
       setWeekShifts(week.filter((s) => s.approval === 'approved'));
-      setMonthTotalSeconds(total.totalSeconds);
-      setTodayCoworkers(coworkers);
       setWeekCoworkers(weekWideCoworkers);
       setMySwapRequests(mySwaps);
 
@@ -326,27 +316,48 @@ export default function ScheduleScreen() {
   // stays consistent between the summary line and the popup.
   const getDayInfo = (day: Date) => {
     const dayShifts = weekShifts.filter((shift) => isSameDay(new Date(shift.startTime), day));
-    const myJobSiteForDay = dayShifts.find((s) => s.jobSite)?.jobSite;
 
     const dayCoworkersAll = weekCoworkers.filter(
       (c) => isSameDay(new Date(c.startTime), day) && c.employeeId._id !== user?._id,
     );
-    const dayCoworkers =
-      viewScope === 'me'
-        ? []
-        : viewScope === 'branch'
-          ? dayCoworkersAll.filter((c) => myJobSiteForDay && c.jobSite === myJobSiteForDay)
-          : dayCoworkersAll;
+    const dayCoworkers = viewScope === 'me' ? [] : dayCoworkersAll;
 
-    const dayManagerPool = weekCoworkers.filter((c) => isSameDay(new Date(c.startTime), day));
-    const dayManager =
-      viewScope === 'branch'
-        ? dayManagerPool.find(
-            (c) => c.position === 'manager' && (!myJobSiteForDay || c.jobSite === myJobSiteForDay),
-          )
-        : dayManagerPool.find((c) => c.position === 'manager');
+    const dayManager = weekCoworkers
+      .filter((c) => isSameDay(new Date(c.startTime), day))
+      .find((c) => c.position === 'manager');
 
-    return { dayShifts, myJobSiteForDay, dayCoworkers, dayCoworkersAll, dayManager };
+    return { dayShifts, dayCoworkers, dayCoworkersAll, dayManager };
+  };
+
+  // Powers the calendar's day rows — every person (avatar, time, branch) scheduled that day.
+  // "Me" only ever shows the caller's own shifts; "Everyone" lists the whole org, self
+  // included, sorted by start time so earlier shifts land first within the day.
+  const getDayPeople = (day: Date) => {
+    if (viewScope === 'me') {
+      return weekShifts
+        .filter((shift) => isSameDay(new Date(shift.startTime), day))
+        .map((shift) => ({
+          key: shift._id,
+          avatarUrl: user?.avatarUrl,
+          fullName: user?.fullName,
+          isYou: true,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          jobSite: shift.jobSite,
+        }));
+    }
+    return weekCoworkers
+      .filter((c) => isSameDay(new Date(c.startTime), day))
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+      .map((c) => ({
+        key: c._id,
+        avatarUrl: c.employeeId._id === user?._id ? user?.avatarUrl : c.employeeId.avatarUrl,
+        fullName: c.employeeId.fullName,
+        isYou: c.employeeId._id === user?._id,
+        startTime: c.startTime,
+        endTime: c.endTime,
+        jobSite: c.jobSite,
+      }));
   };
 
   if (isLoading) {
@@ -586,7 +597,7 @@ export default function ScheduleScreen() {
         {days.map((day, index) => {
           const isPast = day < today && !isSameDay(day, today);
           const isToday = isSameDay(day, today);
-          const { dayShifts, dayCoworkers, dayManager } = getDayInfo(day);
+          const dayPeople = getDayPeople(day);
 
           return (
             <Pressable
@@ -607,29 +618,31 @@ export default function ScheduleScreen() {
                 </Text>
               </View>
 
-              <View style={styles.dayShifts}>
-                {dayShifts.length === 0 ? (
+              <View style={styles.dayPeopleList}>
+                {dayPeople.length === 0 ? (
                   <Text style={[styles.noShift, isPast && styles.dayTextPast]}>—</Text>
                 ) : (
-                  dayShifts.map((shift) => (
-                    <Text key={shift._id} style={[styles.shiftText, isPast && styles.dayTextPast]}>
-                      {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
-                      {shift.jobSite ? ` · ${shift.jobSite}` : ''}
-                    </Text>
+                  dayPeople.map((person) => (
+                    <View key={person.key} style={styles.personRow}>
+                      {person.avatarUrl ? (
+                        <Image source={{ uri: person.avatarUrl }} style={styles.personAvatarImage} />
+                      ) : (
+                        <View style={styles.personAvatar}>
+                          <Text style={styles.personAvatarText}>{initials(person.fullName)}</Text>
+                        </View>
+                      )}
+                      <Text
+                        style={[styles.personTime, isPast && styles.dayTextPast]}
+                        numberOfLines={1}
+                      >
+                        {viewScope === 'all'
+                          ? `${person.isYou ? 'You' : person.fullName} · `
+                          : ''}
+                        {formatTime(person.startTime)}–{formatTime(person.endTime)}
+                      </Text>
+                      {person.jobSite && <BranchTag jobSite={person.jobSite} />}
+                    </View>
                   ))
-                )}
-                {viewScope !== 'me' && dayManager && (
-                  <Text style={[styles.dayManagerText, isPast && styles.dayTextPast]}>
-                    Manager: {dayManager.employeeId._id === user?._id ? 'You' : dayManager.employeeId.fullName}
-                  </Text>
-                )}
-                {viewScope !== 'me' && dayCoworkers.length > 0 && (
-                  <Text
-                    style={[styles.dayCoworkersText, isPast && styles.dayTextPast]}
-                    numberOfLines={1}
-                  >
-                    {summarizeCoworkers(dayCoworkers)}
-                  </Text>
                 )}
               </View>
 
@@ -637,44 +650,6 @@ export default function ScheduleScreen() {
             </Pressable>
           );
         })}
-      </View>
-
-      <View style={styles.coworkersBox}>
-        <View style={styles.sectionTitleRow}>
-          <Ionicons name="people-outline" size={16} color={colors.text} />
-          <Text style={styles.sectionTitleDark}>Working Today</Text>
-        </View>
-        {todayCoworkers.length === 0 ? (
-          <View style={styles.emptyRow}>
-            <Ionicons name="moon-outline" size={15} color={colors.textFaint} />
-            <Text style={styles.noShift}>No one scheduled today</Text>
-          </View>
-        ) : (
-          todayCoworkers.map((shift) => (
-            <View key={shift._id} style={styles.coworkerRow}>
-              <View style={styles.coworkerNameRow}>
-                {shift.jobSite && <BranchDot jobSite={shift.jobSite} />}
-                <Text style={styles.coworkerName}>
-                  {shift.employeeId._id === user?._id ? 'You' : shift.employeeId.fullName}
-                </Text>
-              </View>
-              <Text style={styles.coworkerMeta}>
-                {formatTime(shift.startTime)}–{formatTime(shift.endTime)}
-                {shift.position ? ` · ${POSITION_LABELS[shift.position]}` : ''}
-              </Text>
-            </View>
-          ))
-        )}
-      </View>
-
-      <View style={styles.monthBox}>
-        <View style={styles.monthLabelRow}>
-          <Ionicons name="bar-chart-outline" size={16} color={colors.textMuted} />
-          <Text style={styles.monthLabel}>Worked this month</Text>
-        </View>
-        <Text style={styles.monthValue}>
-          {monthTotalSeconds === null ? '—' : formatHoursMinutes(monthTotalSeconds)}
-        </Text>
       </View>
 
       {canManage && (
@@ -930,7 +905,7 @@ export default function ScheduleScreen() {
                         {dayCoworkers.length > 0 ? ` · ${dayCoworkers.length}` : ''})
                       </Text>
                       {viewScope === 'me' ? (
-                        <Text style={styles.noShift}>Switch to My Branch or All Branches to see who else is working</Text>
+                        <Text style={styles.noShift}>Switch to Everyone to see who else is working</Text>
                       ) : dayCoworkers.length === 0 ? (
                         <Text style={styles.noShift}>No one else scheduled this day in that scope</Text>
                       ) : (
@@ -1202,24 +1177,20 @@ const styles = StyleSheet.create({
   dayLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
   dayDate: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   dayTextPast: { color: colors.textFaint },
-  dayShifts: { flex: 1, justifyContent: 'center', gap: 2 },
-  dayManagerText: { fontSize: 12, color: colors.indigo, fontWeight: '600' },
-  dayCoworkersText: { fontSize: 12, color: colors.textMuted },
-  emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dayPeopleList: { flex: 1, justifyContent: 'center', gap: 8 },
   noShift: { fontSize: 13, color: colors.textFaint },
-  shiftText: { fontSize: 13, color: colors.text, fontWeight: '600' },
-  monthBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  personRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  personAvatarImage: { width: 28, height: 28, borderRadius: 14 },
+  personAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
     alignItems: 'center',
-    padding: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    ...cardShadow,
+    justifyContent: 'center',
   },
-  monthLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  monthLabel: { fontSize: 14, color: colors.textMuted },
-  monthValue: { fontSize: 18, fontWeight: '700', color: colors.text },
+  personAvatarText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  personTime: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.text },
   coworkersBox: {
     borderRadius: 12,
     padding: 12,
@@ -1228,14 +1199,6 @@ const styles = StyleSheet.create({
     ...cardShadow,
   },
   sectionTitleDark: { fontSize: 13, fontWeight: '700', color: colors.text },
-  coworkerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  coworkerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  coworkerName: { fontSize: 14, fontWeight: '600', color: colors.text },
-  coworkerMeta: { fontSize: 13, color: colors.textMuted },
   newShiftButton: {
     flexDirection: 'row',
     alignItems: 'center',

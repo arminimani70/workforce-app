@@ -154,33 +154,28 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Schedule** — a Monday–Sunday calendar of that week's **approved** shifts only; past days
   are greyed out. ‹ › arrows browse to any previous/future week (the fetch re-runs for
   whichever week is displayed); a "This Week" badge marks the current week, replaced by a
-  "Jump to this week" link once you've navigated away from it. A scope switcher above the
-  calendar — **Me** / **My Branch** / **All Branches** — controls who shows up alongside each
-  day's shift time: Me shows only your own shift, My Branch cross-references the week's
-  coworkers (`GET /shifts/coworkers?from=&to=`) against your `jobSite` for that day, All
-  Branches shows everyone regardless of branch. Each day also shows that day's **Manager**
-  (whoever has an approved shift with `position: manager`, scoped the same way as My Branch),
-  so you can see who to talk to about a shift swap. The calendar row's coworker line names up
-  to 2 people and folds the rest into a count (`With Sara, Ali +98 more`) rather than trying to
-  fit a large branch's whole roster on one line — full names are always in the day-detail
-  popup instead. Tapping a day opens that popup: your shift, the manager, and the full coworker
-  list for that day, with a count in the section heading, plus two actions: **Request Shift
-  Swap** (only shown when you have a shift that day and at least one coworker also working it,
-  regardless of the current scope filter — pick which of your shifts to offer and whose shift
-  you want in exchange, `POST /shifts/swap-requests`) and **Tasks for this day** (jumps to Tasks
-  pre-filtered to that date). A direct 1:1 trade needs both the target coworker and a manager to
-  sign off before anything actually moves: "Your Swap Requests" (visible to everyone, shown
-  whenever you're on either side of an active request) lets the target **Accept**/**Decline**
-  (`PATCH /shifts/swap-requests/:id/accept` / `/decline`) or the requester **Cancel** it
-  (`PATCH /shifts/swap-requests/:id/cancel`) while it's still waiting on the target; once
-  accepted it shows "awaiting manager approval" with no further action from either employee.
-  Owner/manager additionally see "Swap requests awaiting approval" — every request already
-  accepted by its target, with **Approve** (`PATCH /shifts/swap-requests/:id/approve` — swaps
-  the two shifts' assigned employee) / **Deny** (`PATCH /shifts/swap-requests/:id/deny`)
-  buttons. Below the calendar, "Working Today"
-  (`GET /shifts/coworkers?from=&to=`,
-  everyone approved to work today org-wide, with name and position), then total hours worked
-  this month (reuses `GET /time-clock/total`). Owner/manager also see a "Pending confirmation"
+  "Jump to this week" link once you've navigated away from it. A two-way scope switcher above
+  the calendar — **Me** / **Everyone** — controls who shows up: Me lists only your own shifts;
+  Everyone lists every approved shift org-wide (`GET /shifts/coworkers?from=&to=`, self
+  included). Each day in the calendar renders every person scheduled that day as its own row —
+  avatar (their `avatarUrl` if set, else initials in a colored circle), shift time, and a
+  `BranchTag` pill colored by that shift's branch — grouped by day so a day's whole roster
+  finishes before the next day starts, rather than each person's week running start-to-finish
+  one after another. Tapping a day opens the day-detail popup: your shift, that day's
+  **Manager** (whoever has an approved shift with `position: manager`), the full coworker list
+  (only populated in Everyone scope), plus two actions: **Request Shift Swap** (only shown when
+  you have a shift that day and at least one coworker also working it — pick which of your
+  shifts to offer and whose shift you want in exchange, `POST /shifts/swap-requests`) and
+  **Tasks for this day** (jumps to Tasks pre-filtered to that date). A direct 1:1 trade needs
+  both the target coworker and a manager to sign off before anything actually moves: "Your Swap
+  Requests" (visible to everyone, shown whenever you're on either side of an active request)
+  lets the target **Accept**/**Decline** (`PATCH /shifts/swap-requests/:id/accept` / `/decline`)
+  or the requester **Cancel** it (`PATCH /shifts/swap-requests/:id/cancel`) while it's still
+  waiting on the target; once accepted it shows "awaiting manager approval" with no further
+  action from either employee. Owner/manager additionally see "Swap requests awaiting
+  approval" — every request already accepted by its target, with **Approve**
+  (`PATCH /shifts/swap-requests/:id/approve` — swaps the two shifts' assigned employee) /
+  **Deny** (`PATCH /shifts/swap-requests/:id/deny`) buttons, plus a "Pending confirmation"
   section — every pending shift org-wide (`GET /shifts`), not just their own, with Confirm
   (`PATCH /shifts/:id/confirm`) and Reject (`PATCH /shifts/:id/reject`) buttons — and a
   "+ New Shift" button opening a popup: navigate week with ‹ › arrows, pick a day within it,
