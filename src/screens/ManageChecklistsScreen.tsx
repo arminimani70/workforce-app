@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
 import { branchesApi, checklistsApi, HttpError } from '../api/client';
 import { POSITIONS } from '../types/api';
@@ -9,9 +11,11 @@ import type { Branch, ChecklistTemplate, Position } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { NoteBox } from '../components/NoteBox';
+import type { AppStackParamList } from '../navigation/types';
 
 export default function ManageChecklistsScreen() {
   const { authFetch } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const insets = useSafeAreaInsets();
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -131,6 +135,14 @@ export default function ManageChecklistsScreen() {
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
     >
+      <Pressable
+        style={styles.submissionsButton}
+        onPress={() => navigation.navigate('ChecklistSubmissions')}
+      >
+        <Ionicons name="time-outline" size={16} color="#fff" />
+        <Text style={styles.submissionsButtonText}>View Submissions</Text>
+      </Pressable>
+
       {templates.length > 0 && (
         <>
           <View style={styles.sectionTitleRow}>
@@ -353,4 +365,14 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  submissionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.indigo,
+    borderRadius: 10,
+    padding: 12,
+  },
+  submissionsButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 });

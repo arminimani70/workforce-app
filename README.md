@@ -228,30 +228,31 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   one. Home's Messages card shows the total unread count (`GET /messages/unread-count`).
 - **Checklists** — opening/closing duty lists per position, optionally narrowed to a branch.
   Reached from **Forms**' "Opening/Closing Checklist" row rather than as its own top-level
-  screen: the row resolves "the shift that matters right now" the same way Home/Time Clock
-  do — whichever of today's approved shifts is currently underway, or failing that the next
-  one still to come today (not filtered by branch, since a checklist can apply to a
-  branch-less shift) — and shows "No shift today" (row disabled) if there isn't one. Tapping it
-  opens that shift's checklist (`GET /checklists/shift/:shiftId`): an optional heading (the
-  template's title, when a manager set one) above an **Opening** and a **Closing** section,
-  each a list of items with a
-  **Done**/**Not Done** button pair per item instead of a single checkbox — there's no neutral
-  "unanswered but treated as not done" state; an item just shows unmarked (neither button
-  highlighted) until you explicitly pick one, and a "answered/total" counter in the section
-  header tracks progress. Every tap saves immediately (`PATCH
-  /checklists/shift/:shiftId/opening` / `/closing`, `{ item, done }`), and switching between Done
-  and Not Done works the same way. If nobody's defined a checklist that applies to that shift's
-  position, the section just says so; if the shift has no position at all, a warning explains
-  that a manager needs to set one. Owner/manager get a **Manage Checklists** button on Schedule
-  (alongside Build Week Schedule/New Shift) that opens a list of every existing template plus an
-  editor: pick a **Position**, optionally pick a **Branch** from the Branches list (leave it on
-  "All branches" to make this the position's default — applied to any shift with that position
-  that doesn't have a more specific branch-only template of its own, including shifts with no
-  branch set at all, which is common since branch is optional when scheduling), give it an
-  optional **Title** (shown as the checklist's heading, so the same position can read
-  differently at different branches), then freely add/remove line items for each section and
-  Save (`PUT /checklists/templates`) — picking a position+branch that already has a template
-  loads it for editing instead of starting blank.
+  screen — not tied to a shift, so it's fillable any day, whether or not you're scheduled to
+  work. The screen opens with **Position** and **Branch** chip pickers (prefilled from
+  "whichever shift matters right now" the same way Home/Time Clock resolve it, when there is
+  one, but always changeable); once a position is picked, `GET
+  /checklists/today?position=&jobSite=` loads today's checklist for that pick: an optional
+  heading (the template's title, when a manager set one) above an **Opening** and a **Closing**
+  section, each a list of items with a **Done**/**Not Done** button pair per item instead of a
+  single checkbox — there's no neutral "unanswered but treated as not done" state; an item just
+  shows unmarked (neither button highlighted) until you explicitly pick one, and an
+  "answered/total" counter in the section header tracks progress. Every tap saves immediately
+  (`PATCH /checklists/today/opening` / `/closing`, `{ position, jobSite?, item, done }`). Once
+  every item in a section is answered, a **Submit** button appears; tapping it
+  (`PATCH .../opening/submit` / `/closing/submit`) locks in a submitted timestamp shown in place
+  of the button, so a manager reviewing later can tell what was actually confirmed. Owner/manager
+  get a **Manage Checklists** button on Schedule (alongside Build Week Schedule/New Shift) that
+  opens a list of every existing template plus an editor: pick a **Position**, optionally pick a
+  **Branch** from the Branches list (leave it on "All branches" to make this the position's
+  default — applied to any pick of that position with no more specific branch template of its
+  own), give it an optional **Title** (shown as the checklist's heading, so the same position
+  can read differently at different branches), then freely add/remove line items for each
+  section and Save (`PUT /checklists/templates`) — picking a position+branch that already has a
+  template loads it for editing instead of starting blank. A **View Submissions** button at the
+  top of that same screen opens **Checklist Submissions** (`GET /checklists/submissions`) —
+  every checklist with at least one section submitted, newest first, showing who submitted it,
+  the date/position/branch, and each answered item with a check/x icon per section.
 - **Forms** (Home dashboard card) — the single hub for every fill-out-and-submit flow in the
   app. Two built-in rows sit above the ad hoc catalog: **Opening/Closing Checklist** (see
   Checklists below) and **Wastage Report** (see Wastage below), both plain navigations to their

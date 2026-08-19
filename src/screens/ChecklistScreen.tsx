@@ -4,31 +4,40 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
-import { checklistsApi, HttpError } from '../api/client';
-import type { ChecklistItemStatus, ShiftChecklist } from '../types/api';
+import { branchesApi, checklistsApi, HttpError } from '../api/client';
+import { POSITIONS } from '../types/api';
+import type { Branch, ChecklistItemStatus, Position, TodayChecklist } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
-import { NoteBox } from '../components/NoteBox';
 import type { AppStackParamList } from '../navigation/types';
+
+function formatSubmittedAt(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
 function ChecklistSection({
   title,
   icon,
   items,
   statuses,
+  submittedAt,
   savingItem,
+  isSubmitting,
   onMark,
+  onSubmit,
 }: {
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
   items: string[];
   statuses: ChecklistItemStatus[];
+  submittedAt: string | null;
   savingItem: string | null;
+  isSubmitting: boolean;
   onMark: (item: string, done: boolean) => void;
+  onSubmit: () => void;
 }) {
-  const answeredCount = items.filter((item) =>
-    statuses.some((s) => s.item === item),
-  ).length;
+  const answeredCount = items.filter((item) => statuses.some((s) => s.item === item)).length;
+  const canSubmit = items.length > 0 && answeredCount === items.length;
 
   return (
     <View style={styles.section}>
@@ -44,63 +53,87 @@ function ChecklistSection({
       {items.length === 0 ? (
         <Text style={styles.empty}>Nothing set for this position/branch yet</Text>
       ) : (
-        items.map((item) => {
-          const status = statuses.find((s) => s.item === item);
-          const isSaving = savingItem === item;
-          return (
-            <View key={item} style={styles.itemRow}>
-              <Text style={styles.itemText}>{item}</Text>
-              {isSaving ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <View style={styles.itemButtons}>
-                  <Pressable
-                    style={[
-                      styles.statusButton,
-                      status?.done === true && styles.statusButtonDoneActive,
-                    ]}
-                    onPress={() => onMark(item, true)}
-                  >
-                    <Ionicons
-                      name="checkmark"
-                      size={14}
-                      color={status?.done === true ? '#fff' : colors.success}
-                    />
-                    <Text
+        <>
+          {items.map((item) => {
+            const status = statuses.find((s) => s.item === item);
+            const isSaving = savingItem === item;
+            return (
+              <View key={item} style={styles.itemRow}>
+                <Text style={styles.itemText}>{item}</Text>
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <View style={styles.itemButtons}>
+                    <Pressable
                       style={[
-                        styles.statusButtonText,
-                        status?.done === true && styles.statusButtonTextActive,
+                        styles.statusButton,
+                        status?.done === true && styles.statusButtonDoneActive,
                       ]}
+                      onPress={() => onMark(item, true)}
                     >
-                      Done
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.statusButton,
-                      status?.done === false && styles.statusButtonNotDoneActive,
-                    ]}
-                    onPress={() => onMark(item, false)}
-                  >
-                    <Ionicons
-                      name="close"
-                      size={14}
-                      color={status?.done === false ? '#fff' : colors.danger}
-                    />
-                    <Text
+                      <Ionicons
+                        name="checkmark"
+                        size={14}
+                        color={status?.done === true ? '#fff' : colors.success}
+                      />
+                      <Text
+                        style={[
+                          styles.statusButtonText,
+                          status?.done === true && styles.statusButtonTextActive,
+                        ]}
+                      >
+                        Done
+                      </Text>
+                    </Pressable>
+                    <Pressable
                       style={[
-                        styles.statusButtonText,
-                        status?.done === false && styles.statusButtonTextActive,
+                        styles.statusButton,
+                        status?.done === false && styles.statusButtonNotDoneActive,
                       ]}
+                      onPress={() => onMark(item, false)}
                     >
-                      Not Done
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
+                      <Ionicons
+                        name="close"
+                        size={14}
+                        color={status?.done === false ? '#fff' : colors.danger}
+                      />
+                      <Text
+                        style={[
+                          styles.statusButtonText,
+                          status?.done === false && styles.statusButtonTextActive,
+                        ]}
+                      >
+                        Not Done
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          {submittedAt ? (
+            <View style={styles.submittedRow}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.successText} />
+              <Text style={styles.submittedText}>Submitted at {formatSubmittedAt(submittedAt)}</Text>
             </View>
-          );
-        })
+          ) : (
+            <Pressable
+              style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
+              onPress={onSubmit}
+              disabled={!canSubmit || isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="paper-plane-outline" size={14} color="#fff" />
+                  <Text style={styles.submitButtonText}>Submit</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </>
       )}
     </View>
   );
@@ -109,29 +142,47 @@ function ChecklistSection({
 export default function ChecklistScreen() {
   const { authFetch } = useAuth();
   const route = useRoute<RouteProp<AppStackParamList, 'Checklist'>>();
-  const { shiftId } = route.params;
-  const [checklist, setChecklist] = useState<ShiftChecklist | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const initial = route.params;
+
+  const [position, setPosition] = useState<Position | null>(initial?.position ?? null);
+  const [jobSite, setJobSite] = useState(initial?.jobSite ?? '');
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [checklist, setChecklist] = useState<TodayChecklist | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [savingItem, setSavingItem] = useState<string | null>(null);
+  const [submittingSection, setSubmittingSection] = useState<'opening' | 'closing' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const result = await authFetch((token) => checklistsApi.forShift(token, shiftId));
-      setChecklist(result);
-    } catch (err) {
-      setError(err instanceof HttpError ? err.message : 'Could not load checklist');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [authFetch, shiftId]);
+  useEffect(() => {
+    authFetch((token) => branchesApi.list(token))
+      .then(setBranches)
+      .catch(() => setBranches([]));
+  }, [authFetch]);
+
+  const load = useCallback(
+    async (forPosition: Position, forJobSite: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await authFetch((token) => checklistsApi.today(token, forPosition, forJobSite));
+        setChecklist(result);
+      } catch (err) {
+        setError(err instanceof HttpError ? err.message : 'Could not load checklist');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [authFetch],
+  );
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (position) {
+      load(position, jobSite);
+    }
+  }, [position, jobSite, load]);
 
   const mark = async (section: 'opening' | 'closing', item: string, done: boolean) => {
-    if (!checklist) return;
+    if (!checklist || !position) return;
     const field = section === 'opening' ? 'openingStatuses' : 'closingStatuses';
     const current = checklist[field];
     const next = current.some((s) => s.item === item)
@@ -143,9 +194,9 @@ export default function ChecklistScreen() {
     setError(null);
     try {
       if (section === 'opening') {
-        await authFetch((token) => checklistsApi.updateOpening(token, shiftId, item, done));
+        await authFetch((token) => checklistsApi.updateOpening(token, position, jobSite, item, done));
       } else {
-        await authFetch((token) => checklistsApi.updateClosing(token, shiftId, item, done));
+        await authFetch((token) => checklistsApi.updateClosing(token, position, jobSite, item, done));
       }
     } catch (err) {
       setChecklist({ ...checklist, [field]: current });
@@ -155,95 +206,133 @@ export default function ChecklistScreen() {
     }
   };
 
-  if (isLoading || !checklist) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  const submit = async (section: 'opening' | 'closing') => {
+    if (!position) return;
+    setSubmittingSection(section);
+    setError(null);
+    try {
+      if (section === 'opening') {
+        await authFetch((token) => checklistsApi.submitOpening(token, position, jobSite));
+      } else {
+        await authFetch((token) => checklistsApi.submitClosing(token, position, jobSite));
+      }
+      await load(position, jobSite);
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not submit checklist');
+    } finally {
+      setSubmittingSection(null);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {checklist.title && <Text style={styles.checklistTitle}>{checklist.title}</Text>}
-
-      {(checklist.position || checklist.jobSite) && (
-        <View style={styles.headerRow}>
-          {checklist.position && (
-            <View style={[styles.positionBadge, { backgroundColor: `${POSITION_COLORS[checklist.position]}1a` }]}>
-              <Ionicons
-                name={POSITION_ICONS[checklist.position]}
-                size={14}
-                color={POSITION_COLORS[checklist.position]}
-              />
-              <Text style={[styles.positionBadgeText, { color: POSITION_COLORS[checklist.position] }]}>
-                {POSITION_LABELS[checklist.position]}
-              </Text>
-            </View>
-          )}
-          {checklist.jobSite && (
-            <View
+      <Text style={styles.sectionLabel}>Position</Text>
+      <View style={styles.chipsWrap}>
+        {POSITIONS.map((p) => {
+          const isActive = position === p;
+          return (
+            <Pressable
+              key={p}
               style={[
-                styles.branchTag,
-                { backgroundColor: `${colorForBranch(checklist.jobSite)}1a`, borderColor: colorForBranch(checklist.jobSite) },
+                styles.chip,
+                isActive && { backgroundColor: POSITION_COLORS[p], borderColor: POSITION_COLORS[p] },
               ]}
+              onPress={() => setPosition(p)}
             >
-              <Text style={[styles.branchTagText, { color: colorForBranch(checklist.jobSite) }]}>
-                {checklist.jobSite}
+              <Ionicons name={POSITION_ICONS[p]} size={14} color={isActive ? '#fff' : POSITION_COLORS[p]} />
+              <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                {POSITION_LABELS[p]}
               </Text>
-            </View>
-          )}
-        </View>
-      )}
+            </Pressable>
+          );
+        })}
+      </View>
 
-      {!checklist.position && (
-        <NoteBox variant="warning">
-          This shift has no position set, so no checklist can be matched to it. Ask a manager
-          to set one on this shift.
-        </NoteBox>
-      )}
+      <Text style={styles.sectionLabel}>Branch (optional)</Text>
+      <View style={styles.chipsWrap}>
+        <Pressable
+          style={[styles.chip, jobSite === '' && styles.chipActive]}
+          onPress={() => setJobSite('')}
+        >
+          <Text style={[styles.chipText, jobSite === '' && styles.chipTextActive]}>All branches</Text>
+        </Pressable>
+        {branches.map((branch) => {
+          const isActive = jobSite === branch.name;
+          const color = colorForBranch(branch.name);
+          return (
+            <Pressable
+              key={branch._id}
+              style={[styles.chip, isActive && { backgroundColor: color, borderColor: color }]}
+              onPress={() => setJobSite(branch.name)}
+            >
+              <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{branch.name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <ChecklistSection
-        title="Opening"
-        icon="sunny-outline"
-        items={checklist.openingItems}
-        statuses={checklist.openingStatuses}
-        savingItem={savingItem}
-        onMark={(item, done) => mark('opening', item, done)}
-      />
+      {!position ? (
+        <Text style={styles.empty}>Pick a position to load today's checklist</Text>
+      ) : isLoading || !checklist ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+        </View>
+      ) : (
+        <>
+          {checklist.title && <Text style={styles.checklistTitle}>{checklist.title}</Text>}
 
-      <ChecklistSection
-        title="Closing"
-        icon="moon-outline"
-        items={checklist.closingItems}
-        statuses={checklist.closingStatuses}
-        savingItem={savingItem}
-        onMark={(item, done) => mark('closing', item, done)}
-      />
+          <ChecklistSection
+            title="Opening"
+            icon="sunny-outline"
+            items={checklist.openingItems}
+            statuses={checklist.openingStatuses}
+            submittedAt={checklist.openingSubmittedAt}
+            savingItem={savingItem}
+            isSubmitting={submittingSection === 'opening'}
+            onMark={(item, done) => mark('opening', item, done)}
+            onSubmit={() => submit('opening')}
+          />
+
+          <ChecklistSection
+            title="Closing"
+            icon="moon-outline"
+            items={checklist.closingItems}
+            statuses={checklist.closingStatuses}
+            submittedAt={checklist.closingSubmittedAt}
+            savingItem={savingItem}
+            isSubmitting={submittingSection === 'closing'}
+            onMark={(item, done) => mark('closing', item, done)}
+            onSubmit={() => submit('closing')}
+          />
+        </>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, gap: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  content: { padding: 16, gap: 10 },
+  center: { paddingVertical: 24, alignItems: 'center' },
   error: { color: colors.danger },
   checklistTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  headerRow: { flexDirection: 'row', gap: 8 },
-  positionBadge: {
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginTop: 4 },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#ccc',
     borderRadius: 999,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
-  positionBadgeText: { fontSize: 12, fontWeight: '700' },
-  branchTag: { borderWidth: 1, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
-  branchTagText: { fontSize: 12, fontWeight: '700' },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 13, color: '#333' },
+  chipTextActive: { color: '#fff' },
   section: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -272,4 +361,26 @@ const styles = StyleSheet.create({
   statusButtonNotDoneActive: { backgroundColor: colors.danger, borderColor: colors.danger },
   statusButtonText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   statusButtonTextActive: { color: '#fff' },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  submitButtonDisabled: { opacity: 0.4 },
+  submitButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  submittedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.successBg,
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 4,
+  },
+  submittedText: { color: colors.successText, fontSize: 13, fontWeight: '600' },
 });

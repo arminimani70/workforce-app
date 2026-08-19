@@ -14,20 +14,21 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
 import { formsApi, schedulingApi, HttpError } from '../api/client';
-import type { FormTemplate } from '../types/api';
+import type { FormTemplate, Position } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
 import { PopupModal } from '../components/PopupModal';
 import { fullDayRange } from '../utils/time';
 import type { AppStackParamList } from '../navigation/types';
 
 // Whichever of today's approved shifts is currently underway, or failing that, the next one
-// still to come today — same "what's relevant right now" resolution as Home/Time Clock, but
-// without requiring a branch (a checklist can apply to a shift with no jobSite of its own).
-async function resolveTodayShiftId(
+// still to come today — same "what's relevant right now" resolution as Home/Time Clock. Used
+// only to prefill the Checklist's Position/Branch pickers as a convenience; the checklist
+// itself isn't gated on having a shift today.
+async function resolveTodayShift(
   authFetch: <T>(fn: (token: string) => Promise<T>) => Promise<T>,
-): Promise<string | null> {
+): Promise<{ position: Position; jobSite?: string } | null> {
   const shifts = await authFetch((token) => schedulingApi.myShifts(token, fullDayRange()));
-  const approved = shifts.filter((s) => s.approval === 'approved');
+  const approved = shifts.filter((s) => s.approval === 'approved' && s.position);
   const now = Date.now();
   const current = approved.find(
     (s) => new Date(s.startTime).getTime() <= now && now <= new Date(s.endTime).getTime(),
@@ -35,7 +36,8 @@ async function resolveTodayShiftId(
   const next = approved
     .filter((s) => new Date(s.startTime).getTime() > now)
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0];
-  return (current ?? next)?._id ?? null;
+  const relevant = current ?? next;
+  return relevant ? { position: relevant.position!, jobSite: relevant.jobSite } : null;
 }
 
 export default function FormsScreen() {
@@ -45,7 +47,9 @@ export default function FormsScreen() {
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [todayShiftId, setTodayShiftId] = useState<string | null>(null);
+  const [todayShift, setTodayShift] = useState<{ position: Position; jobSite?: string } | null>(
+    null,
+  );
 
   const [activeTemplate, setActiveTemplate] = useState<FormTemplate | null>(null);
   const [values, setValues] = useState<Record<number, string>>({});
@@ -65,14 +69,15 @@ export default function FormsScreen() {
     }
   }, [authFetch]);
 
-  // Refetches every time Forms regains focus, so the Checklist row always points at whichever
-  // shift is relevant right now rather than whatever was true when the screen first mounted.
+  // Refetches every time Forms regains focus, so the Checklist row's prefill always reflects
+  // whichever shift is relevant right now rather than whatever was true when the screen first
+  // mounted.
   useFocusEffect(
     useCallback(() => {
       load();
-      resolveTodayShiftId(authFetch)
-        .then(setTodayShiftId)
-        .catch(() => setTodayShiftId(null));
+      resolveTodayShift(authFetch)
+        .then(setTodayShift)
+        .catch(() => setTodayShift(null));
     }, [load, authFetch]),
   );
 
@@ -136,20 +141,17 @@ export default function FormsScreen() {
         ListHeaderComponent={
           <View style={styles.builtInSection}>
             <Pressable
-              style={[styles.formRow, !todayShiftId && styles.formRowDisabled]}
-              onPress={() =>
-                todayShiftId && navigation.navigate('Checklist', { shiftId: todayShiftId })
-              }
-              disabled={!todayShiftId}
+              style={styles.formRow}
+              onPress={() => navigation.navigate('Checklist', todayShift ?? undefined)}
             >
               <Ionicons name="checkbox-outline" size={20} color={colors.teal} />
               <View style={styles.formTextGroup}>
                 <Text style={styles.formTitle}>Opening/Closing Checklist</Text>
                 <Text style={styles.formMeta}>
-                  {todayShiftId ? "Today's shift" : 'No shift today'}
+                  Available any day — pick a position to fill it in
                 </Text>
               </View>
-              {todayShiftId && <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />}
+              <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
             </Pressable>
 
             <Pressable style={styles.formRow} onPress={() => navigation.navigate('Wastage')}>
@@ -268,7 +270,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     ...cardShadow,
   },
-  formRowDisabled: { opacity: 0.5 },
   formTextGroup: { flex: 1 },
   formTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
   formMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },

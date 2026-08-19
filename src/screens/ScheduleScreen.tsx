@@ -1124,7 +1124,12 @@ export default function ScheduleScreen() {
                             style={styles.detailPersonRow}
                             onPress={() => {
                               setDetailDay(null);
-                              navigation.navigate('Checklist', { shiftId: shift._id });
+                              navigation.navigate(
+                                'Checklist',
+                                shift.position
+                                  ? { position: shift.position, jobSite: shift.jobSite }
+                                  : undefined,
+                              );
                             }}
                           >
                             <Ionicons

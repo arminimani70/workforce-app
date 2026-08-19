@@ -196,17 +196,34 @@ export interface ChecklistItemStatus {
   done: boolean;
 }
 
-// The resolved checklist for one specific shift: the matching template's items (empty if none
-// defined) plus that shift's current completion progress.
-export interface ShiftChecklist {
-  shiftId: string;
-  position: Position | null;
+// The resolved checklist for today, for a given position+branch — not tied to a shift, so it
+// can be opened and filled even on a day with no shift scheduled. openingSubmittedAt/
+// closingSubmittedAt are null until that section has been explicitly submitted.
+export interface TodayChecklist {
+  date: string;
+  position: Position;
   jobSite: string | null;
   title: string | null;
   openingItems: string[];
   closingItems: string[];
   openingStatuses: ChecklistItemStatus[];
   closingStatuses: ChecklistItemStatus[];
+  openingSubmittedAt: string | null;
+  closingSubmittedAt: string | null;
+}
+
+// One per (employee, day, position, branch) with at least one section submitted — what
+// owner/manager see in the checklist review list.
+export interface ChecklistSubmission {
+  _id: string;
+  employeeId: { _id: string; fullName: string; role: UserRole };
+  date: string;
+  position: Position;
+  jobSite: string;
+  openingStatuses: ChecklistItemStatus[];
+  closingStatuses: ChecklistItemStatus[];
+  openingSubmittedAt: string | null;
+  closingSubmittedAt: string | null;
 }
 
 export type FormFieldType = 'text' | 'number';

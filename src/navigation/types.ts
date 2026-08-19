@@ -1,4 +1,4 @@
-import type { StockTemplate } from '../types/api';
+import type { Position, StockTemplate } from '../types/api';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -16,8 +16,9 @@ export type AppStackParamList = {
   BuildSchedule: undefined;
   Messages: undefined;
   Chat: { employeeId: string; employeeName: string };
-  Checklist: { shiftId: string };
+  Checklist: { position?: Position; jobSite?: string } | undefined;
   ManageChecklists: undefined;
+  ChecklistSubmissions: undefined;
   Forms: undefined;
   ManageForms: undefined;
   FormSubmissions: undefined;

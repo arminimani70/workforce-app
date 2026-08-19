@@ -17,6 +17,7 @@ import MessagesScreen from '../screens/MessagesScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ChecklistScreen from '../screens/ChecklistScreen';
 import ManageChecklistsScreen from '../screens/ManageChecklistsScreen';
+import ChecklistSubmissionsScreen from '../screens/ChecklistSubmissionsScreen';
 import FormsScreen from '../screens/FormsScreen';
 import ManageFormsScreen from '../screens/ManageFormsScreen';
 import FormSubmissionsScreen from '../screens/FormSubmissionsScreen';
@@ -107,6 +108,11 @@ export default function RootNavigator() {
             name="ManageChecklists"
             component={ManageChecklistsScreen}
             options={{ title: 'Manage Checklists' }}
+          />
+          <AppStack.Screen
+            name="ChecklistSubmissions"
+            component={ChecklistSubmissionsScreen}
+            options={{ title: 'Checklist Submissions' }}
           />
           <AppStack.Screen name="Forms" component={FormsScreen} options={{ title: 'Forms' }} />
           <AppStack.Screen

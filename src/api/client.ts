@@ -4,6 +4,7 @@ import type {
   AvailabilityStatus,
   Branch,
   ChatMessage,
+  ChecklistSubmission,
   ChecklistTemplate,
   Conversation,
   CoworkerShift,
@@ -18,7 +19,6 @@ import type {
   OrgMember,
   Position,
   Shift,
-  ShiftChecklist,
   ShiftEditRequest,
   StockItem,
   StockSubmission,
@@ -26,6 +26,7 @@ import type {
   SwapRequest,
   TimeClockEntry,
   TimeTotal,
+  TodayChecklist,
   TokenPair,
   WastageEntry,
   WastageReason,
@@ -329,22 +330,55 @@ export const checklistsApi = {
   listTemplates: (accessToken: string) =>
     request<ChecklistTemplate[]>('/checklists/templates', { accessToken }),
 
-  forShift: (accessToken: string, shiftId: string) =>
-    request<ShiftChecklist>(`/checklists/shift/${shiftId}`, { accessToken }),
+  today: (accessToken: string, position: Position, jobSite: string) =>
+    request<TodayChecklist>(
+      `/checklists/today?position=${position}${jobSite ? `&jobSite=${encodeURIComponent(jobSite)}` : ''}`,
+      { accessToken },
+    ),
 
-  updateOpening: (accessToken: string, shiftId: string, item: string, done: boolean) =>
-    request<unknown>(`/checklists/shift/${shiftId}/opening`, {
+  updateOpening: (
+    accessToken: string,
+    position: Position,
+    jobSite: string,
+    item: string,
+    done: boolean,
+  ) =>
+    request<unknown>('/checklists/today/opening', {
       method: 'PATCH',
       accessToken,
-      body: { item, done },
+      body: { position, jobSite, item, done },
     }),
 
-  updateClosing: (accessToken: string, shiftId: string, item: string, done: boolean) =>
-    request<unknown>(`/checklists/shift/${shiftId}/closing`, {
+  updateClosing: (
+    accessToken: string,
+    position: Position,
+    jobSite: string,
+    item: string,
+    done: boolean,
+  ) =>
+    request<unknown>('/checklists/today/closing', {
       method: 'PATCH',
       accessToken,
-      body: { item, done },
+      body: { position, jobSite, item, done },
     }),
+
+  submitOpening: (accessToken: string, position: Position, jobSite: string) =>
+    request<unknown>('/checklists/today/opening/submit', {
+      method: 'PATCH',
+      accessToken,
+      body: { position, jobSite },
+    }),
+
+  submitClosing: (accessToken: string, position: Position, jobSite: string) =>
+    request<unknown>('/checklists/today/closing/submit', {
+      method: 'PATCH',
+      accessToken,
+      body: { position, jobSite },
+    }),
+
+  // Owner/manager only.
+  listSubmissions: (accessToken: string) =>
+    request<ChecklistSubmission[]>('/checklists/submissions', { accessToken }),
 };
 
 export const formsApi = {
