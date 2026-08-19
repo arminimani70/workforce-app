@@ -394,7 +394,7 @@ export default function TimeClockScreen() {
           <View style={styles.timerSpacer} />
         )}
 
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error && <NoteBox variant="danger">{error}</NoteBox>}
 
         <Pressable
           style={[
@@ -629,7 +629,7 @@ export default function TimeClockScreen() {
               />
             )}
 
-            {extraError && <Text style={styles.error}>{extraError}</Text>}
+            {extraError && <NoteBox variant="danger">{extraError}</NoteBox>}
 
             <View style={styles.modalActions}>
               <Pressable
@@ -693,7 +693,6 @@ const styles = StyleSheet.create({
   },
   shiftContextTag: { marginTop: 6 },
   timerSpacer: { height: 40 + 24 },
-  error: { color: colors.danger, marginBottom: 12 },
   // A translucent circle so the live map underneath still shows through it.
   button: {
     borderRadius: 999,
