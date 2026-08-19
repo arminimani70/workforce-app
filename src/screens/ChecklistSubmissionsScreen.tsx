@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { checklistsApi, HttpError } from '../api/client';
@@ -15,6 +16,29 @@ function formatSubmittedAt(iso: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+// The signature's coordinates come from whatever width the signer's device happened to have —
+// there's no stored canvas size to render against, so fit a viewBox to the path's own bounding
+// box (plus a little padding) instead, and let SVG scale that to fill the display box.
+function SignaturePreview({ path }: { path: string }) {
+  const points = [...path.matchAll(/[ML](-?[\d.]+),(-?[\d.]+)/g)].map((m) => ({
+    x: Number(m[1]),
+    y: Number(m[2]),
+  }));
+  if (points.length === 0) return null;
+
+  const pad = 6;
+  const minX = Math.min(...points.map((p) => p.x)) - pad;
+  const minY = Math.min(...points.map((p) => p.y)) - pad;
+  const maxX = Math.max(...points.map((p) => p.x)) + pad;
+  const maxY = Math.max(...points.map((p) => p.y)) + pad;
+
+  return (
+    <Svg width="100%" height={70} viewBox={`${minX} ${minY} ${maxX - minX} ${maxY - minY}`} preserveAspectRatio="xMidYMid meet">
+      <Path d={path} stroke={colors.text} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 }
 
 export default function ChecklistSubmissionsScreen() {
@@ -99,20 +123,30 @@ export default function ChecklistSubmissionsScreen() {
             </View>
 
             {item.statuses.map((status, index) => (
-              <View key={index} style={styles.itemRow}>
-                <Ionicons
-                  name={status.done ? 'checkmark-circle' : 'close-circle'}
-                  size={14}
-                  color={status.done ? colors.success : colors.danger}
-                />
-                <Text style={styles.itemText}>{status.item}</Text>
-                {status.photoUrl && (
-                  <Pressable onPress={() => setViewerPhoto(status.photoUrl!)}>
-                    <Image source={{ uri: status.photoUrl }} style={styles.itemPhoto} />
-                  </Pressable>
-                )}
+              <View key={index} style={styles.itemBlock}>
+                <View style={styles.itemRow}>
+                  <Ionicons
+                    name={status.done ? 'checkmark-circle' : 'close-circle'}
+                    size={14}
+                    color={status.done ? colors.success : colors.danger}
+                  />
+                  <Text style={styles.itemText}>{status.item}</Text>
+                  {status.photoUrl && (
+                    <Pressable onPress={() => setViewerPhoto(status.photoUrl!)}>
+                      <Image source={{ uri: status.photoUrl }} style={styles.itemPhoto} />
+                    </Pressable>
+                  )}
+                </View>
+                {status.note && <Text style={styles.noteText}>{status.note}</Text>}
               </View>
             ))}
+
+            <View style={styles.signatureBlock}>
+              <Text style={styles.signatureLabel}>Signed by {item.submittedBy.fullName}</Text>
+              <View style={styles.signatureBox}>
+                <SignaturePreview path={item.signature} />
+              </View>
+            </View>
           </View>
         )}
       />
@@ -150,9 +184,19 @@ const styles = StyleSheet.create({
   positionBadgeText: { fontSize: 11, fontWeight: '700' },
   branchTag: { borderWidth: 1, borderRadius: 999, paddingVertical: 2, paddingHorizontal: 8 },
   branchTagText: { fontSize: 11, fontWeight: '700' },
+  itemBlock: { gap: 2 },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemText: { fontSize: 13, color: colors.text, flex: 1 },
   itemPhoto: { width: 40, height: 40, borderRadius: 6 },
+  noteText: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic', marginLeft: 20 },
+  signatureBlock: { marginTop: 6, gap: 4 },
+  signatureLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted },
+  signatureBox: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+  },
   viewerBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.9)',

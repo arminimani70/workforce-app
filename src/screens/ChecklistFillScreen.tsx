@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -10,70 +20,112 @@ import { checklistsApi, HttpError } from '../api/client';
 import type { ChecklistItemStatus, LiveChecklist } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
+import { SignaturePad } from '../components/SignaturePad';
 import type { AppStackParamList } from '../navigation/types';
 
 type Section = 'opening' | 'closing';
 
-function ChecklistItemRow({
+// One task, collapsed to a status icon + name by default — tapping it opens Done/Not Done,
+// an optional note, and (when the checklist allows it) a photo, mirroring the tap-to-expand
+// task cards in Connecteam-style checklists.
+function ChecklistItemCard({
   item,
   status,
+  isExpanded,
   isSaving,
   isUploadingPhoto,
   allowPhoto,
+  onToggleExpand,
   onMark,
   onPhoto,
+  onSaveNote,
 }: {
   item: string;
   status?: ChecklistItemStatus;
+  isExpanded: boolean;
   isSaving: boolean;
   isUploadingPhoto: boolean;
   allowPhoto: boolean;
+  onToggleExpand: () => void;
   onMark: (done: boolean) => void;
   onPhoto: () => void;
+  onSaveNote: (note: string) => void;
 }) {
-  return (
-    <View style={styles.itemRow}>
-      <View style={styles.itemTopRow}>
-        <Text style={styles.itemText}>{item}</Text>
-        {isSaving ? (
-          <ActivityIndicator size="small" color={colors.primary} />
-        ) : (
-          <View style={styles.itemButtons}>
-            <Pressable
-              style={[styles.statusButton, status?.done === true && styles.statusButtonDoneActive]}
-              onPress={() => onMark(true)}
-            >
-              <Ionicons name="checkmark" size={14} color={status?.done === true ? '#fff' : colors.success} />
-              <Text style={[styles.statusButtonText, status?.done === true && styles.statusButtonTextActive]}>
-                Done
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.statusButton, status?.done === false && styles.statusButtonNotDoneActive]}
-              onPress={() => onMark(false)}
-            >
-              <Ionicons name="close" size={14} color={status?.done === false ? '#fff' : colors.danger} />
-              <Text style={[styles.statusButtonText, status?.done === false && styles.statusButtonTextActive]}>
-                Not Done
-              </Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
+  const [noteText, setNoteText] = useState(status?.note ?? '');
 
-      {status && allowPhoto && (
-        <View style={styles.photoRow}>
-          {isUploadingPhoto ? (
+  useEffect(() => {
+    setNoteText(status?.note ?? '');
+  }, [status?.note]);
+
+  const statusIcon =
+    status?.done === true ? 'checkmark-circle' : status?.done === false ? 'close-circle' : 'ellipse-outline';
+  const statusColor =
+    status?.done === true ? colors.success : status?.done === false ? colors.danger : colors.textFaint;
+
+  return (
+    <View style={styles.card}>
+      <Pressable style={styles.cardHeader} onPress={onToggleExpand}>
+        <Ionicons name={statusIcon} size={20} color={statusColor} />
+        <Text style={styles.itemText}>{item}</Text>
+        <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textFaint} />
+      </Pressable>
+
+      {isExpanded && (
+        <View style={styles.cardBody}>
+          {isSaving ? (
             <ActivityIndicator size="small" color={colors.primary} />
-          ) : status.photoUrl ? (
-            <Pressable onPress={onPhoto}>
-              <Image source={{ uri: status.photoUrl }} style={styles.photoThumb} />
-            </Pressable>
           ) : (
-            <Pressable style={styles.photoButton} onPress={onPhoto}>
-              <Ionicons name="camera-outline" size={14} color={colors.primary} />
-              <Text style={styles.photoButtonText}>Take Photo</Text>
-            </Pressable>
+            <View style={styles.itemButtons}>
+              <Pressable
+                style={[styles.statusButton, status?.done === true && styles.statusButtonDoneActive]}
+                onPress={() => onMark(true)}
+              >
+                <Ionicons name="checkmark" size={14} color={status?.done === true ? '#fff' : colors.success} />
+                <Text style={[styles.statusButtonText, status?.done === true && styles.statusButtonTextActive]}>
+                  Done
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.statusButton, status?.done === false && styles.statusButtonNotDoneActive]}
+                onPress={() => onMark(false)}
+              >
+                <Ionicons name="close" size={14} color={status?.done === false ? '#fff' : colors.danger} />
+                <Text style={[styles.statusButtonText, status?.done === false && styles.statusButtonTextActive]}>
+                  Not Done
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {status && (
+            <TextInput
+              style={styles.noteInput}
+              placeholder="Add a note (optional)"
+              placeholderTextColor={colors.textFaint}
+              value={noteText}
+              onChangeText={setNoteText}
+              onEndEditing={() => {
+                if (noteText !== (status.note ?? '')) onSaveNote(noteText);
+              }}
+              multiline
+            />
+          )}
+
+          {status && allowPhoto && (
+            <View style={styles.photoRow}>
+              {isUploadingPhoto ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : status.photoUrl ? (
+                <Pressable onPress={onPhoto}>
+                  <Image source={{ uri: status.photoUrl }} style={styles.photoThumb} />
+                </Pressable>
+              ) : (
+                <Pressable style={styles.photoButton} onPress={onPhoto}>
+                  <Ionicons name="camera-outline" size={14} color={colors.primary} />
+                  <Text style={styles.photoButtonText}>Take Photo</Text>
+                </Pressable>
+              )}
+            </View>
           )}
         </View>
       )}
@@ -87,12 +139,15 @@ function ChecklistFillSection({
   icon,
   items,
   statuses,
+  expandedKey,
   savingKey,
   uploadingKey,
   allowPhoto,
   isSubmitting,
+  onToggleExpand,
   onMark,
   onPhoto,
+  onSaveNote,
   onSubmit,
 }: {
   section: Section;
@@ -100,16 +155,20 @@ function ChecklistFillSection({
   icon: keyof typeof Ionicons.glyphMap;
   items: string[];
   statuses: ChecklistItemStatus[];
+  expandedKey: string | null;
   savingKey: string | null;
   uploadingKey: string | null;
   allowPhoto: boolean;
   isSubmitting: boolean;
+  onToggleExpand: (item: string) => void;
   onMark: (item: string, done: boolean) => void;
   onPhoto: (item: string) => void;
+  onSaveNote: (item: string, note: string) => void;
   onSubmit: () => void;
 }) {
   const answeredCount = items.filter((item) => statuses.some((s) => s.item === item)).length;
   const canSubmit = items.length > 0 && answeredCount === items.length;
+  const progress = items.length > 0 ? answeredCount / items.length : 0;
 
   return (
     <View style={styles.section}>
@@ -126,16 +185,23 @@ function ChecklistFillSection({
         <Text style={styles.empty}>Nothing set for this checklist yet</Text>
       ) : (
         <>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+          </View>
+
           {items.map((item) => (
-            <ChecklistItemRow
+            <ChecklistItemCard
               key={item}
               item={item}
               status={statuses.find((s) => s.item === item)}
+              isExpanded={expandedKey === `${section}:${item}`}
               isSaving={savingKey === `${section}:${item}`}
               isUploadingPhoto={uploadingKey === `${section}:${item}`}
               allowPhoto={allowPhoto}
+              onToggleExpand={() => onToggleExpand(item)}
               onMark={(done) => onMark(item, done)}
               onPhoto={() => onPhoto(item)}
+              onSaveNote={(note) => onSaveNote(item, note)}
             />
           ))}
 
@@ -166,9 +232,12 @@ export default function ChecklistFillScreen() {
 
   const [checklist, setChecklist] = useState<LiveChecklist | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [submittingSection, setSubmittingSection] = useState<Section | null>(null);
+  const [signatureSection, setSignatureSection] = useState<Section | null>(null);
+  const [signature, setSignature] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -188,6 +257,11 @@ export default function ChecklistFillScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const toggleExpand = (section: Section, item: string) => {
+    const key = `${section}:${item}`;
+    setExpandedKey((prev) => (prev === key ? null : key));
+  };
 
   const mark = async (section: Section, item: string, done: boolean) => {
     if (!checklist) return;
@@ -212,6 +286,34 @@ export default function ChecklistFillScreen() {
       setError(err instanceof HttpError ? err.message : 'Could not save checklist');
     } finally {
       setSavingKey(null);
+    }
+  };
+
+  const saveNote = async (section: Section, item: string, note: string) => {
+    if (!checklist) return;
+    const field = section === 'opening' ? 'openingStatuses' : 'closingStatuses';
+    const status = checklist[field].find((s) => s.item === item);
+    if (!status) return;
+    const current = checklist[field];
+
+    setChecklist({
+      ...checklist,
+      [field]: current.map((s) => (s.item === item ? { ...s, note } : s)),
+    });
+    setError(null);
+    try {
+      if (section === 'opening') {
+        await authFetch((token) =>
+          checklistsApi.updateOpening(token, position, jobSite, item, status.done, undefined, note),
+        );
+      } else {
+        await authFetch((token) =>
+          checklistsApi.updateClosing(token, position, jobSite, item, status.done, undefined, note),
+        );
+      }
+    } catch (err) {
+      setChecklist({ ...checklist, [field]: current });
+      setError(err instanceof HttpError ? err.message : 'Could not save note');
     }
   };
 
@@ -251,15 +353,15 @@ export default function ChecklistFillScreen() {
       }
       const dataUri = `data:image/jpeg;base64,${manipulated.base64}`;
 
-      const updated =
-        section === 'opening'
-          ? await authFetch((token) =>
-              checklistsApi.updateOpening(token, position, jobSite, item, status.done, dataUri),
-            )
-          : await authFetch((token) =>
-              checklistsApi.updateClosing(token, position, jobSite, item, status.done, dataUri),
-            );
-      void updated;
+      if (section === 'opening') {
+        await authFetch((token) =>
+          checklistsApi.updateOpening(token, position, jobSite, item, status.done, dataUri),
+        );
+      } else {
+        await authFetch((token) =>
+          checklistsApi.updateClosing(token, position, jobSite, item, status.done, dataUri),
+        );
+      }
 
       setChecklist((prev) =>
         prev
@@ -276,15 +378,23 @@ export default function ChecklistFillScreen() {
     }
   };
 
-  const submit = async (section: Section) => {
+  const openSignature = (section: Section) => {
+    setSignature('');
+    setSignatureSection(section);
+  };
+
+  const confirmSubmit = async () => {
+    const section = signatureSection;
+    if (!section || !signature) return;
     setSubmittingSection(section);
     setError(null);
     try {
       if (section === 'opening') {
-        await authFetch((token) => checklistsApi.submitOpening(token, position, jobSite));
+        await authFetch((token) => checklistsApi.submitOpening(token, position, jobSite, signature));
       } else {
-        await authFetch((token) => checklistsApi.submitClosing(token, position, jobSite));
+        await authFetch((token) => checklistsApi.submitClosing(token, position, jobSite, signature));
       }
+      setSignatureSection(null);
       // The backend archives this section to history and resets it to blank — reload so the
       // form comes back empty, ready for whoever fills it next.
       await load();
@@ -339,13 +449,16 @@ export default function ChecklistFillScreen() {
         icon="sunny-outline"
         items={checklist.openingItems}
         statuses={checklist.openingStatuses}
+        expandedKey={expandedKey}
         savingKey={savingKey}
         uploadingKey={uploadingKey}
         allowPhoto={checklist.allowPhoto}
         isSubmitting={submittingSection === 'opening'}
+        onToggleExpand={(item) => toggleExpand('opening', item)}
         onMark={(item, done) => mark('opening', item, done)}
         onPhoto={(item) => attachPhoto('opening', item)}
-        onSubmit={() => submit('opening')}
+        onSaveNote={(item, note) => saveNote('opening', item, note)}
+        onSubmit={() => openSignature('opening')}
       />
 
       <ChecklistFillSection
@@ -354,14 +467,43 @@ export default function ChecklistFillScreen() {
         icon="moon-outline"
         items={checklist.closingItems}
         statuses={checklist.closingStatuses}
+        expandedKey={expandedKey}
         savingKey={savingKey}
         uploadingKey={uploadingKey}
         allowPhoto={checklist.allowPhoto}
         isSubmitting={submittingSection === 'closing'}
+        onToggleExpand={(item) => toggleExpand('closing', item)}
         onMark={(item, done) => mark('closing', item, done)}
         onPhoto={(item) => attachPhoto('closing', item)}
-        onSubmit={() => submit('closing')}
+        onSaveNote={(item, note) => saveNote('closing', item, note)}
+        onSubmit={() => openSignature('closing')}
       />
+
+      <Modal visible={signatureSection !== null} animationType="fade" transparent onRequestClose={() => setSignatureSection(null)}>
+        <View style={styles.signatureBackdrop}>
+          <View style={styles.signatureCard}>
+            <Text style={styles.signatureTitle}>Sign to confirm submission</Text>
+            <SignaturePad key={signatureSection ?? 'none'} onChange={setSignature} />
+            {error && <Text style={styles.error}>{error}</Text>}
+            <View style={styles.signatureButtonRow}>
+              <Pressable style={styles.signatureCancelButton} onPress={() => setSignatureSection(null)}>
+                <Text style={styles.signatureCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.signatureConfirmButton, !signature && styles.submitButtonDisabled]}
+                onPress={confirmSubmit}
+                disabled={!signature || submittingSection !== null}
+              >
+                {submittingSection !== null ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.signatureConfirmButtonText}>Confirm & Submit</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -396,8 +538,21 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, flex: 1 },
   sectionProgress: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   empty: { fontSize: 13, color: colors.textFaint },
-  itemRow: { gap: 8, paddingVertical: 6 },
-  itemTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  progressTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: colors.background,
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', borderRadius: 999, backgroundColor: colors.primary },
+  card: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10 },
+  cardBody: { gap: 10, padding: 10, paddingTop: 0 },
   itemText: { fontSize: 15, color: colors.text, flex: 1 },
   itemButtons: { flexDirection: 'row', gap: 8 },
   statusButton: {
@@ -414,6 +569,16 @@ const styles = StyleSheet.create({
   statusButtonNotDoneActive: { backgroundColor: colors.danger, borderColor: colors.danger },
   statusButtonText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   statusButtonTextActive: { color: '#fff' },
+  noteInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 8,
+    fontSize: 13,
+    color: colors.text,
+    minHeight: 36,
+    textAlignVertical: 'top',
+  },
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   photoButton: {
     flexDirection: 'row',
@@ -439,4 +604,41 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: { opacity: 0.4 },
   submitButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  signatureBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  signatureCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+    ...cardShadow,
+  },
+  signatureTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  signatureButtonRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  signatureCancelButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  signatureCancelButtonText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  signatureConfirmButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  signatureConfirmButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

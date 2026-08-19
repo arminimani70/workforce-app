@@ -345,11 +345,12 @@ export const checklistsApi = {
     item: string,
     done: boolean,
     photoUrl?: string,
+    note?: string,
   ) =>
     request<unknown>('/checklists/current/opening', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite, item, done, photoUrl },
+      body: { position, jobSite, item, done, photoUrl, note },
     }),
 
   updateClosing: (
@@ -359,25 +360,27 @@ export const checklistsApi = {
     item: string,
     done: boolean,
     photoUrl?: string,
+    note?: string,
   ) =>
     request<unknown>('/checklists/current/closing', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite, item, done, photoUrl },
+      body: { position, jobSite, item, done, photoUrl, note },
     }),
 
-  submitOpening: (accessToken: string, position: Position, jobSite: string) =>
+  // signature is required — SVG path data for a hand-drawn signature, not a raster image.
+  submitOpening: (accessToken: string, position: Position, jobSite: string, signature: string) =>
     request<ChecklistSubmission>('/checklists/current/opening/submit', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite },
+      body: { position, jobSite, signature },
     }),
 
-  submitClosing: (accessToken: string, position: Position, jobSite: string) =>
+  submitClosing: (accessToken: string, position: Position, jobSite: string, signature: string) =>
     request<ChecklistSubmission>('/checklists/current/closing/submit', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite },
+      body: { position, jobSite, signature },
     }),
 
   // Owner/manager only.

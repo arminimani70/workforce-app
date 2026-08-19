@@ -194,11 +194,13 @@ export interface ChecklistTemplate {
 
 // Every item's done/not-done status is explicit once answered — an item simply absent from
 // the array means it hasn't been marked either way yet. photoUrl is an optional
-// proof-of-completion photo (base64 data URI), attached after the item is marked.
+// proof-of-completion photo (base64 data URI), attached after the item is marked. note is an
+// optional free-text note, same "attached after marking" convention.
 export interface ChecklistItemStatus {
   item: string;
   done: boolean;
   photoUrl?: string;
+  note?: string;
 }
 
 // The live, shared checklist for a position+branch — not tied to a shift or a day, since
@@ -229,6 +231,8 @@ export interface ChecklistSubmission {
   section: ChecklistSection;
   statuses: ChecklistItemStatus[];
   submittedBy: { _id: string; fullName: string; role: UserRole };
+  // SVG path data for the hand-drawn signature captured at submit time, not a raster image.
+  signature: string;
   createdAt: string;
 }
 
