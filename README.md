@@ -49,7 +49,7 @@ Connecteam-style app. Backend lives in a separate repo:
   wraps this as two shared components — `BranchTag` (a colored pill, optionally with a custom
   `label` while still coloring from `jobSite`) and `BranchDot` (a compact colored dot for dense
   rows) — used everywhere a branch needs to be visually tied to a shift or a person: Schedule's
-  day-detail popup and "Working Today" list, the week builder's Scheduled list, and Time Clock's
+  day rows and day-detail popup, the week builder's Scheduled list, and Time Clock's
   branch/position box under the timer.
 - `src/components/PopupModal.tsx` — every popup in the app (New Shift, Schedule's day-detail
   and swap-request popups, Add to Schedule, the Availability day editor, New Task, Time Clock's
@@ -162,26 +162,48 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   `BranchTag` pill colored by that shift's branch — grouped by day so a day's whole roster
   finishes before the next day starts, rather than each person's week running start-to-finish
   one after another. Tapping a day opens the day-detail popup: your shift, that day's
-  **Manager** (whoever has an approved shift with `position: manager`), the full coworker list
-  (only populated in Everyone scope), plus two actions: **Request Shift Swap** (only shown when
-  you have a shift that day and at least one coworker also working it — pick which of your
-  shifts to offer and whose shift you want in exchange, `POST /shifts/swap-requests`) and
-  **Tasks for this day** (jumps to Tasks pre-filtered to that date). A direct 1:1 trade needs
-  both the target coworker and a manager to sign off before anything actually moves: "Your Swap
-  Requests" (visible to everyone, shown whenever you're on either side of an active request)
-  lets the target **Accept**/**Decline** (`PATCH /shifts/swap-requests/:id/accept` / `/decline`)
-  or the requester **Cancel** it (`PATCH /shifts/swap-requests/:id/cancel`) while it's still
-  waiting on the target; once accepted it shows "awaiting manager approval" with no further
-  action from either employee. Owner/manager additionally see "Swap requests awaiting
-  approval" — every request already accepted by its target, with **Approve**
-  (`PATCH /shifts/swap-requests/:id/approve` — swaps the two shifts' assigned employee) /
-  **Deny** (`PATCH /shifts/swap-requests/:id/deny`) buttons, plus a "Pending confirmation"
-  section — every pending shift org-wide (`GET /shifts`), not just their own, with Confirm
-  (`PATCH /shifts/:id/confirm`) and Reject (`PATCH /shifts/:id/reject`) buttons — and a
-  "+ New Shift" button opening a popup: navigate week with ‹ › arrows, pick a day within it,
-  set an HH:mm start/end, pick who it's for (from the Team directory), an optional position,
-  and an optional branch (picked from the Branches list, not free-typed) (`POST /shifts`). A
-  **Manage Branches** button alongside it opens the branch editor (see below).
+  **Manager** (whoever has an approved shift with `position: manager`), and the full coworker
+  list (only populated in Everyone scope) — no actions live here anymore; swap and edit
+  requests moved to their own buttons below the calendar (next paragraph).
+
+  Below the week's calendar sit two request buttons open to every employee. **Request Swap**
+  opens a form: first pick which of your own shifts (this week) you're offering, then — once
+  that's picked — the server looks up (`GET /shifts/swap-requests/candidates?shiftId=`) who's
+  eligible to take it that day: anyone with an approved shift in your `position` at a
+  *different* branch, or anyone with no shift at all that day. Pick one of them, or pick
+  **Free Volunteer** instead to broadcast the shift with no target and let anyone eligible
+  claim it themselves (`POST /shifts/swap-requests`, `targetEmployeeId` omitted for volunteer
+  mode). **Edit Past Shift** opens a form listing only this week's shifts that have already
+  ended — today's shift, even if it's over, doesn't qualify; the earliest eligible one is
+  yesterday's — pick one and enter a corrected HH:mm start/end (`POST
+  /shifts/edit-requests`).
+
+  A direct 1:1 swap needs both the target and a manager to sign off before anything actually
+  moves; a picked-no-shift target skips straight to a reassignment once approved, and a
+  Free Volunteer claim (`PATCH /shifts/swap-requests/:id/volunteer`) skips straight to
+  `pending_manager`, same as a direct target accepting. "Open Swap Requests" (visible to
+  anyone free that day) lists every unclaimed Free Volunteer broadcast with a **Volunteer**
+  button. "Your Swap Requests" (shown whenever you're on either side of an active request,
+  including one still broadcasting as `open`) lets the target **Accept**/**Decline**
+  (`PATCH /shifts/swap-requests/:id/accept` / `/decline`) or the requester **Cancel** it
+  (`PATCH /shifts/swap-requests/:id/cancel`) while it's still waiting on a response; once
+  accepted or volunteered-for it shows "awaiting manager approval" with no further action from
+  either employee. "My Edit Requests" similarly lists your own pending shift-time corrections
+  with a **Cancel** button. Owner/manager additionally see "Swap requests awaiting approval" —
+  every swap already agreed to by both sides, with **Approve** (`PATCH
+  /shifts/swap-requests/:id/approve` — reassigns or exchanges the shift(s), depending on
+  whether the target had one that day) / **Deny** (`PATCH /shifts/swap-requests/:id/deny`)
+  buttons — and "Shift edit requests awaiting approval" with **Approve** (`PATCH
+  /shifts/edit-requests/:id/approve` — applies the corrected times to the shift) / **Reject**
+  (`PATCH /shifts/edit-requests/:id/reject`) buttons.
+
+  Also below the calendar: a "Pending confirmation" section — every pending shift org-wide
+  (`GET /shifts`), not just their own, with Confirm (`PATCH /shifts/:id/confirm`) and Reject
+  (`PATCH /shifts/:id/reject`) buttons (owner/manager only) — and a "+ New Shift" button opening
+  a popup: navigate week with ‹ › arrows, pick a day within it, set an HH:mm start/end, pick
+  who it's for (from the Team directory), an optional position, and an optional branch (picked
+  from the Branches list, not free-typed) (`POST /shifts`). A **Manage Branches** button
+  alongside it opens the branch editor (see below).
 - **Availability** — date-based, not a recurring weekly pattern: a ‹ › week-navigable calendar
   (same pattern as Schedule) so any future week can be set independently, with a "This Week"
   badge / "Jump to this week" link once you've browsed away. Tapping a day opens a popup for

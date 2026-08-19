@@ -20,6 +20,7 @@ import type {
   Position,
   Shift,
   ShiftChecklist,
+  ShiftEditRequest,
   SwapRequest,
   Task,
   TaskBatchResult,
@@ -253,16 +254,29 @@ export const tasksApi = {
 };
 
 export const swapRequestsApi = {
-  create: (accessToken: string, dto: { requestingShiftId: string; targetShiftId: string }) =>
+  // Omit targetEmployeeId for a "Free Volunteer" broadcast instead of naming a specific person.
+  create: (accessToken: string, dto: { requestingShiftId: string; targetEmployeeId?: string }) =>
     request<SwapRequest>('/shifts/swap-requests', { method: 'POST', accessToken, body: dto }),
+
+  // Who's eligible to be picked as a direct target for this shift: free that day, or working
+  // the same position at a different branch.
+  candidates: (accessToken: string, shiftId: string) =>
+    request<OrgMember[]>(`/shifts/swap-requests/candidates?shiftId=${shiftId}`, { accessToken }),
 
   mine: (accessToken: string) =>
     request<SwapRequest[]>('/shifts/swap-requests/me', { accessToken }),
+
+  // Open ("Free Volunteer") requests the caller is free that day to claim.
+  open: (accessToken: string) =>
+    request<SwapRequest[]>('/shifts/swap-requests/open', { accessToken }),
 
   // Org-wide, owner/manager only — every request already accepted by its target, awaiting
   // final manager approval.
   pendingManager: (accessToken: string) =>
     request<SwapRequest[]>('/shifts/swap-requests', { accessToken }),
+
+  volunteer: (accessToken: string, id: string) =>
+    request<SwapRequest>(`/shifts/swap-requests/${id}/volunteer`, { method: 'PATCH', accessToken }),
 
   accept: (accessToken: string, id: string) =>
     request<SwapRequest>(`/shifts/swap-requests/${id}/accept`, { method: 'PATCH', accessToken }),
@@ -278,6 +292,27 @@ export const swapRequestsApi = {
 
   deny: (accessToken: string, id: string) =>
     request<SwapRequest>(`/shifts/swap-requests/${id}/deny`, { method: 'PATCH', accessToken }),
+};
+
+export const shiftEditRequestsApi = {
+  create: (accessToken: string, dto: { shiftId: string; startTime: string; endTime: string }) =>
+    request<ShiftEditRequest>('/shifts/edit-requests', { method: 'POST', accessToken, body: dto }),
+
+  mine: (accessToken: string) =>
+    request<ShiftEditRequest[]>('/shifts/edit-requests/me', { accessToken }),
+
+  // Org-wide, owner/manager only — every request still awaiting approval.
+  pendingManager: (accessToken: string) =>
+    request<ShiftEditRequest[]>('/shifts/edit-requests', { accessToken }),
+
+  cancel: (accessToken: string, id: string) =>
+    request<ShiftEditRequest>(`/shifts/edit-requests/${id}/cancel`, { method: 'PATCH', accessToken }),
+
+  approve: (accessToken: string, id: string) =>
+    request<ShiftEditRequest>(`/shifts/edit-requests/${id}/approve`, { method: 'PATCH', accessToken }),
+
+  reject: (accessToken: string, id: string) =>
+    request<ShiftEditRequest>(`/shifts/edit-requests/${id}/reject`, { method: 'PATCH', accessToken }),
 };
 
 export const messagesApi = {

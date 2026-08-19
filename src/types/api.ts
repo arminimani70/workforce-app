@@ -147,21 +147,39 @@ export interface OnboardingGuide {
 }
 
 export type SwapRequestStatus =
+  | 'open'
   | 'pending_target'
   | 'pending_manager'
   | 'approved'
   | 'rejected'
   | 'cancelled';
 
-// employeeId fields and shiftId fields are always populated by the backend.
+// requestingShiftId/requestingEmployeeId are always populated. targetShiftId is absent when
+// the target had no shift that day (approval just reassigns requestingShiftId to them instead
+// of trading two shifts). targetEmployeeId is absent while status is 'open' — a "Free
+// Volunteer" broadcast nobody has claimed yet.
 export interface SwapRequest {
   _id: string;
   organizationId: string;
   requestingShiftId: Shift;
   requestingEmployeeId: { _id: string; fullName: string; role: UserRole };
-  targetShiftId: Shift;
-  targetEmployeeId: { _id: string; fullName: string; role: UserRole };
+  targetShiftId?: Shift;
+  targetEmployeeId?: { _id: string; fullName: string; role: UserRole };
   status: SwapRequestStatus;
+  decidedBy?: string;
+  createdAt: string;
+}
+
+export type ShiftEditRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface ShiftEditRequest {
+  _id: string;
+  organizationId: string;
+  shiftId: Shift;
+  requestedBy: { _id: string; fullName: string; role: UserRole } | string;
+  newStartTime: string;
+  newEndTime: string;
+  status: ShiftEditRequestStatus;
   decidedBy?: string;
   createdAt: string;
 }
