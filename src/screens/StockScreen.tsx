@@ -1,22 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
 import { stockApi, HttpError } from '../api/client';
 import type { StockTemplate } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
-import { PopupModal } from '../components/PopupModal';
 import type { AppStackParamList } from '../navigation/types';
 
 export default function StockScreen() {
@@ -26,11 +17,6 @@ export default function StockScreen() {
   const [templates, setTemplates] = useState<StockTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [activeTemplate, setActiveTemplate] = useState<StockTemplate | null>(null);
-  const [quantities, setQuantities] = useState<Record<number, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   const canManage = user?.role === 'owner' || user?.role === 'manager';
 
@@ -45,46 +31,13 @@ export default function StockScreen() {
     }
   }, [authFetch]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const openTemplate = (template: StockTemplate) => {
-    setActiveTemplate(template);
-    setQuantities({});
-    setError(null);
-  };
-
-  const onSubmit = async () => {
-    if (!activeTemplate) return;
-    const missing = activeTemplate.items.some((_, index) => !quantities[index]?.trim());
-    if (missing) {
-      setError('Enter a quantity for every product');
-      return;
-    }
-    const parsed = activeTemplate.items.map((item, index) => ({
-      productName: item.productName,
-      quantity: Number(quantities[index]),
-    }));
-    if (parsed.some((q) => Number.isNaN(q.quantity) || q.quantity < 0)) {
-      setError('Quantities must be numbers, 0 or greater');
-      return;
-    }
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await authFetch((token) =>
-        stockApi.submit(token, { stockTemplateId: activeTemplate._id, quantities: parsed }),
-      );
-      setActiveTemplate(null);
-      setMessage(`"${activeTemplate.title}" submitted`);
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      setError(err instanceof HttpError ? err.message : 'Could not submit stock count');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Refetch every time this screen regains focus — e.g. coming back from submitting a count,
+  // so the list doesn't show stale data.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   if (isLoading) {
     return (
@@ -96,13 +49,7 @@ export default function StockScreen() {
 
   return (
     <View style={styles.container}>
-      {message && (
-        <View style={styles.messageBox}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.successText} />
-          <Text style={styles.messageText}>{message}</Text>
-        </View>
-      )}
-      {error && !activeTemplate && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={styles.error}>{error}</Text>}
 
       <FlatList
         data={templates}
@@ -115,7 +62,10 @@ export default function StockScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <Pressable style={styles.templateRow} onPress={() => openTemplate(item)}>
+          <Pressable
+            style={styles.templateRow}
+            onPress={() => navigation.navigate('StockSubmit', { template: item })}
+          >
             <Ionicons name="cube-outline" size={20} color={colors.primary} />
             <View style={styles.templateTextGroup}>
               <Text style={styles.templateTitle}>{item.title}</Text>
@@ -151,47 +101,6 @@ export default function StockScreen() {
           </Pressable>
         </View>
       )}
-
-      <PopupModal visible={activeTemplate !== null} onClose={() => setActiveTemplate(null)}>
-        <View style={styles.modalCard}>
-          <Text style={styles.formModalTitle}>{activeTemplate?.title}</Text>
-          {activeTemplate?.items.map((item, index) => (
-            <View key={index}>
-              <Text style={styles.sectionLabel}>
-                {item.productName} <Text style={styles.unitText}>({item.unit})</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                value={quantities[index] ?? ''}
-                onChangeText={(text) => setQuantities((prev) => ({ ...prev, [index]: text }))}
-                keyboardType="numeric"
-                placeholder="0"
-              />
-            </View>
-          ))}
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <Pressable
-            style={[styles.submitButton, isSubmitting && styles.buttonDisabled]}
-            onPress={onSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                <Text style={styles.submitButtonText}>Submit</Text>
-              </>
-            )}
-          </Pressable>
-
-          <Pressable style={styles.cancelButton} onPress={() => setActiveTemplate(null)}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </Pressable>
-        </View>
-      </PopupModal>
     </View>
   );
 }
@@ -200,16 +109,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   error: { color: colors.danger, marginBottom: 8 },
-  messageBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.successBg,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
-  },
-  messageText: { color: colors.successText, fontSize: 13, fontWeight: '600' },
   list: { flex: 1 },
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, justifyContent: 'center' },
   empty: { fontSize: 13, color: colors.textFaint },
@@ -240,28 +139,4 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   manageButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  modalCard: { padding: 20, gap: 12 },
-  formModalTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginBottom: 4 },
-  unitText: { fontWeight: '400', color: colors.textFaint },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    padding: 14,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  submitButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  cancelButton: { alignItems: 'center', padding: 8 },
-  cancelButtonText: { color: colors.textMuted, fontSize: 14 },
 });

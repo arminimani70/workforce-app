@@ -16,7 +16,6 @@ import type {
   OnboardingSection,
   OrgAvailabilityEntry,
   OrgMember,
-  OrgTask,
   Position,
   Shift,
   ShiftChecklist,
@@ -25,9 +24,6 @@ import type {
   StockSubmission,
   StockTemplate,
   SwapRequest,
-  Task,
-  TaskBatchResult,
-  TaskStatus,
   TimeClockEntry,
   TimeTotal,
   TokenPair,
@@ -227,35 +223,6 @@ export const availabilityApi = {
       `/availability?from=${range.from}&to=${range.to}`,
       { accessToken },
     ),
-};
-
-export const tasksApi = {
-  create: (
-    accessToken: string,
-    dto: {
-      title: string;
-      description?: string;
-      dueDate: string;
-      assignedTo?: string;
-      position?: Position;
-    },
-  ) => request<Task>('/tasks', { method: 'POST', accessToken, body: dto }),
-
-  createBatch: (
-    accessToken: string,
-    dto: { title: string; description?: string; position: Position; dueDates: string[] },
-  ) => request<TaskBatchResult[]>('/tasks/batch', { method: 'POST', accessToken, body: dto }),
-
-  mine: (accessToken: string) => request<Task[]>('/tasks/me', { accessToken }),
-
-  all: (accessToken: string) => request<OrgTask[]>('/tasks', { accessToken }),
-
-  updateStatus: (accessToken: string, taskId: string, status: TaskStatus) =>
-    request<Task>(`/tasks/${taskId}/status`, {
-      method: 'PATCH',
-      accessToken,
-      body: { status },
-    }),
 };
 
 export const swapRequestsApi = {

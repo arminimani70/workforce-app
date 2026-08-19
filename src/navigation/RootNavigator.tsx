@@ -10,7 +10,6 @@ import TimeClockScreen from '../screens/TimeClockScreen';
 import ScheduleScreen from '../screens/ScheduleScreen';
 import AvailabilityScreen from '../screens/AvailabilityScreen';
 import TeamScreen from '../screens/TeamScreen';
-import TasksScreen from '../screens/TasksScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import BuildScheduleScreen from '../screens/BuildScheduleScreen';
@@ -23,6 +22,7 @@ import ManageFormsScreen from '../screens/ManageFormsScreen';
 import FormSubmissionsScreen from '../screens/FormSubmissionsScreen';
 import ManageBranchesScreen from '../screens/ManageBranchesScreen';
 import StockScreen from '../screens/StockScreen';
+import StockSubmitScreen from '../screens/StockSubmitScreen';
 import ManageStockScreen from '../screens/ManageStockScreen';
 import StockSubmissionsScreen from '../screens/StockSubmissionsScreen';
 import WastageScreen from '../screens/WastageScreen';
@@ -73,7 +73,6 @@ export default function RootNavigator() {
             options={{ title: 'Availability' }}
           />
           <AppStack.Screen name="Team" component={TeamScreen} options={{ title: 'Team' }} />
-          <AppStack.Screen name="Tasks" component={TasksScreen} options={{ title: 'Tasks' }} />
           <AppStack.Screen
             name="Onboarding"
             component={OnboardingScreen}
@@ -126,6 +125,11 @@ export default function RootNavigator() {
             options={{ title: 'Manage Branches' }}
           />
           <AppStack.Screen name="Stock" component={StockScreen} options={{ title: 'Stock' }} />
+          <AppStack.Screen
+            name="StockSubmit"
+            component={StockSubmitScreen}
+            options={{ title: 'Count Stock' }}
+          />
           <AppStack.Screen
             name="ManageStock"
             component={ManageStockScreen}

@@ -109,32 +109,6 @@ export interface TimeTotal {
   totalSeconds: number;
 }
 
-export type TaskStatus = 'pending' | 'in_progress' | 'done';
-
-export interface Task {
-  _id: string;
-  organizationId: string;
-  title: string;
-  description?: string;
-  assignedTo: string;
-  dueDate: string;
-  position?: Position;
-  status: TaskStatus;
-  createdBy: string;
-}
-
-// GET /tasks (org-wide) populates assignedTo into { _id, fullName, role }.
-export interface OrgTask extends Omit<Task, 'assignedTo'> {
-  assignedTo: { _id: string; fullName: string; role: UserRole };
-}
-
-export interface TaskBatchResult {
-  dueDate: string;
-  created: boolean;
-  reason?: string;
-  task?: Task;
-}
-
 export interface OnboardingSection {
   title: string;
   content: string;

@@ -33,14 +33,14 @@ Connecteam-style app. Backend lives in a separate repo:
   colors with matching light backgrounds) plus a shared `cardShadow`. Every screen imports
   from here instead of hardcoding hex values, so a palette change is a one-file edit.
 - `src/components/NoteBox.tsx` — a reusable icon+text callout (`info`/`warning`/`success`/
-  `danger` variants) for inline tips and warnings, e.g. Tasks' "N of M created" batch result.
+  `danger` variants) for inline tips and warnings, e.g. a missing-branches warning on Stock.
 - Dashboard cards, list rows, and boxed sections are all `colors.surface` with `cardShadow` on
   `colors.background`, giving the app a consistent light-elevated-card look; icons mark every
   section header, button, and status so screens are scannable without reading every label.
 - `src/constants/positions.ts` — the single source of truth for how a `Position` is labeled,
   iconed, and colored (`POSITION_LABELS`/`POSITION_ICONS`/`POSITION_COLORS`); every screen with
-  a position chip or a position-tagged row (Availability, Schedule, Tasks, the week builder)
-  imports from here, so they can't drift out of sync with each other.
+  a position chip or a position-tagged row (Availability, Schedule, the week builder) imports
+  from here, so they can't drift out of sync with each other.
 - `colorForBranch(jobSite)` in `theme/colors.ts` — `Shift.jobSite`/`ChecklistTemplate.jobSite`
   store a plain-text snapshot of the branch name rather than a reference to the `Branch`
   collection, so a branch's color comes from hashing that name against a fixed palette rather
@@ -52,8 +52,8 @@ Connecteam-style app. Backend lives in a separate repo:
   day rows and day-detail popup, the week builder's Scheduled list, and Time Clock's
   branch/position box under the timer.
 - `src/components/PopupModal.tsx` — every popup in the app (New Shift, Schedule's day-detail
-  and swap-request popups, Add to Schedule, the Availability day editor, New Task, Time Clock's
-  range calendar) is built on this one wrapper: tapping the dimmed area outside the card
+  and swap-request popups, Add to Schedule, the Availability day editor, Time Clock's range
+  calendar) is built on this one wrapper: tapping the dimmed area outside the card
   dismisses it, tapping inside the card doesn't. One shared implementation means that behavior
   can't drift between screens. The card is also lifted above the bottom safe area (the iOS
   home indicator / Android gesture bar) so a button near the bottom of the card never crowds
@@ -86,8 +86,9 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   API — it retries once with a refreshed token on a 401, so that logic lives in one place
   instead of being duplicated per screen.
 - `src/navigation/RootNavigator.tsx` — renders the Auth stack (Login/Register) when there's no
-  user, or the App stack (Home, Time Clock, Schedule, Availability, Team, Tasks, Onboarding,
-  Profile) once `AuthContext` has one. This is the standard React Navigation "auth flow"
+  user, or the App stack (Home, Time Clock, Schedule, Availability, Team, Messages, Forms,
+  Stock, Wastage, Onboarding, Profile, plus each feature's manager/history sub-screens) once
+  `AuthContext` has one. This is the standard React Navigation "auth flow"
   pattern: the screens the user can reach are a direct function of auth state, not a route
   guard. `AuthContext` also exposes `refreshUser()`, which re-fetches `/users/me` and updates
   the cached user — Profile calls it after a successful edit so the rest of the app (e.g.
@@ -106,8 +107,8 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   started 08:00" instead — branch/position again as a subtitle. Absent entirely if there's
   nothing relevant today. Below that, dashboard cards for Time Clock (live elapsed time when
   clocked in), Schedule (next upcoming approved shift), Availability (days available this
-  week), Team (member count), Tasks (count of the caller's own open tasks), and Onboarding,
-  plus a "Today" section listing today's approved shifts. Has a Log out button. All of this
+  week), Team (member count), Messages, Forms, Stock, Wastage, and Onboarding, plus a "Today"
+  section listing today's approved shifts. Has a Log out button. All of this
   re-fetches every time the screen regains focus (`useFocusEffect`, not a mount-only effect) —
   navigating to Time Clock, clocking in or out, and coming back updates the banner and cards
   immediately instead of showing stale state from whenever Home first mounted. Every time this
@@ -216,18 +217,6 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Team** — lists every org member (`GET /users`). Owner/manager also see an "Add Employee"
   form — full name, email, and a temporary password (`POST /users`); there's no
   self-registration flow for team members, an admin sets them up directly.
-- **Tasks** — "My Tasks" (`GET /tasks/me`) lets anyone advance their own task through
-  Pending → In Progress → Done (`PATCH /tasks/:id/status`). Owner/manager also see "All Tasks"
-  org-wide (`GET /tasks`, assignee name shown) and a "+ New Task" button opening a popup with
-  two modes: assign to **a specific person** (pick from the Team directory, one due date), or
-  assign to **whoever works a position** (pick a position and one or more due dates from the
-  week/day picker — `POST /tasks` for a single date, `POST /tasks/batch` for several; each date
-  is resolved independently, so a Monday/Wednesday/Friday batch can land on three different
-  people depending on who's approved to work that position each day). If a batch date has no
-  one approved for that position, that date is skipped and reported back rather than failing
-  the whole batch. Arriving here via Schedule's "Tasks for this day" link filters both lists
-  to that one date client-side (a "Show all tasks" link clears it) — there's no separate
-  date-filtered endpoint, it's the same `GET /tasks/me` / `GET /tasks` data.
 - **Messages** — direct 1:1 chat with any other org member, no role restriction. The
   conversation list (`GET /messages/conversations`) shows the other person, a preview of the
   last message, and an unread badge, polling every 8 seconds while the screen is focused; a
@@ -307,9 +296,11 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 - **Stock** (Home dashboard card) — manager-built, named product-count lists, one branch per
   list but any number of lists per branch (e.g. "Bar Stock" and "Kitchen Stock" both at the same
   branch). The list of available lists (`GET /stock/templates`) shows each one's branch as a
-  colored `BranchTag`; tapping one opens a popup with a numeric input per product, labeled with
-  that product's unit — the employee only ever enters a quantity, never a product name, since
-  the manager fixed those when building the list (`POST /stock/submissions`). Owner/manager get
+  colored `BranchTag`; tapping one navigates to a full **Count Stock** screen (not a popup — a
+  list can run to 100 products, too many for a modal) with a numeric input per product, labeled
+  with that product's unit and a fixed Submit bar pinned to the bottom — the employee only ever
+  enters a quantity, never a product name, since the manager fixed those when building the list
+  (`POST /stock/submissions`). Owner/manager get
   two extra buttons: **Manage Lists** — pick a branch, give the list a title, freely add/remove
   product rows (each a name + unit), Save upserts (`PUT /stock/templates`, include `id` to edit
   in place) — and **Submission History** — every stock count ever submitted, newest first, with

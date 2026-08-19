@@ -1,3 +1,5 @@
+import type { StockTemplate } from '../types/api';
+
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -9,7 +11,6 @@ export type AppStackParamList = {
   Schedule: undefined;
   Availability: undefined;
   Team: undefined;
-  Tasks: { dueDate?: string } | undefined;
   Onboarding: undefined;
   Profile: undefined;
   BuildSchedule: undefined;
@@ -22,6 +23,7 @@ export type AppStackParamList = {
   FormSubmissions: undefined;
   ManageBranches: undefined;
   Stock: undefined;
+  StockSubmit: { template: StockTemplate };
   ManageStock: undefined;
   StockSubmissions: undefined;
   Wastage: undefined;

@@ -3,8 +3,8 @@ import type { Position } from '../types/api';
 import { colors } from '../theme/colors';
 
 // Single source of truth for how a position is labeled, iconed, and colored — every screen
-// that shows a position (Availability, Schedule, Tasks, the week builder) imports this instead
-// of keeping its own copy, so they can never drift out of sync with each other.
+// that shows a position (Availability, Schedule, the week builder) imports this instead of
+// keeping its own copy, so they can never drift out of sync with each other.
 export const POSITION_LABELS: Record<Position, string> = {
   frontdesk: 'Front Desk',
   helpdesk: 'Help Desk',

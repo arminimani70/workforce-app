@@ -9,7 +9,6 @@ import {
   availabilityApi,
   messagesApi,
   schedulingApi,
-  tasksApi,
   timeClockApi,
   usersApi,
 } from '../api/client';
@@ -80,7 +79,6 @@ export default function HomeScreen({ navigation }: Props) {
   const [todayShifts, setTodayShifts] = useState<Shift[]>([]);
   const [availableDaysCount, setAvailableDaysCount] = useState<number | null>(null);
   const [teamSize, setTeamSize] = useState<number | null>(null);
-  const [pendingTaskCount, setPendingTaskCount] = useState<number | null>(null);
   const [unreadMessageCount, setUnreadMessageCount] = useState<number | null>(null);
 
   // useFocusEffect (not a plain useEffect) so this re-fetches every time Home regains focus,
@@ -144,15 +142,6 @@ export default function HomeScreen({ navigation }: Props) {
 
       (async () => {
         try {
-          const tasks = await authFetch((token) => tasksApi.mine(token));
-          setPendingTaskCount(tasks.filter((t) => t.status !== 'done').length);
-        } catch {
-          // Leave the Tasks subtitle blank if the call fails.
-        }
-      })();
-
-      (async () => {
-        try {
           const { count } = await authFetch((token) => messagesApi.unreadCount(token));
           setUnreadMessageCount(count);
         } catch {
@@ -205,13 +194,6 @@ export default function HomeScreen({ navigation }: Props) {
     availableDaysCount === null ? ' ' : `${availableDaysCount} of 7 days available`;
 
   const teamSubtitle = teamSize === null ? ' ' : `${teamSize} team member${teamSize === 1 ? '' : 's'}`;
-
-  const tasksSubtitle =
-    pendingTaskCount === null
-      ? ' '
-      : pendingTaskCount === 0
-        ? 'All caught up'
-        : `${pendingTaskCount} open task${pendingTaskCount === 1 ? '' : 's'}`;
 
   const messagesSubtitle =
     unreadMessageCount === null
@@ -296,14 +278,6 @@ export default function HomeScreen({ navigation }: Props) {
         title="Team"
         subtitle={teamSubtitle}
         onPress={() => navigation.navigate('Team')}
-      />
-
-      <DashboardCard
-        icon="list-outline"
-        tint={colors.pink}
-        title="Tasks"
-        subtitle={tasksSubtitle}
-        onPress={() => navigation.navigate('Tasks')}
       />
 
       <DashboardCard
