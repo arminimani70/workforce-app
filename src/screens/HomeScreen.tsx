@@ -292,7 +292,7 @@ export default function HomeScreen({ navigation }: Props) {
         icon="document-text-outline"
         tint={colors.success}
         title="Forms"
-        subtitle="Report issues, orders, and more"
+        subtitle="Checklists, wastage, and more"
         onPress={() => navigation.navigate('Forms')}
       />
 
@@ -302,14 +302,6 @@ export default function HomeScreen({ navigation }: Props) {
         title="Stock"
         subtitle="Count products at your branch"
         onPress={() => navigation.navigate('Stock')}
-      />
-
-      <DashboardCard
-        icon="trash-bin-outline"
-        tint={colors.danger}
-        title="Wastage"
-        subtitle="Report damaged or expired product"
-        onPress={() => navigation.navigate('Wastage')}
       />
 
       <DashboardCard

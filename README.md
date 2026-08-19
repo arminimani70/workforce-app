@@ -107,7 +107,7 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   started 08:00" instead — branch/position again as a subtitle. Absent entirely if there's
   nothing relevant today. Below that, dashboard cards for Time Clock (live elapsed time when
   clocked in), Schedule (next upcoming approved shift), Availability (days available this
-  week), Team (member count), Messages, Forms, Stock, Wastage, and Onboarding, plus a "Today"
+  week), Team (member count), Messages, Forms, Stock, and Onboarding, plus a "Today"
   section listing today's approved shifts. Has a Log out button. All of this
   re-fetches every time the screen regains focus (`useFocusEffect`, not a mount-only effect) —
   navigating to Time Clock, clocking in or out, and coming back updates the banner and cards
@@ -226,11 +226,15 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   theirs left) with a plain text input and send button (`POST /messages`). Text-only for
   now — no image/PDF/Word attachments yet, though the backend schema already leaves room for
   one. Home's Messages card shows the total unread count (`GET /messages/unread-count`).
-- **Checklists** — opening/closing duty lists per position, optionally narrowed to a branch,
-  reached from Schedule rather than as its own top-level screen. Tapping one of "Your Shift"'s
-  entries in Schedule's day-detail popup opens that shift's checklist
-  (`GET /checklists/shift/:shiftId`): an optional heading (the template's title, when a manager
-  set one) above an **Opening** and a **Closing** section, each a list of items with a
+- **Checklists** — opening/closing duty lists per position, optionally narrowed to a branch.
+  Reached from **Forms**' "Opening/Closing Checklist" row rather than as its own top-level
+  screen: the row resolves "the shift that matters right now" the same way Home/Time Clock
+  do — whichever of today's approved shifts is currently underway, or failing that the next
+  one still to come today (not filtered by branch, since a checklist can apply to a
+  branch-less shift) — and shows "No shift today" (row disabled) if there isn't one. Tapping it
+  opens that shift's checklist (`GET /checklists/shift/:shiftId`): an optional heading (the
+  template's title, when a manager set one) above an **Opening** and a **Closing** section,
+  each a list of items with a
   **Done**/**Not Done** button pair per item instead of a single checkbox — there's no neutral
   "unanswered but treated as not done" state; an item just shows unmarked (neither button
   highlighted) until you explicitly pick one, and a "answered/total" counter in the section
@@ -248,15 +252,19 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   differently at different branches), then freely add/remove line items for each section and
   Save (`PUT /checklists/templates`) — picking a position+branch that already has a template
   loads it for editing instead of starting blank.
-- **Forms** (Home dashboard card) — an org-wide catalog of ad hoc report types (e.g. "Damaged
-  Product", "Equipment Malfunction", "Urgent Supply Request") — unlike Checklists these aren't
-  tied to a position or branch, so any employee can submit any of them, whenever something
-  needs reporting. Tapping one in the list opens a popup with a text/number input per field
-  (`GET /forms/templates` for the catalog, `POST /forms/submissions` to send it). Owner/manager
-  get two extra buttons: **Manage Forms** — a list of existing templates plus an editor (title
-  + freely add/remove fields, each with a label and a Text/Number type,
-  `PUT /forms/templates`) — and **Submission History** — every submission ever made, newest
-  first, with who submitted it and its field values (`GET /forms/submissions`).
+- **Forms** (Home dashboard card) — the single hub for every fill-out-and-submit flow in the
+  app. Two built-in rows sit above the ad hoc catalog: **Opening/Closing Checklist** (see
+  Checklists below) and **Wastage Report** (see Wastage below), both plain navigations to their
+  own screens rather than the popup the rows below them use. Below those, an org-wide catalog
+  of ad hoc report types (e.g. "Damaged Product", "Equipment Malfunction", "Urgent Supply
+  Request") — unlike Checklists these aren't tied to a position or branch, so any employee can
+  submit any of them, whenever something needs reporting. Tapping one in this part of the list
+  opens a popup with a text/number input per field (`GET /forms/templates` for the catalog,
+  `POST /forms/submissions` to send it). Owner/manager get two extra buttons: **Manage Forms**
+  — a list of existing templates plus an editor (title + freely add/remove fields, each with a
+  label and a Text/Number type, `PUT /forms/templates`) — and **Submission History** — every
+  submission ever made, newest first, with who submitted it and its field values
+  (`GET /forms/submissions`).
 - **Onboarding** — a guide per organization (`GET /onboarding`) made of titled sections rather
   than one long text blob. Each section is a card showing just its title; tapping one expands
   it in place to read the content, tapping again collapses it. A search box above the list
@@ -306,8 +314,9 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   in place) — and **Submission History** — every stock count ever submitted, newest first, with
   who submitted it, which branch/list, and each product's counted quantity
   (`GET /stock/submissions`).
-- **Wastage** (Home dashboard card) — reporting damaged/expired/spilled product. A single
-  always-available form: pick a **Branch** (from the Branches list) and a **Reason** (from an
+- **Wastage** — reporting damaged/expired/spilled product, reached via Forms' "Wastage Report"
+  row. A single always-available form: pick a **Branch** (from the Branches list) and a
+  **Reason** (from an
   org-wide, manager-editable catalog) as chips, then type the **Product Name** and **Amount** by
   hand — those two are always free text since there's no fixed product catalog to pick from,
   unlike Stock's manager-built lists (`POST /wastage/entries`). Owner/manager get two extra
