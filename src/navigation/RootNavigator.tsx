@@ -16,6 +16,7 @@ import BuildScheduleScreen from '../screens/BuildScheduleScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ChecklistScreen from '../screens/ChecklistScreen';
+import ChecklistFillScreen from '../screens/ChecklistFillScreen';
 import ManageChecklistsScreen from '../screens/ManageChecklistsScreen';
 import ChecklistSubmissionsScreen from '../screens/ChecklistSubmissionsScreen';
 import FormsScreen from '../screens/FormsScreen';
@@ -102,7 +103,12 @@ export default function RootNavigator() {
           <AppStack.Screen
             name="Checklist"
             component={ChecklistScreen}
-            options={{ title: 'Checklist' }}
+            options={{ title: 'Checklists' }}
+          />
+          <AppStack.Screen
+            name="ChecklistFill"
+            component={ChecklistFillScreen}
+            options={({ route }) => ({ title: route.params.title || 'Checklist' })}
           />
           <AppStack.Screen
             name="ManageChecklists"

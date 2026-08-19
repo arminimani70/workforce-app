@@ -190,10 +190,12 @@ export interface ChecklistTemplate {
 }
 
 // Every item's done/not-done status is explicit once answered — an item simply absent from
-// the array means it hasn't been marked either way yet.
+// the array means it hasn't been marked either way yet. photoUrl is an optional
+// proof-of-completion photo (base64 data URI), attached after the item is marked.
 export interface ChecklistItemStatus {
   item: string;
   done: boolean;
+  photoUrl?: string;
 }
 
 // The live, shared checklist for a position+branch — not tied to a shift or a day, since

@@ -1124,12 +1124,14 @@ export default function ScheduleScreen() {
                             style={styles.detailPersonRow}
                             onPress={() => {
                               setDetailDay(null);
-                              navigation.navigate(
-                                'Checklist',
-                                shift.position
-                                  ? { position: shift.position, jobSite: shift.jobSite }
-                                  : undefined,
-                              );
+                              if (shift.position) {
+                                navigation.navigate('ChecklistFill', {
+                                  position: shift.position,
+                                  jobSite: shift.jobSite ?? '',
+                                });
+                              } else {
+                                navigation.navigate('Checklist');
+                              }
                             }}
                           >
                             <Ionicons

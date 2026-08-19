@@ -326,7 +326,8 @@ export const checklistsApi = {
       body: dto,
     }),
 
-  // Owner/manager only.
+  // Any authenticated user — the catalog of available checklist "forms" to browse and pick
+  // from, as well as the source list for owner/manager's Manage Checklists editor.
   listTemplates: (accessToken: string) =>
     request<ChecklistTemplate[]>('/checklists/templates', { accessToken }),
 
@@ -342,11 +343,12 @@ export const checklistsApi = {
     jobSite: string,
     item: string,
     done: boolean,
+    photoUrl?: string,
   ) =>
     request<unknown>('/checklists/current/opening', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite, item, done },
+      body: { position, jobSite, item, done, photoUrl },
     }),
 
   updateClosing: (
@@ -355,11 +357,12 @@ export const checklistsApi = {
     jobSite: string,
     item: string,
     done: boolean,
+    photoUrl?: string,
   ) =>
     request<unknown>('/checklists/current/closing', {
       method: 'PATCH',
       accessToken,
-      body: { position, jobSite, item, done },
+      body: { position, jobSite, item, done, photoUrl },
     }),
 
   submitOpening: (accessToken: string, position: Position, jobSite: string) =>

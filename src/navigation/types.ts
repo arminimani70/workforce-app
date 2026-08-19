@@ -16,7 +16,8 @@ export type AppStackParamList = {
   BuildSchedule: undefined;
   Messages: undefined;
   Chat: { employeeId: string; employeeName: string };
-  Checklist: { position?: Position; jobSite?: string } | undefined;
+  Checklist: undefined;
+  ChecklistFill: { position: Position; jobSite: string; title?: string | null };
   ManageChecklists: undefined;
   ChecklistSubmissions: undefined;
   Forms: undefined;

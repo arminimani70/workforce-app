@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
@@ -105,6 +105,9 @@ export default function ChecklistSubmissionsScreen() {
                   color={status.done ? colors.success : colors.danger}
                 />
                 <Text style={styles.itemText}>{status.item}</Text>
+                {status.photoUrl && (
+                  <Image source={{ uri: status.photoUrl }} style={styles.itemPhoto} />
+                )}
               </View>
             ))}
           </View>
@@ -137,5 +140,6 @@ const styles = StyleSheet.create({
   branchTag: { borderWidth: 1, borderRadius: 999, paddingVertical: 2, paddingHorizontal: 8 },
   branchTagText: { fontSize: 11, fontWeight: '700' },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  itemText: { fontSize: 13, color: colors.text },
+  itemText: { fontSize: 13, color: colors.text, flex: 1 },
+  itemPhoto: { width: 40, height: 40, borderRadius: 6 },
 });

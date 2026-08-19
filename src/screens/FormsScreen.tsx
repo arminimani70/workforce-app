@@ -142,13 +142,22 @@ export default function FormsScreen() {
           <View style={styles.builtInSection}>
             <Pressable
               style={styles.formRow}
-              onPress={() => navigation.navigate('Checklist', todayShift ?? undefined)}
+              onPress={() =>
+                todayShift
+                  ? navigation.navigate('ChecklistFill', {
+                      position: todayShift.position,
+                      jobSite: todayShift.jobSite ?? '',
+                    })
+                  : navigation.navigate('Checklist')
+              }
             >
               <Ionicons name="checkbox-outline" size={20} color={colors.teal} />
               <View style={styles.formTextGroup}>
                 <Text style={styles.formTitle}>Opening/Closing Checklist</Text>
                 <Text style={styles.formMeta}>
-                  Available any day — pick a position to fill it in
+                  {todayShift
+                    ? "Continue today's shift checklist"
+                    : 'Browse all checklists by position and branch'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
