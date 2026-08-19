@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
@@ -16,6 +17,8 @@ import type { AppStackParamList } from '../navigation/types';
 import type { Shift, TimeClockEntry } from '../types/api';
 import { currentWeekRange, formatElapsed, fullDayRange } from '../utils/time';
 import { syncShiftReminders } from '../utils/shiftReminders';
+import { useTodayShiftContext } from '../hooks/useTodayShiftContext';
+import { POSITION_LABELS } from '../constants/positions';
 import { cardShadow, colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Home'>;
@@ -80,78 +83,84 @@ export default function HomeScreen({ navigation }: Props) {
   const [pendingTaskCount, setPendingTaskCount] = useState<number | null>(null);
   const [unreadMessageCount, setUnreadMessageCount] = useState<number | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const status = await authFetch((token) => timeClockApi.status(token));
-        setOpenEntry(status);
-      } catch {
-        // Leave as "not clocked in" if the status call fails.
-      }
-    })();
+  // useFocusEffect (not a plain useEffect) so this re-fetches every time Home regains focus,
+  // not just on first mount — React Navigation keeps Home mounted underneath other screens, so
+  // a plain mount-only effect left the clock-in status stale after clocking in/out on the Time
+  // Clock screen and coming back (the dashboard card kept ticking as if still clocked in).
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const status = await authFetch((token) => timeClockApi.status(token));
+          setOpenEntry(status);
+        } catch {
+          // Leave as "not clocked in" if the status call fails.
+        }
+      })();
 
-    (async () => {
-      try {
-        const shifts = await authFetch((token) => schedulingApi.myShifts(token));
-        const approved = shifts.filter((s) => s.approval === 'approved');
-        const upcoming = approved
-          .filter((s) => new Date(s.startTime).getTime() >= Date.now())
-          .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-        setNextShift(upcoming[0] ?? null);
-        syncShiftReminders(shifts);
-      } catch {
-        // Leave as "no upcoming shift" if the call fails.
-      }
-    })();
+      (async () => {
+        try {
+          const shifts = await authFetch((token) => schedulingApi.myShifts(token));
+          const approved = shifts.filter((s) => s.approval === 'approved');
+          const upcoming = approved
+            .filter((s) => new Date(s.startTime).getTime() >= Date.now())
+            .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+          setNextShift(upcoming[0] ?? null);
+          syncShiftReminders(shifts);
+        } catch {
+          // Leave as "no upcoming shift" if the call fails.
+        }
+      })();
 
-    (async () => {
-      try {
-        const { from, to } = fullDayRange();
-        const shifts = await authFetch((token) => schedulingApi.myShifts(token, { from, to }));
-        setTodayShifts(shifts.filter((s) => s.approval === 'approved'));
-      } catch {
-        // Leave "Today" empty if the call fails.
-      }
-    })();
+      (async () => {
+        try {
+          const { from, to } = fullDayRange();
+          const shifts = await authFetch((token) => schedulingApi.myShifts(token, { from, to }));
+          setTodayShifts(shifts.filter((s) => s.approval === 'approved'));
+        } catch {
+          // Leave "Today" empty if the call fails.
+        }
+      })();
 
-    (async () => {
-      try {
-        const entries = await authFetch((token) =>
-          availabilityApi.getMine(token, currentWeekRange()),
-        );
-        setAvailableDaysCount(entries.filter((e) => e.status !== 'unavailable').length);
-      } catch {
-        // Leave the Availability subtitle blank if the call fails.
-      }
-    })();
+      (async () => {
+        try {
+          const entries = await authFetch((token) =>
+            availabilityApi.getMine(token, currentWeekRange()),
+          );
+          setAvailableDaysCount(entries.filter((e) => e.status !== 'unavailable').length);
+        } catch {
+          // Leave the Availability subtitle blank if the call fails.
+        }
+      })();
 
-    (async () => {
-      try {
-        const members = await authFetch((token) => usersApi.list(token));
-        setTeamSize(members.length);
-      } catch {
-        // Leave the Team subtitle blank if the call fails.
-      }
-    })();
+      (async () => {
+        try {
+          const members = await authFetch((token) => usersApi.list(token));
+          setTeamSize(members.length);
+        } catch {
+          // Leave the Team subtitle blank if the call fails.
+        }
+      })();
 
-    (async () => {
-      try {
-        const tasks = await authFetch((token) => tasksApi.mine(token));
-        setPendingTaskCount(tasks.filter((t) => t.status !== 'done').length);
-      } catch {
-        // Leave the Tasks subtitle blank if the call fails.
-      }
-    })();
+      (async () => {
+        try {
+          const tasks = await authFetch((token) => tasksApi.mine(token));
+          setPendingTaskCount(tasks.filter((t) => t.status !== 'done').length);
+        } catch {
+          // Leave the Tasks subtitle blank if the call fails.
+        }
+      })();
 
-    (async () => {
-      try {
-        const { count } = await authFetch((token) => messagesApi.unreadCount(token));
-        setUnreadMessageCount(count);
-      } catch {
-        // Leave the Messages subtitle blank if the call fails.
-      }
-    })();
-  }, [authFetch]);
+      (async () => {
+        try {
+          const { count } = await authFetch((token) => messagesApi.unreadCount(token));
+          setUnreadMessageCount(count);
+        } catch {
+          // Leave the Messages subtitle blank if the call fails.
+        }
+      })();
+    }, [authFetch]),
+  );
 
   useEffect(() => {
     if (!openEntry) return;
@@ -159,9 +168,36 @@ export default function HomeScreen({ navigation }: Props) {
     return () => clearInterval(id);
   }, [openEntry]);
 
+  const { branch: todayBranch, position: todayPosition, startTime: shiftStart } =
+    useTodayShiftContext();
+
   const timeClockSubtitle = openEntry
     ? `Clocked in · ${formatElapsed(now - new Date(openEntry.clockInTime).getTime())}`
     : 'Not clocked in';
+
+  // The person's main "what's happening today" event — clocked-in status takes over from the
+  // pre-shift heads-up the moment they actually clock in. Shown as a headline banner rather
+  // than buried as a Time Clock screen detail, and it's tappable straight into Time Clock.
+  const eventShiftDetail = [
+    todayBranch?.name,
+    todayPosition ? POSITION_LABELS[todayPosition] : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  let eventHeadline: string | null = null;
+  if (openEntry) {
+    const startLabel = new Date(openEntry.clockInTime).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    eventHeadline = `Clocked in since ${startLabel}`;
+  } else if (shiftStart && shiftStart.getTime() - Date.now() <= 3 * 60 * 60 * 1000) {
+    const startLabel = shiftStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    eventHeadline =
+      shiftStart.getTime() <= Date.now()
+        ? `Shift in progress · started ${startLabel}`
+        : `Shift today at ${startLabel}`;
+  }
 
   const scheduleSubtitle = nextShift ? `Next: ${formatShiftLine(nextShift)}` : 'No upcoming shifts';
 
@@ -204,6 +240,28 @@ export default function HomeScreen({ navigation }: Props) {
           </Text>
         </View>
       </Pressable>
+
+      {eventHeadline && (
+        <Pressable style={styles.eventBanner} onPress={() => navigation.navigate('TimeClock')}>
+          <View style={styles.eventIconBadge}>
+            <Ionicons
+              name={openEntry ? 'radio-button-on' : 'time-outline'}
+              size={22}
+              color="#fff"
+            />
+          </View>
+          <View style={styles.eventTextGroup}>
+            <Text style={styles.eventTitleText}>{eventHeadline}</Text>
+            {eventShiftDetail && <Text style={styles.eventSubtitleText}>{eventShiftDetail}</Text>}
+          </View>
+          {openEntry && (
+            <Text style={styles.eventTimerText}>
+              {formatElapsed(now - new Date(openEntry.clockInTime).getTime())}
+            </Text>
+          )}
+          <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.85)" />
+        </Pressable>
+      )}
 
       <DashboardCard
         icon="time-outline"
@@ -320,6 +378,32 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   container: { padding: 20, gap: 12 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  eventBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    padding: 16,
+    ...cardShadow,
+  },
+  eventIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventTextGroup: { flex: 1 },
+  eventTitleText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  eventSubtitleText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 },
+  eventTimerText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
   avatar: {
     width: 48,
     height: 48,

@@ -3,11 +3,12 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
-import { branchesApi, HttpError, schedulingApi, timeClockApi } from '../api/client';
-import type { Branch, Position, TimeClockEntry } from '../types/api';
+import { HttpError, timeClockApi } from '../api/client';
+import type { TimeClockEntry } from '../types/api';
 import { POSITION_LABELS } from '../constants/positions';
-import { formatElapsed, formatHoursMinutes, fullDayRange } from '../utils/time';
+import { formatElapsed, formatHoursMinutes } from '../utils/time';
 import { distanceMeters, formatDistance } from '../utils/geo';
+import { useTodayShiftContext } from '../hooks/useTodayShiftContext';
 import { cardShadow, colors } from '../theme/colors';
 import { NoteBox } from '../components/NoteBox';
 import { PopupModal } from '../components/PopupModal';
@@ -31,12 +32,6 @@ async function getLocation(): Promise<{ lat: number; lng: number } | undefined> 
   } catch {
     return undefined;
   }
-}
-
-function findBranchForJobSite(branches: Branch[], jobSite: string | undefined): Branch | null {
-  if (!jobSite) return null;
-  const needle = jobSite.trim().toLowerCase();
-  return branches.find((b) => b.name.trim().toLowerCase() === needle) ?? null;
 }
 
 function dayKey(date: Date): number {
@@ -116,44 +111,8 @@ export default function TimeClockScreen() {
   // Live GPS for the map behind the clock-in circle — separate from getLocation() above, which
   // takes a one-off fix at the moment of the actual clock-in/out submission.
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [todayBranch, setTodayBranch] = useState<Branch | null>(null);
-  const [todayPosition, setTodayPosition] = useState<Position | null>(null);
-  const [upcomingShiftStart, setUpcomingShiftStart] = useState<Date | null>(null);
+  const { branch: todayBranch, position: todayPosition } = useTodayShiftContext();
   const mapRef = useRef<AppMapView>(null);
-
-  const loadTodayBranch = useCallback(async () => {
-    try {
-      const [shifts, branches] = await Promise.all([
-        authFetch((token) => schedulingApi.myShifts(token, fullDayRange())),
-        authFetch((token) => branchesApi.list(token)),
-      ]);
-      const approved = shifts.filter((s) => s.approval === 'approved' && s.jobSite);
-      const now = Date.now();
-      const current = approved.find(
-        (s) => new Date(s.startTime).getTime() <= now && now <= new Date(s.endTime).getTime(),
-      );
-      const next = approved
-        .filter((s) => new Date(s.startTime).getTime() > now)
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0];
-      const relevant = current ?? next;
-      setTodayBranch(findBranchForJobSite(branches, relevant?.jobSite));
-      setTodayPosition(relevant?.position ?? null);
-      setUpcomingShiftStart(relevant ? new Date(relevant.startTime) : null);
-    } catch {
-      setTodayBranch(null);
-      setTodayPosition(null);
-      setUpcomingShiftStart(null);
-    }
-  }, [authFetch]);
-
-  useEffect(() => {
-    loadTodayBranch();
-    // Re-check periodically (not just on mount) so the "starts in 3 hours" notice below turns
-    // on/off over time even if the screen is left open, and so the current-vs-next shift pick
-    // stays correct as shifts start/end while the screen sits idle.
-    const id = setInterval(loadTodayBranch, 5 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [loadTodayBranch]);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | undefined;
@@ -282,30 +241,12 @@ export default function TimeClockScreen() {
   }
 
   const elapsedMs = openEntry ? now - new Date(openEntry.clockInTime).getTime() : 0;
-  const shiftContextLabel = [
-    openEntry
-      ? `Started at ${new Date(openEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-      : null,
-    todayBranch?.name,
-    todayPosition ? POSITION_LABELS[todayPosition] : null,
-  ]
+  // "Today's shift" (branch/position, and the "starts soon"/"started at" framing) is now the
+  // primary event on Home instead of living here — this just keeps a light branch/position
+  // hint under the timer for in-the-moment context while this screen is open.
+  const shiftContextLabel = [todayBranch?.name, todayPosition ? POSITION_LABELS[todayPosition] : null]
     .filter(Boolean)
     .join(' · ');
-  // Surfaces the upcoming shift's branch/position starting 3 hours before it begins (and for
-  // as long as it's already underway), so there's time to notice and get there before clocking
-  // in — hidden once actually clocked in, since the timer subtitle above takes over then.
-  const upcomingNoticeLabel =
-    !openEntry &&
-    upcomingShiftStart &&
-    upcomingShiftStart.getTime() - Date.now() <= 3 * 60 * 60 * 1000
-      ? [
-          `Shift at ${upcomingShiftStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-          todayBranch?.name,
-          todayPosition ? POSITION_LABELS[todayPosition] : null,
-        ]
-          .filter(Boolean)
-          .join(' · ')
-      : null;
   const weeks = chunkIntoWeeks(monthGrid(calendarMonth.getFullYear(), calendarMonth.getMonth()));
 
   return (
@@ -340,10 +281,6 @@ export default function TimeClockScreen() {
           />
           <Text style={styles.status}>{openEntry ? 'Clocked in' : 'Not clocked in'}</Text>
         </View>
-
-        {upcomingNoticeLabel && (
-          <NoteBox variant="info">{upcomingNoticeLabel}</NoteBox>
-        )}
 
         {openEntry ? (
           <View style={styles.timerBlock}>

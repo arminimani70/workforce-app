@@ -93,36 +93,41 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
 
 - **Login** — `POST /auth/login`
 - **Register** — `POST /auth/register` (creates a new Organization + its Owner)
-- **Home** — dashboard cards for Time Clock (live elapsed time when clocked in), Schedule
-  (next upcoming approved shift), Availability (days available this week), Team (member
-  count), Tasks (count of the caller's own open tasks), and Onboarding, plus a "Today" section
-  listing today's approved shifts. Has a Log out button. Every time this screen loads, it also
-  re-syncs local "shift starts in 1 hour" reminder notifications (`src/utils/shiftReminders.ts`,
-  `expo-notifications`) against the caller's current approved shifts — entirely on-device, no
-  backend involved: each shift gets a notification scheduled for (start time − 1 hour),
-  identified by the shift's own id so re-syncing overwrites rather than duplicates, and
-  reminders for shifts no longer upcoming (rejected, rescheduled, already started) are
-  cancelled. Best-effort — proceeds silently if notification permission is denied.
+- **Home** — a headline "today's event" banner is the first thing under the welcome header,
+  tappable straight into Time Clock: once clocked in it reads "Clocked in since 08:05" with a
+  live elapsed timer and the branch/position (`src/hooks/useTodayShiftContext.ts` resolves
+  which shift is relevant — whichever is underway right now, or failing that the next one
+  today); before that, starting 3 hours ahead of that shift (and for as long as it's already
+  underway but not yet clocked into), it reads "Shift today at 08:00" / "Shift in progress ·
+  started 08:00" instead — branch/position again as a subtitle. Absent entirely if there's
+  nothing relevant today. Below that, dashboard cards for Time Clock (live elapsed time when
+  clocked in), Schedule (next upcoming approved shift), Availability (days available this
+  week), Team (member count), Tasks (count of the caller's own open tasks), and Onboarding,
+  plus a "Today" section listing today's approved shifts. Has a Log out button. All of this
+  re-fetches every time the screen regains focus (`useFocusEffect`, not a mount-only effect) —
+  navigating to Time Clock, clocking in or out, and coming back updates the banner and cards
+  immediately instead of showing stale state from whenever Home first mounted. Every time this
+  screen loads, it also re-syncs local "shift starts in 1 hour" reminder notifications
+  (`src/utils/shiftReminders.ts`, `expo-notifications`) against the caller's current approved
+  shifts — entirely on-device, no backend involved: each shift gets a notification scheduled
+  for (start time − 1 hour), identified by the shift's own id so re-syncing overwrites rather
+  than duplicates, and reminders for shifts no longer upcoming (rejected, rescheduled, already
+  started) are cancelled. Best-effort — proceeds silently if notification permission is denied.
 - **Time Clock** — a live map (`react-native-maps`, `showsUserLocation` + a
   continuously-updating `Location.watchPositionAsync` subscription so it recenters as you move)
   fills the whole screen as a background; the Clock In/Out circle floats on top of it with a
   translucent fill so the map shows through the button itself. Tapping it toggles
   clock-in/clock-out (`POST /time-clock/clock-in` / `/clock-out`),
   independently taking a best-effort one-off GPS fix via `expo-location` for the location
-  actually submitted (proceeds without one if permission is denied). If today's shift has a
-  branch, that branch's geofence radius is drawn as a circle on the map and compared
-  client-side (haversine) against your live position — straying outside it shows a non-blocking
-  warning with the approximate distance; clocking in still works regardless, this is guidance
-  only, not an enforced restriction. Starting 3 hours before that shift (and for as long as
-  it's already underway), an info note above the button names it — e.g. "Shift at 08:00 ·
-  Downtown · Front Desk" — so there's advance warning before it's time to clock in; the note
-  goes away once you actually do. Below the button while clocked in, a live HH:MM:SS elapsed
-  timer, with a small subtitle underneath — "Started at 08:05 · Downtown · Front Desk" — naming
-  the actual clock-in time plus the branch/position of whichever shift resolved the geofence,
-  when either is known. Both labels re-resolve every 5 minutes while the screen is open, not
-  just on load, so the notice and the current-vs-next shift pick stay correct if the screen is
-  left open across the 3-hour or shift-start boundary. Further down, a
-  total-hours summary (`GET /time-clock/total?from=&to=`) for a date range
+  actually submitted (proceeds without one if permission is denied). If today's shift (same
+  `useTodayShiftContext` resolution Home uses) has a branch, that branch's geofence radius is
+  drawn as a circle on the map and compared client-side (haversine) against your live position
+  — straying outside it shows a non-blocking warning with the approximate distance; clocking in
+  still works regardless, this is guidance only, not an enforced restriction. Below the button
+  while clocked in, a live HH:MM:SS elapsed timer with a light branch/position subtitle
+  underneath — the fuller "today's event" framing (clock-in time, "starts in 3 hours" heads-up)
+  lives on Home instead, as the primary place to see it rather than a Time Clock screen detail.
+  Further down, a total-hours summary (`GET /time-clock/total?from=&to=`) for a date range
   picked from a popup calendar — tap the range pill to open it, tap a start day then an end day
   (tapping again after a range is already picked starts a new one), then Apply. No presets;
   every range is picked this way. Defaults to month-to-date (the 1st of the current month
