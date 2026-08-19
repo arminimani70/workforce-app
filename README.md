@@ -128,13 +128,17 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   a normal Clock In with no approved shift starting today is rejected (`400`) with an error
   explaining that. If today's shift (same `useTodayShiftContext` resolution Home uses) has a
   branch, that branch's geofence radius is drawn as a circle on the map and compared
-  client-side (haversine) against your live position — straying outside it shows a
-  non-blocking warning naming how far *past* the radius boundary you are (not the raw distance
-  to the branch); clocking in still works regardless, this is guidance only, not an enforced
-  restriction. An "Emergency Clock In" pill below the button (shown only while not clocked in)
-  opens a popup asking for a reason — submitting it clocks in with that reason attached, which
-  is what makes the backend skip the shift check for cases like covering a no-show or being
-  called in unexpectedly. Below the main button while clocked in, a live HH:MM:SS elapsed timer
+  client-side (haversine) against your live position — straying outside it shows a red,
+  non-blocking `NoteBox` naming how far *past* the radius boundary you are (not the raw
+  distance to the branch); clocking in still works regardless, this is guidance only, not an
+  enforced restriction. An "Extra Shift Clock In" pill below the button (shown only while not
+  clocked in, teal rather than an alarm color since this covers ordinary cases like covering a
+  coworker, not just emergencies) opens a popup with three chip pickers — branch (from
+  `branchesApi.list`), position, and a reason (`Extra day` / `Covering a coworker` / `Called in
+  urgently` / `Other`, the last revealing a free-text field) — all three required. Submitting
+  sends the chosen branch/position/reason to `/time-clock/clock-in`, which is what makes the
+  backend skip the shift check and accept a clock-in with nothing scheduled. Below the main
+  button while clocked in, a live HH:MM:SS elapsed timer
   with a light branch/position subtitle underneath (rendered as a colored pill tied to that
   branch's color) — the fuller "today's event" framing (clock-in time, "starts in 3 hours"
   heads-up) lives on Home instead, as the primary place to see it rather than a Time Clock

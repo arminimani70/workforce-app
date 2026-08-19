@@ -44,6 +44,8 @@ export interface TimeClockEntry {
   clockInLocation?: GeoPoint;
   clockOutLocation?: GeoPoint;
   reason?: string;
+  jobSite?: string;
+  position?: Position;
 }
 
 export type Position = 'frontdesk' | 'helpdesk' | 'information' | 'consultation' | 'manager';

@@ -122,7 +122,13 @@ export const timeClockApi = {
   clockIn: (
     accessToken: string,
     location: { lat: number; lng: number } | undefined,
-    extra?: { dayStart: string; dayEnd: string; reason?: string },
+    extra?: {
+      dayStart: string;
+      dayEnd: string;
+      reason?: string;
+      jobSite?: string;
+      position?: Position;
+    },
   ) =>
     request<TimeClockEntry>('/time-clock/clock-in', {
       method: 'POST',

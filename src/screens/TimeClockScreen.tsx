@@ -11,9 +11,10 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
-import { HttpError, timeClockApi } from '../api/client';
-import type { TimeClockEntry } from '../types/api';
-import { POSITION_LABELS } from '../constants/positions';
+import { branchesApi, HttpError, timeClockApi } from '../api/client';
+import type { Branch, Position, TimeClockEntry } from '../types/api';
+import { POSITIONS } from '../types/api';
+import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { formatElapsed, formatHoursMinutes, fullDayRange } from '../utils/time';
 import { distanceMeters, formatDistance } from '../utils/geo';
 import { useTodayShiftContext } from '../hooks/useTodayShiftContext';
@@ -24,6 +25,10 @@ import { BranchTag } from '../components/BranchTag';
 import { AppMapCircle, AppMapView } from '../components/AppMap';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// Picked in the Extra Shift Clock In popup — a short list of the common reasons someone starts
+// work without a shift scheduled, plus a catch-all that reveals a free-text field.
+const REASON_PRESETS = ['Extra day', 'Covering a coworker', 'Called in urgently'];
+const OTHER_REASON = 'Other';
 const MONTH_LABEL_OPTIONS: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
 // Shown behind the clock-in circle before a live GPS fix arrives (or if permission is denied).
 const FALLBACK_REGION = { latitude: 35.6892, longitude: 51.389 };
@@ -126,10 +131,14 @@ export default function TimeClockScreen() {
   const [pickStart, setPickStart] = useState<Date | null>(null);
   const [pickEnd, setPickEnd] = useState<Date | null>(null);
 
-  const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
-  const [emergencyReason, setEmergencyReason] = useState('');
-  const [emergencyError, setEmergencyError] = useState<string | null>(null);
-  const [isEmergencySubmitting, setIsEmergencySubmitting] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isExtraOpen, setIsExtraOpen] = useState(false);
+  const [extraBranch, setExtraBranch] = useState<Branch | null>(null);
+  const [extraPosition, setExtraPosition] = useState<Position | null>(null);
+  const [extraReasonChoice, setExtraReasonChoice] = useState<string | null>(null);
+  const [extraReasonOther, setExtraReasonOther] = useState('');
+  const [extraError, setExtraError] = useState<string | null>(null);
+  const [isExtraSubmitting, setIsExtraSubmitting] = useState(false);
 
   // Live GPS for the map behind the clock-in circle — separate from getLocation() above, which
   // takes a one-off fix at the moment of the actual clock-in/out submission.
@@ -162,6 +171,14 @@ export default function TimeClockScreen() {
     })();
     return () => subscription?.remove();
   }, []);
+
+  // Only needed for the Extra Shift Clock In popup's branch picker — loaded once, not tied to
+  // any particular shift.
+  useEffect(() => {
+    authFetch((token) => branchesApi.list(token))
+      .then(setBranches)
+      .catch(() => {});
+  }, [authFetch]);
 
   const distanceToBranch =
     todayBranch && myLocation
@@ -227,35 +244,58 @@ export default function TimeClockScreen() {
     }
   };
 
-  const openEmergency = () => {
-    setEmergencyReason('');
-    setEmergencyError(null);
-    setIsEmergencyOpen(true);
+  const openExtra = () => {
+    setExtraBranch(null);
+    setExtraPosition(null);
+    setExtraReasonChoice(null);
+    setExtraReasonOther('');
+    setExtraError(null);
+    setIsExtraOpen(true);
   };
 
-  // A shift-less clock-in: the person needs to start work today with nothing scheduled (called
-  // in unexpectedly, covering someone, etc). The backend normally rejects a clock-in with no
-  // approved shift that day — passing a reason here is what makes it accept one anyway.
-  const onSubmitEmergency = async () => {
-    const reason = emergencyReason.trim();
-    if (!reason) {
-      setEmergencyError('Enter a reason for starting work');
+  // A shift-less clock-in: the person needs to start work today with nothing scheduled (covering
+  // a coworker, called in urgently, an extra day, etc). The backend normally rejects a clock-in
+  // with no approved shift that day — sending a reason (plus the branch/position, since there's
+  // no shift to infer them from) is what makes it accept one anyway.
+  const onSubmitExtra = async () => {
+    if (!extraBranch) {
+      setExtraError('Select a branch');
       return;
     }
-    setEmergencyError(null);
-    setIsEmergencySubmitting(true);
+    if (!extraPosition) {
+      setExtraError('Select a position');
+      return;
+    }
+    if (!extraReasonChoice) {
+      setExtraError('Select a reason');
+      return;
+    }
+    const reason =
+      extraReasonChoice === OTHER_REASON ? extraReasonOther.trim() : extraReasonChoice;
+    if (!reason) {
+      setExtraError('Enter a reason');
+      return;
+    }
+
+    setExtraError(null);
+    setIsExtraSubmitting(true);
     try {
       const location = await getLocation();
       const entry = await authFetch((token) =>
-        timeClockApi.clockIn(token, location, { ...todayBounds(), reason }),
+        timeClockApi.clockIn(token, location, {
+          ...todayBounds(),
+          reason,
+          jobSite: extraBranch.name,
+          position: extraPosition,
+        }),
       );
       setOpenEntry(entry.clockOutTime ? null : entry);
       await loadTotal();
-      setIsEmergencyOpen(false);
+      setIsExtraOpen(false);
     } catch (err) {
-      setEmergencyError(err instanceof HttpError ? err.message : 'Something went wrong');
+      setExtraError(err instanceof HttpError ? err.message : 'Something went wrong');
     } finally {
-      setIsEmergencySubmitting(false);
+      setIsExtraSubmitting(false);
     }
   };
 
@@ -376,7 +416,7 @@ export default function TimeClockScreen() {
         </Pressable>
 
         {isFarFromBranch && todayBranch && (
-          <NoteBox variant="warning">
+          <NoteBox variant="danger">
             You're outside {todayBranch.name}'s allowed radius by about{' '}
             {formatDistance(distanceToBranch! - todayBranch.radiusMeters)} — clocking in still
             works, this is just a heads up.
@@ -384,9 +424,9 @@ export default function TimeClockScreen() {
         )}
 
         {!openEntry && (
-          <Pressable style={styles.emergencyButton} onPress={openEmergency}>
-            <Ionicons name="warning-outline" size={16} color={colors.warningText} />
-            <Text style={styles.emergencyButtonText}>Emergency Clock In</Text>
+          <Pressable style={styles.extraButton} onPress={openExtra}>
+            <Ionicons name="people-outline" size={16} color="#fff" />
+            <Text style={styles.extraButtonText}>Extra Shift Clock In</Text>
           </Pressable>
         )}
 
@@ -502,39 +542,109 @@ export default function TimeClockScreen() {
           </View>
       </PopupModal>
 
-      <PopupModal visible={isEmergencyOpen} onClose={() => setIsEmergencyOpen(false)}>
+      <PopupModal visible={isExtraOpen} onClose={() => setIsExtraOpen(false)}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Emergency Clock In</Text>
-            <Text style={styles.emergencyHint}>
-              You don't have a shift scheduled today. Explain why you need to start work and
-              you'll be clocked in anyway.
+            <Text style={styles.modalTitle}>Extra Shift Clock In</Text>
+            <Text style={styles.extraHint}>
+              No shift scheduled today — pick where you're working and why, and you'll be
+              clocked in.
             </Text>
 
-            <TextInput
-              style={styles.emergencyInput}
-              placeholder="e.g. covering a no-show, called in urgently"
-              value={emergencyReason}
-              onChangeText={setEmergencyReason}
-              multiline
-              numberOfLines={3}
-            />
+            <Text style={styles.sectionLabel}>Branch</Text>
+            {branches.length === 0 ? (
+              <Text style={styles.noOptionsText}>No branches set up yet</Text>
+            ) : (
+              <View style={styles.chipsWrap}>
+                {branches.map((branch) => {
+                  const isActive = extraBranch?._id === branch._id;
+                  return (
+                    <Pressable
+                      key={branch._id}
+                      style={[styles.chip, isActive && styles.chipActive]}
+                      onPress={() => setExtraBranch(branch)}
+                    >
+                      <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                        {branch.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
 
-            {emergencyError && <Text style={styles.error}>{emergencyError}</Text>}
+            <Text style={styles.sectionLabel}>Position</Text>
+            <View style={styles.chipsWrap}>
+              {POSITIONS.map((position) => {
+                const isActive = extraPosition === position;
+                return (
+                  <Pressable
+                    key={position}
+                    style={[
+                      styles.chip,
+                      isActive && {
+                        backgroundColor: POSITION_COLORS[position],
+                        borderColor: POSITION_COLORS[position],
+                      },
+                    ]}
+                    onPress={() => setExtraPosition(position)}
+                  >
+                    <Ionicons
+                      name={POSITION_ICONS[position]}
+                      size={14}
+                      color={isActive ? '#fff' : POSITION_COLORS[position]}
+                    />
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {POSITION_LABELS[position]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.sectionLabel}>Reason</Text>
+            <View style={styles.chipsWrap}>
+              {[...REASON_PRESETS, OTHER_REASON].map((option) => {
+                const isActive = extraReasonChoice === option;
+                return (
+                  <Pressable
+                    key={option}
+                    style={[styles.chip, isActive && styles.chipActive]}
+                    onPress={() => setExtraReasonChoice(option)}
+                  >
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {option}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {extraReasonChoice === OTHER_REASON && (
+              <TextInput
+                style={styles.extraInput}
+                placeholder="Describe the reason"
+                value={extraReasonOther}
+                onChangeText={setExtraReasonOther}
+                multiline
+                numberOfLines={2}
+              />
+            )}
+
+            {extraError && <Text style={styles.error}>{extraError}</Text>}
 
             <View style={styles.modalActions}>
               <Pressable
                 style={styles.cancelButton}
-                onPress={() => setIsEmergencyOpen(false)}
-                disabled={isEmergencySubmitting}
+                onPress={() => setIsExtraOpen(false)}
+                disabled={isExtraSubmitting}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={[styles.applyButton, isEmergencySubmitting && styles.buttonDisabled]}
-                onPress={onSubmitEmergency}
-                disabled={isEmergencySubmitting}
+                style={[styles.applyButton, isExtraSubmitting && styles.buttonDisabled]}
+                onPress={onSubmitExtra}
+                disabled={isExtraSubmitting}
               >
-                {isEmergencySubmitting ? (
+                {isExtraSubmitting ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.applyButtonText}>Clock In</Text>
@@ -598,7 +708,7 @@ const styles = StyleSheet.create({
   buttonClockOut: { backgroundColor: 'rgba(220,38,38,0.8)' },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  emergencyButton: {
+  extraButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -606,18 +716,35 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: colors.warningBg,
+    backgroundColor: colors.teal,
+    ...cardShadow,
   },
-  emergencyButtonText: { color: colors.warningText, fontSize: 13, fontWeight: '700' },
-  emergencyHint: { fontSize: 13, color: colors.textMuted },
-  emergencyInput: {
+  extraButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  extraHint: { fontSize: 13, color: colors.textMuted },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginTop: 4 },
+  noOptionsText: { fontSize: 13, color: colors.textFaint },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 13, color: colors.text },
+  chipTextActive: { color: '#fff' },
+  extraInput: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
     color: colors.text,
-    minHeight: 80,
+    minHeight: 60,
     textAlignVertical: 'top',
   },
   totalsBox: {
