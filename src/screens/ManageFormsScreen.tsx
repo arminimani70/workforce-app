@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { formsApi, HttpError } from '../api/client';
 import type { FormField, FormFieldType, FormTemplate } from '../types/api';
@@ -21,6 +22,7 @@ function emptyField(): FormField {
 
 export default function ManageFormsScreen() {
   const { authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -133,7 +135,10 @@ export default function ManageFormsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+    >
       {templates.length > 0 && (
         <>
           <View style={styles.sectionTitleRow}>

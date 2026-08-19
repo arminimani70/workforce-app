@@ -223,7 +223,10 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={[
+        styles.container,
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+      ]}
     >
       <Pressable style={styles.header} onPress={() => navigation.navigate('Profile')}>
         {user?.avatarUrl ? (

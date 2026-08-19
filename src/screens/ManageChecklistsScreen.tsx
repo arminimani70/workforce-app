@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { branchesApi, checklistsApi, HttpError } from '../api/client';
 import { POSITIONS } from '../types/api';
@@ -11,6 +12,7 @@ import { NoteBox } from '../components/NoteBox';
 
 export default function ManageChecklistsScreen() {
   const { authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,7 +123,10 @@ export default function ManageChecklistsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+    >
       {templates.length > 0 && (
         <>
           <View style={styles.sectionTitleRow}>

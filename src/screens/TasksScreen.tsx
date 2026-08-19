@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
@@ -80,6 +81,7 @@ function formatDueDate(iso: string) {
 
 export default function TasksScreen() {
   const { user, authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<AppStackParamList, 'Tasks'>>();
   const [dateFilter, setDateFilter] = useState<Date | null>(
     route.params?.dueDate ? new Date(route.params.dueDate) : null,
@@ -251,7 +253,10 @@ export default function TasksScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+    >
       {error && <Text style={styles.error}>{error}</Text>}
 
       {dateFilter && (

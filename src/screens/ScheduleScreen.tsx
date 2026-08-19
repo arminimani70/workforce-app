@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
@@ -96,6 +97,7 @@ function combineDateAndTime(date: Date, hhmm: string): Date {
 
 export default function ScheduleScreen() {
   const { user, authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [weekShifts, setWeekShifts] = useState<Shift[]>([]);
   const [pendingShifts, setPendingShifts] = useState<Shift[]>([]);
@@ -356,7 +358,10 @@ export default function ScheduleScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+    >
       {error && <Text style={styles.error}>{error}</Text>}
 
       {canManage && pendingShifts.length > 0 && (

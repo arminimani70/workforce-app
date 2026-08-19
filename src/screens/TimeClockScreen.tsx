@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, timeClockApi } from '../api/client';
 import type { TimeClockEntry } from '../types/api';
@@ -89,6 +90,7 @@ function formatRangeLabel(from: Date, to: Date): string {
 
 export default function TimeClockScreen() {
   const { authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [openEntry, setOpenEntry] = useState<TimeClockEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -273,7 +275,7 @@ export default function TimeClockScreen() {
         )}
       </AppMapView>
 
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.statusRow}>
           <Ionicons
             name={openEntry ? 'radio-button-on' : 'radio-button-off-outline'}

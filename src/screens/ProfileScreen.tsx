@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, usersApi } from '../api/client';
 import { cardShadow, colors } from '../theme/colors';
@@ -36,6 +37,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function ProfileScreen() {
   const { user, authFetch, refreshUser } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
@@ -157,7 +159,10 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+    >
       <View style={styles.avatarBox}>
         {isUploadingPhoto ? (
           <View style={styles.avatarLarge}>

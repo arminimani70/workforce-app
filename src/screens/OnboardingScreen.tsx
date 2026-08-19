@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, onboardingApi } from '../api/client';
 import type { OnboardingSection } from '../types/api';
@@ -20,6 +21,7 @@ function emptySection(): OnboardingSection {
 
 export default function OnboardingScreen() {
   const { user, authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [sections, setSections] = useState<OnboardingSection[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,7 +110,10 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+    >
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <Ionicons name="school-outline" size={18} color={colors.indigo} />

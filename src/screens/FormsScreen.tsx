@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
@@ -21,6 +22,7 @@ import type { AppStackParamList } from '../navigation/types';
 export default function FormsScreen() {
   const { user, authFetch } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const insets = useSafeAreaInsets();
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +125,7 @@ export default function FormsScreen() {
       />
 
       {canManage && (
-        <View style={styles.managerRow}>
+        <View style={[styles.managerRow, { paddingBottom: insets.bottom }]}>
           <Pressable
             style={styles.manageButton}
             onPress={() => navigation.navigate('ManageForms')}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
@@ -39,6 +40,7 @@ function formatConversationTime(iso: string) {
 export default function MessagesScreen() {
   const { user, authFetch } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -140,7 +142,10 @@ export default function MessagesScreen() {
         )}
       />
 
-      <Pressable style={styles.newMessageButton} onPress={openNewMessage}>
+      <Pressable
+        style={[styles.newMessageButton, { marginBottom: Math.max(insets.bottom, 12) }]}
+        onPress={openNewMessage}
+      >
         <Ionicons name="create-outline" size={18} color="#fff" />
         <Text style={styles.newMessageButtonText}>New Message</Text>
       </Pressable>

@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, usersApi } from '../api/client';
 import type { OrgMember, UserRole } from '../types/api';
@@ -31,6 +32,7 @@ function initials(fullName: string) {
 
 export default function TeamScreen() {
   const { user, authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export default function TeamScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom + 16 }]}>
       <View style={styles.sectionTitleRow}>
         <Ionicons name="people-outline" size={16} color={colors.text} />
         <Text style={styles.sectionTitleDark}>Team ({members.length})</Text>

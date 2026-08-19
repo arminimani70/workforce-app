@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { formsApi, HttpError } from '../api/client';
 import type { FormSubmission } from '../types/api';
@@ -17,6 +18,7 @@ function formatSubmittedAt(iso: string) {
 
 export default function FormSubmissionsScreen() {
   const { authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,7 @@ export default function FormSubmissionsScreen() {
       <FlatList
         data={submissions}
         keyExtractor={(item) => item._id}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
         ListEmptyComponent={
           <View style={styles.emptyRow}>
             <Ionicons name="file-tray-outline" size={16} color={colors.textFaint} />

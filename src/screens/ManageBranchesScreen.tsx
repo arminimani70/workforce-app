@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { branchesApi, HttpError } from '../api/client';
 import type { Branch } from '../types/api';
@@ -24,6 +25,7 @@ const FALLBACK_REGION = { latitude: 35.6892, longitude: 51.389 };
 
 export default function ManageBranchesScreen() {
   const { authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -158,7 +160,10 @@ export default function ManageBranchesScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+    >
       {branches.length > 0 && (
         <>
           <View style={styles.sectionTitleRow}>

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { availabilityApi, branchesApi, HttpError, schedulingApi, usersApi } from '../api/client';
 import { POSITIONS } from '../types/api';
@@ -74,6 +75,7 @@ interface ModalTarget {
 
 export default function BuildScheduleScreen() {
   const { authFetch } = useAuth();
+  const insets = useSafeAreaInsets();
   const [weekOffset, setWeekOffset] = useState(0);
   const [availability, setAvailability] = useState<OrgAvailabilityEntry[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -219,7 +221,10 @@ export default function BuildScheduleScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+    >
       <View style={styles.weekNavRow}>
         <Pressable style={styles.weekNavButton} onPress={() => setWeekOffset((w) => w - 1)}>
           <Text style={styles.weekNavButtonText}>‹</Text>
