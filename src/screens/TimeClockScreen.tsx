@@ -418,8 +418,8 @@ export default function TimeClockScreen() {
         {isFarFromBranch && todayBranch && (
           <NoteBox variant="danger">
             You're outside {todayBranch.name}'s allowed radius by about{' '}
-            {formatDistance(distanceToBranch! - todayBranch.radiusMeters)} — clocking in still
-            works, this is just a heads up.
+            {formatDistance(distanceToBranch! - todayBranch.radiusMeters)} — get closer before
+            clocking in, or it will be rejected.
           </NoteBox>
         )}
 

@@ -122,16 +122,19 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   fills the whole screen as a background; the Clock In/Out circle floats on top of it with a
   translucent fill so the map shows through the button itself. Tapping it toggles
   clock-in/clock-out (`POST /time-clock/clock-in` / `/clock-out`),
-  independently taking a best-effort one-off GPS fix via `expo-location` for the location
-  actually submitted (proceeds without one if permission is denied), plus the caller's local
-  "today" bounds (`dayStart`/`dayEnd`) so the backend can check for a shift scheduled that day —
-  a normal Clock In with no approved shift starting today is rejected (`400`) with an error
-  explaining that. If today's shift (same `useTodayShiftContext` resolution Home uses) has a
-  branch, that branch's geofence radius is drawn as a circle on the map and compared
-  client-side (haversine) against your live position — straying outside it shows a red,
-  non-blocking `NoteBox` naming how far *past* the radius boundary you are (not the raw
-  distance to the branch); clocking in still works regardless, this is guidance only, not an
-  enforced restriction. An "Extra Shift Clock In" pill below the button (shown only while not
+  taking a one-off GPS fix via `expo-location` for the location actually submitted, plus the
+  caller's local "today" bounds (`dayStart`/`dayEnd`) so the backend can check for a shift
+  scheduled that day — a normal Clock In with no approved shift starting today is rejected
+  (`400`) with an error explaining that. If today's shift (same `useTodayShiftContext`
+  resolution Home uses) has a branch, that branch's geofence radius is drawn as a circle on the
+  map and compared client-side (haversine) against your live position — straying outside it
+  shows a red `NoteBox` naming how far *past* the radius boundary you are (not the raw distance
+  to the branch). This is a heads-up, not the enforcement itself: the backend independently
+  re-checks distance against the same branch using the GPS fix taken at submit time and rejects
+  the clock-in (`400`) if it's outside the radius, or if location couldn't be obtained at all —
+  so denying location permission no longer bypasses the geofence, it just means clock-in fails
+  with an error telling you to enable it. An "Extra Shift Clock In" pill below the button (shown
+  only while not
   clocked in, teal rather than an alarm color since this covers ordinary cases like covering a
   coworker, not just emergencies) opens a popup with three chip pickers — branch (from
   `branchesApi.list`), position, and a reason (`Extra day` / `Covering a coworker` / `Called in
