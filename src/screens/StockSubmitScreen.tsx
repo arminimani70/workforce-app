@@ -77,7 +77,7 @@ export default function StockSubmitScreen() {
               style={styles.input}
               value={quantities[index] ?? ''}
               onChangeText={(text) => setQuantities((prev) => ({ ...prev, [index]: text }))}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               placeholder="0"
             />
           </View>
