@@ -530,6 +530,22 @@ export const stockApi = {
   // Owner/manager only.
   listSubmissions: (accessToken: string) =>
     request<StockSubmission[]>('/stock/submissions', { accessToken }),
+
+  // Owner/manager only. productName/unit stay fixed — only quantities are editable.
+  updateSubmission: (
+    accessToken: string,
+    id: string,
+    quantities: { productName: string; quantity: number }[],
+  ) =>
+    request<StockSubmission>(`/stock/submissions/${id}`, {
+      method: 'PATCH',
+      accessToken,
+      body: { quantities },
+    }),
+
+  // Owner/manager only.
+  deleteSubmission: (accessToken: string, id: string) =>
+    request<void>(`/stock/submissions/${id}`, { method: 'DELETE', accessToken }),
 };
 
 export const wastageApi = {
