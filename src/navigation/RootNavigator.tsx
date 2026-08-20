@@ -10,6 +10,7 @@ import ScheduleScreen from '../screens/ScheduleScreen';
 import AvailabilityScreen from '../screens/AvailabilityScreen';
 import TeamScreen from '../screens/TeamScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import DocumentViewerScreen from '../screens/DocumentViewerScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import BuildScheduleScreen from '../screens/BuildScheduleScreen';
 import MessagesScreen from '../screens/MessagesScreen';
@@ -78,6 +79,11 @@ export default function RootNavigator() {
             name="Onboarding"
             component={OnboardingScreen}
             options={{ title: 'Onboarding' }}
+          />
+          <AppStack.Screen
+            name="DocumentViewer"
+            component={DocumentViewerScreen}
+            options={({ route }) => ({ title: route.params.title })}
           />
           <AppStack.Screen
             name="Profile"

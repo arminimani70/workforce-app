@@ -11,6 +11,7 @@ export type AppStackParamList = {
   Availability: undefined;
   Team: undefined;
   Onboarding: undefined;
+  DocumentViewer: { uri: string; title: string; mimeType: string };
   Profile: undefined;
   BuildSchedule: undefined;
   Messages: undefined;

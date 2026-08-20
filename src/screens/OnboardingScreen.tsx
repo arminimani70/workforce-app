@@ -11,14 +11,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, onboardingApi } from '../api/client';
 import type { OnboardingResource, OnboardingSection } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
 import { ATTACHMENT_DOCUMENT_TYPES, formatFileSize, iconForMimeType } from '../utils/files';
+import type { AppStackParamList } from '../navigation/types';
 
 function emptySection(): OnboardingSection {
   return { title: '', content: '' };
@@ -27,6 +29,7 @@ function emptySection(): OnboardingSection {
 export default function OnboardingScreen() {
   const { user, authFetch } = useAuth();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [sections, setSections] = useState<OnboardingSection[]>([]);
   const [rules, setRules] = useState<string[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -186,15 +189,18 @@ export default function OnboardingScreen() {
     setResourcesError(null);
     setDownloadingId(resource._id);
     try {
-      await authFetch(async (token) => {
+      const uri = await authFetch(async (token) => {
         const file = await File.downloadFileAsync(
           onboardingApi.resourceDownloadUrl(resource._id),
           Paths.cache,
           { headers: { Authorization: `Bearer ${token}` }, idempotent: true },
         );
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(file.uri, { mimeType: resource.mimeType });
-        }
+        return file.uri;
+      });
+      navigation.navigate('DocumentViewer', {
+        uri,
+        title: resource.title,
+        mimeType: resource.mimeType,
       });
     } catch {
       setResourcesError('Could not open the file');
