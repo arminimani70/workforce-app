@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +19,12 @@ const ROLE_COLORS: Record<UserRole, string> = {
   employee: colors.primary,
 };
 
+const ROLE_LABELS: Record<UserRole, string> = {
+  owner: 'Owner',
+  manager: 'Manager',
+  employee: 'Employee',
+};
+
 function initials(fullName: string) {
   return fullName
     .trim()
@@ -37,15 +43,18 @@ function formatConversationTime(iso: string) {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+type Tab = 'chats' | 'contacts';
+
 export default function MessagesScreen() {
   const { user, authFetch } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<Tab>('chats');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupParticipantIds, setGroupParticipantIds] = useState<string[]>([]);
@@ -74,20 +83,23 @@ export default function MessagesScreen() {
   );
 
   const loadMembers = useCallback(async () => {
-    if (members.length > 0) return members;
+    setIsLoadingContacts(true);
     try {
       const result = await authFetch((token) => usersApi.list(token));
-      const others = result.filter((m) => m._id !== user?._id);
-      setMembers(others);
-      return others;
-    } catch {
-      return [];
+      setMembers(result.filter((m) => m._id !== user?._id));
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not load the team directory');
+    } finally {
+      setIsLoadingContacts(false);
     }
-  }, [authFetch, members, user?._id]);
+  }, [authFetch, user?._id]);
 
-  const openNewMessage = async () => {
-    setIsNewMessageOpen(true);
-    await loadMembers();
+  const openTab = (next: Tab) => {
+    setTab(next);
+    setError(null);
+    if (next === 'contacts' && members.length === 0) {
+      loadMembers();
+    }
   };
 
   const openNewGroup = async () => {
@@ -95,11 +107,11 @@ export default function MessagesScreen() {
     setGroupName('');
     setGroupParticipantIds([]);
     setIsNewGroupOpen(true);
-    await loadMembers();
+    if (members.length === 0) await loadMembers();
   };
 
   const openConversation = async (employeeId: string, employeeName: string) => {
-    setIsNewMessageOpen(false);
+    setError(null);
     try {
       const conversation = await authFetch((token) => messagesApi.openDirect(token, employeeId));
       navigation.navigate('Chat', {
@@ -166,109 +178,136 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <FlatList
-        data={conversations}
-        keyExtractor={(item) => item._id}
-        style={styles.list}
-        ListEmptyComponent={
-          <View style={styles.emptyRow}>
-            <Ionicons name="chatbubbles-outline" size={16} color={colors.textFaint} />
-            <Text style={styles.empty}>No conversations yet</Text>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const title = titleFor(item);
-          const isGroup = item.type === 'group';
-          const other = item.participants.find((p) => p._id !== user?._id);
-          return (
-            <Pressable
-              style={styles.conversationRow}
-              onPress={() =>
-                navigation.navigate('Chat', {
-                  conversationId: item._id,
-                  title,
-                  type: item.type,
-                })
-              }
-            >
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: isGroup ? colors.teal : ROLE_COLORS[other?.role ?? 'employee'] },
-                ]}
-              >
-                {isGroup ? (
-                  <Ionicons name="people" size={20} color="#fff" />
-                ) : (
-                  <Text style={styles.avatarText}>{initials(title)}</Text>
-                )}
-              </View>
-              <View style={styles.conversationTextGroup}>
-                <Text style={styles.conversationName}>{title}</Text>
-                <Text
-                  style={[
-                    styles.conversationPreview,
-                    item.unreadCount > 0 && styles.conversationPreviewUnread,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {item.lastMessageFromMe ? 'You: ' : ''}
-                  {item.lastMessage ?? 'No messages yet'}
-                </Text>
-              </View>
-              <View style={styles.conversationMeta}>
-                <Text style={styles.conversationTime}>
-                  {formatConversationTime(item.lastMessageAt)}
-                </Text>
-                {item.unreadCount > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadBadgeText}>
-                      {item.unreadCount > 9 ? '9+' : item.unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </Pressable>
-          );
-        }}
-      />
-
-      <View style={[styles.actionRow, { marginBottom: Math.max(insets.bottom, 12) }]}>
-        {canManage && (
-          <Pressable style={[styles.actionButton, styles.groupButton]} onPress={openNewGroup}>
-            <Ionicons name="people-outline" size={18} color={colors.teal} />
-            <Text style={[styles.actionButtonText, styles.groupButtonText]}>New Group</Text>
-          </Pressable>
-        )}
-        <Pressable style={styles.actionButton} onPress={openNewMessage}>
-          <Ionicons name="create-outline" size={18} color="#fff" />
-          <Text style={styles.actionButtonText}>New Message</Text>
+      <View style={styles.tabRow}>
+        <Pressable
+          style={[styles.tabButton, tab === 'chats' && styles.tabButtonActive]}
+          onPress={() => openTab('chats')}
+        >
+          <Text style={[styles.tabButtonText, tab === 'chats' && styles.tabButtonTextActive]}>
+            Chats
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tabButton, tab === 'contacts' && styles.tabButtonActive]}
+          onPress={() => openTab('contacts')}
+        >
+          <Text style={[styles.tabButtonText, tab === 'contacts' && styles.tabButtonTextActive]}>
+            Contacts
+          </Text>
         </Pressable>
       </View>
 
-      <PopupModal visible={isNewMessageOpen} onClose={() => setIsNewMessageOpen(false)}>
-        <View style={styles.modalCard}>
-          <Text style={styles.formTitle}>New Message</Text>
-          {members.length === 0 ? (
-            <Text style={styles.empty}>No other team members yet</Text>
-          ) : (
-            members.map((item) => (
+      {error && <Text style={styles.error}>{error}</Text>}
+
+      {tab === 'chats' ? (
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) => item._id}
+          style={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyRow}>
+              <Ionicons name="chatbubbles-outline" size={16} color={colors.textFaint} />
+              <Text style={styles.empty}>No conversations yet</Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const title = titleFor(item);
+            const isGroup = item.type === 'group';
+            const other = item.participants.find((p) => p._id !== user?._id);
+            return (
               <Pressable
-                key={item._id}
-                style={styles.pickerRow}
-                onPress={() => openConversation(item._id, item.fullName)}
+                style={styles.conversationRow}
+                onPress={() =>
+                  navigation.navigate('Chat', {
+                    conversationId: item._id,
+                    title,
+                    type: item.type,
+                  })
+                }
               >
-                <View style={[styles.avatar, { backgroundColor: ROLE_COLORS[item.role] }]}>
-                  <Text style={styles.avatarText}>{initials(item.fullName)}</Text>
+                <View
+                  style={[
+                    styles.avatar,
+                    { backgroundColor: isGroup ? colors.teal : ROLE_COLORS[other?.role ?? 'employee'] },
+                  ]}
+                >
+                  {isGroup ? (
+                    <Ionicons name="people" size={20} color="#fff" />
+                  ) : (
+                    <Text style={styles.avatarText}>{initials(title)}</Text>
+                  )}
                 </View>
-                <Text style={styles.pickerName}>{item.fullName}</Text>
+                <View style={styles.conversationTextGroup}>
+                  <Text style={styles.conversationName}>{title}</Text>
+                  <Text
+                    style={[
+                      styles.conversationPreview,
+                      item.unreadCount > 0 && styles.conversationPreviewUnread,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.lastMessageFromMe ? 'You: ' : ''}
+                    {item.lastMessage ?? 'No messages yet'}
+                  </Text>
+                </View>
+                <View style={styles.conversationMeta}>
+                  <Text style={styles.conversationTime}>
+                    {formatConversationTime(item.lastMessageAt)}
+                  </Text>
+                  {item.unreadCount > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>
+                        {item.unreadCount > 9 ? '9+' : item.unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </Pressable>
-            ))
-          )}
+            );
+          }}
+        />
+      ) : isLoadingContacts ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
         </View>
-      </PopupModal>
+      ) : (
+        <FlatList
+          data={members}
+          keyExtractor={(item) => item._id}
+          style={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyRow}>
+              <Ionicons name="people-outline" size={16} color={colors.textFaint} />
+              <Text style={styles.empty}>No other team members yet</Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.conversationRow}
+              onPress={() => openConversation(item._id, item.fullName)}
+            >
+              <View style={[styles.avatar, { backgroundColor: ROLE_COLORS[item.role] }]}>
+                <Text style={styles.avatarText}>{initials(item.fullName)}</Text>
+              </View>
+              <View style={styles.conversationTextGroup}>
+                <Text style={styles.conversationName}>{item.fullName}</Text>
+                <Text style={styles.conversationPreview}>{ROLE_LABELS[item.role]}</Text>
+              </View>
+              <Ionicons name="chatbubble-outline" size={18} color={colors.textFaint} />
+            </Pressable>
+          )}
+        />
+      )}
+
+      {canManage && (
+        <Pressable
+          style={[styles.groupButton, { marginBottom: Math.max(insets.bottom, 12) }]}
+          onPress={openNewGroup}
+        >
+          <Ionicons name="people-outline" size={18} color={colors.teal} />
+          <Text style={styles.groupButtonText}>New Group</Text>
+        </Pressable>
+      )}
 
       <PopupModal visible={isNewGroupOpen} onClose={() => setIsNewGroupOpen(false)}>
         <View style={styles.modalCard}>
@@ -325,6 +364,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   error: { color: colors.danger, marginBottom: 12 },
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 12,
+    gap: 4,
+  },
+  tabButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
+  tabButtonActive: { backgroundColor: colors.primary },
+  tabButtonText: { fontSize: 14, fontWeight: '600', color: colors.textMuted },
+  tabButtonTextActive: { color: '#fff' },
   list: { flex: 1 },
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, justifyContent: 'center' },
   empty: { fontSize: 13, color: colors.textFaint },
@@ -362,24 +413,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  actionRow: { flexDirection: 'row', gap: 10 },
-  actionButton: {
-    flex: 1,
+  groupButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    padding: 14,
-  },
-  groupButton: {
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.teal,
+    borderRadius: 10,
+    padding: 14,
   },
-  actionButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  groupButtonText: { color: colors.teal },
+  groupButtonText: { color: colors.teal, fontSize: 15, fontWeight: '600' },
   modalCard: {
     padding: 20,
   },
