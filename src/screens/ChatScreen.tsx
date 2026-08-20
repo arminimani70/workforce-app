@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -17,6 +18,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../auth/AuthContext';
@@ -83,25 +85,13 @@ export default function ChatScreen() {
     }
   };
 
-  const onAttach = async () => {
+  const uploadAttachment = async (file: { uri: string; name: string; mimeType: string }) => {
     setError(null);
+    setIsAttaching(true);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ATTACHMENT_DOCUMENT_TYPES,
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || result.assets.length === 0) return;
-
-      const asset = result.assets[0];
-      setIsAttaching(true);
       const text = draft.trim();
       await authFetch((token) =>
-        messagesApi.sendAttachment(
-          token,
-          conversationId,
-          { uri: asset.uri, name: asset.name, mimeType: asset.mimeType ?? 'application/octet-stream' },
-          text || undefined,
-        ),
+        messagesApi.sendAttachment(token, conversationId, file, text || undefined),
       );
       setDraft('');
       await load();
@@ -110,6 +100,56 @@ export default function ChatScreen() {
     } finally {
       setIsAttaching(false);
     }
+  };
+
+  const onPickPhoto = async (fromCamera: boolean) => {
+    setError(null);
+    const permission = fromCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') {
+      setError('Permission denied');
+      return;
+    }
+
+    const pickerOptions: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ['images'],
+      quality: 1,
+    };
+    const result = fromCamera
+      ? await ImagePicker.launchCameraAsync(pickerOptions)
+      : await ImagePicker.launchImageLibraryAsync(pickerOptions);
+    if (result.canceled || result.assets.length === 0) return;
+
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    const name = asset.fileName ?? `photo-${Date.now()}.${mimeType.split('/')[1] ?? 'jpg'}`;
+    await uploadAttachment({ uri: asset.uri, name, mimeType });
+  };
+
+  const onPickFile = async () => {
+    setError(null);
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ATTACHMENT_DOCUMENT_TYPES,
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled || result.assets.length === 0) return;
+
+    const asset = result.assets[0];
+    await uploadAttachment({
+      uri: asset.uri,
+      name: asset.name,
+      mimeType: asset.mimeType ?? 'application/octet-stream',
+    });
+  };
+
+  const onAttach = () => {
+    Alert.alert('Send', undefined, [
+      { text: 'Take Photo', onPress: () => onPickPhoto(true) },
+      { text: 'Choose from Gallery', onPress: () => onPickPhoto(false) },
+      { text: 'Choose File', onPress: onPickFile },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const onOpenAttachment = async (message: ChatMessage) => {
