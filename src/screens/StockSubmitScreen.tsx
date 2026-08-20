@@ -8,6 +8,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { stockApi, HttpError } from '../api/client';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
+import { toEnglishDigits } from '../utils/digits';
 import type { AppStackParamList } from '../navigation/types';
 
 export default function StockSubmitScreen() {
@@ -76,7 +77,9 @@ export default function StockSubmitScreen() {
             <TextInput
               style={styles.input}
               value={quantities[index] ?? ''}
-              onChangeText={(text) => setQuantities((prev) => ({ ...prev, [index]: text }))}
+              onChangeText={(text) =>
+                setQuantities((prev) => ({ ...prev, [index]: toEnglishDigits(text) }))
+              }
               keyboardType="decimal-pad"
               placeholder="0"
             />
