@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -13,8 +14,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
@@ -36,6 +38,7 @@ function formatMessageTime(iso: string) {
 
 export default function ChatScreen() {
   const { user, authFetch } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'Chat'>>();
   const { conversationId, type } = route.params;
   const headerHeight = useHeaderHeight();
@@ -47,19 +50,52 @@ export default function ChatScreen() {
   const [isAttaching, setIsAttaching] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageUris, setImageUris] = useState<Record<string, string>>({});
+  const downloadedImageIds = useRef<Set<string>>(new Set());
   const listRef = useRef<FlatList<ChatMessage>>(null);
+
+  // Images render inline as real pictures, not a file chip — download each one to cache once
+  // (the download endpoint needs the auth header, so a plain <Image source={{uri}}> pointed at
+  // it directly can't work) and keep it there for the life of the screen.
+  const downloadImageAttachments = useCallback(
+    async (msgs: ChatMessage[]) => {
+      const toDownload = msgs.filter(
+        (m) =>
+          m.attachment?.mimeType.startsWith('image/') &&
+          !downloadedImageIds.current.has(m._id),
+      );
+      for (const m of toDownload) {
+        downloadedImageIds.current.add(m._id);
+        try {
+          const uri = await authFetch((token) =>
+            File.downloadFileAsync(
+              messagesApi.attachmentDownloadUrl(m._id),
+              Paths.cache,
+              { headers: { Authorization: `Bearer ${token}` }, idempotent: true },
+            ).then((file) => file.uri),
+          );
+          setImageUris((prev) => ({ ...prev, [m._id]: uri }));
+        } catch {
+          // Let the next poll retry — a placeholder just keeps showing until then.
+          downloadedImageIds.current.delete(m._id);
+        }
+      }
+    },
+    [authFetch],
+  );
 
   const load = useCallback(async () => {
     try {
       const thread = await authFetch((token) => messagesApi.messages(token, conversationId));
       setMessages(thread);
+      downloadImageAttachments(thread);
       await authFetch((token) => messagesApi.markRead(token, conversationId));
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Could not load messages');
     } finally {
       setIsLoading(false);
     }
-  }, [authFetch, conversationId]);
+  }, [authFetch, conversationId, downloadImageAttachments]);
 
   useFocusEffect(
     useCallback(() => {
@@ -152,6 +188,16 @@ export default function ChatScreen() {
     ]);
   };
 
+  const onOpenImage = (message: ChatMessage) => {
+    const uri = imageUris[message._id];
+    if (!uri || !message.attachment) return;
+    navigation.navigate('DocumentViewer', {
+      uri,
+      title: message.attachment.fileName,
+      mimeType: message.attachment.mimeType,
+    });
+  };
+
   const onOpenAttachment = async (message: ChatMessage) => {
     if (!message.attachment) return;
     setError(null);
@@ -212,33 +258,49 @@ export default function ChatScreen() {
                   <Text style={styles.senderName}>{item.senderId.fullName}</Text>
                 )}
                 <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                  {item.attachment && (
-                    <Pressable
-                      style={styles.attachmentChip}
-                      onPress={() => onOpenAttachment(item)}
-                      disabled={openingId === item._id}
-                    >
-                      {openingId === item._id ? (
-                        <ActivityIndicator size="small" color={isMine ? '#fff' : colors.teal} />
-                      ) : (
-                        <Ionicons
-                          name={iconForMimeType(item.attachment.mimeType)}
-                          size={20}
-                          color={isMine ? '#fff' : colors.teal}
+                  {item.attachment && item.attachment.mimeType.startsWith('image/') ? (
+                    <Pressable onPress={() => onOpenImage(item)}>
+                      {imageUris[item._id] ? (
+                        <Image
+                          source={{ uri: imageUris[item._id] }}
+                          style={styles.imageBubble}
+                          resizeMode="cover"
                         />
+                      ) : (
+                        <View style={[styles.imageBubble, styles.imagePlaceholder]}>
+                          <ActivityIndicator size="small" color={isMine ? '#fff' : colors.teal} />
+                        </View>
                       )}
-                      <View style={styles.attachmentInfo}>
-                        <Text
-                          style={[styles.attachmentName, isMine && styles.bubbleTextMine]}
-                          numberOfLines={1}
-                        >
-                          {item.attachment.fileName}
-                        </Text>
-                        <Text style={[styles.attachmentSize, isMine && styles.attachmentSizeMine]}>
-                          {formatFileSize(item.attachment.size)}
-                        </Text>
-                      </View>
                     </Pressable>
+                  ) : (
+                    item.attachment && (
+                      <Pressable
+                        style={styles.attachmentChip}
+                        onPress={() => onOpenAttachment(item)}
+                        disabled={openingId === item._id}
+                      >
+                        {openingId === item._id ? (
+                          <ActivityIndicator size="small" color={isMine ? '#fff' : colors.teal} />
+                        ) : (
+                          <Ionicons
+                            name={iconForMimeType(item.attachment.mimeType)}
+                            size={20}
+                            color={isMine ? '#fff' : colors.teal}
+                          />
+                        )}
+                        <View style={styles.attachmentInfo}>
+                          <Text
+                            style={[styles.attachmentName, isMine && styles.bubbleTextMine]}
+                            numberOfLines={1}
+                          >
+                            {item.attachment.fileName}
+                          </Text>
+                          <Text style={[styles.attachmentSize, isMine && styles.attachmentSizeMine]}>
+                            {formatFileSize(item.attachment.size)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    )
                   )}
                   {item.text.length > 0 && (
                     <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>
@@ -317,6 +379,8 @@ const styles = StyleSheet.create({
   bubbleTextMine: { color: '#fff' },
   bubbleTime: { fontSize: 11, color: colors.textFaint, marginTop: 2, marginHorizontal: 4 },
   bubbleTimeMine: { textAlign: 'right' },
+  imageBubble: { width: 200, height: 200, borderRadius: 10 },
+  imagePlaceholder: { backgroundColor: 'rgba(0,0,0,0.08)', alignItems: 'center', justifyContent: 'center' },
   attachmentChip: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 160 },
   attachmentInfo: { flex: 1 },
   attachmentName: { fontSize: 13, fontWeight: '600', color: colors.text },

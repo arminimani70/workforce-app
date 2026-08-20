@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError, usersApi } from '../api/client';
@@ -42,6 +44,7 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [birthDate, setBirthDate] = useState(user?.birthDate ? user.birthDate.slice(0, 10) : '');
+  const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
   const [address, setAddress] = useState(user?.address ?? '');
   const [emergencyContactName, setEmergencyContactName] = useState(
     user?.emergencyContactName ?? '',
@@ -60,6 +63,15 @@ export default function ProfileScreen() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+
+  const onChangeBirthDate = (event: { type: string }, selected?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowBirthDatePicker(false);
+    }
+    if (event.type === 'set' && selected) {
+      setBirthDate(selected.toISOString().slice(0, 10));
+    }
+  };
 
   const onSaveProfile = async () => {
     setError(null);
@@ -222,12 +234,25 @@ export default function ProfileScreen() {
         />
 
         <Text style={styles.fieldLabel}>Birth date</Text>
-        <TextInput
-          style={styles.input}
-          value={birthDate}
-          onChangeText={setBirthDate}
-          placeholder="YYYY-MM-DD"
-        />
+        <Pressable style={styles.input} onPress={() => setShowBirthDatePicker(true)}>
+          <Text style={birthDate ? styles.dateValue : styles.datePlaceholder}>
+            {birthDate || 'Select date'}
+          </Text>
+        </Pressable>
+        {showBirthDatePicker && (
+          <DateTimePicker
+            value={birthDate ? new Date(birthDate) : new Date(2000, 0, 1)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
+            maximumDate={new Date()}
+            onChange={onChangeBirthDate}
+          />
+        )}
+        {Platform.OS === 'ios' && showBirthDatePicker && (
+          <Pressable style={styles.datePickerDone} onPress={() => setShowBirthDatePicker(false)}>
+            <Text style={styles.datePickerDoneText}>Done</Text>
+          </Pressable>
+        )}
 
         <Text style={styles.fieldLabel}>Address</Text>
         <TextInput
@@ -384,6 +409,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: colors.text,
   },
+  dateValue: { fontSize: 15, color: colors.text },
+  datePlaceholder: { fontSize: 15, color: colors.textFaint },
+  datePickerDone: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  datePickerDoneText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   error: { color: colors.danger, fontSize: 12, marginTop: 8 },
   success: { color: colors.successText, fontSize: 12, marginTop: 8 },
   saveButton: {
