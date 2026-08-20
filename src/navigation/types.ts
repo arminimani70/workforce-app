@@ -2,7 +2,6 @@ import type { Position, StockTemplate } from '../types/api';
 
 export type AuthStackParamList = {
   Login: undefined;
-  Register: undefined;
 };
 
 export type AppStackParamList = {

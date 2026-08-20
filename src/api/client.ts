@@ -73,13 +73,6 @@ async function request<T>(
 }
 
 export const authApi = {
-  register: (dto: {
-    organizationName: string;
-    fullName: string;
-    email: string;
-    password: string;
-  }) => request<TokenPair>('/auth/register', { method: 'POST', body: dto }),
-
   login: (dto: { email: string; password: string }) =>
     request<TokenPair>('/auth/login', { method: 'POST', body: dto }),
 
@@ -96,6 +89,23 @@ export const usersApi = {
     accessToken: string,
     dto: { fullName: string; email: string; password: string },
   ) => request<OrgMember>('/users', { method: 'POST', accessToken, body: dto }),
+
+  // Owner/manager only. role/status are intentionally narrower than the full enums — this
+  // endpoint can't promote someone to owner or set the unused 'invited' status.
+  updateEmployee: (
+    accessToken: string,
+    id: string,
+    dto: {
+      fullName?: string;
+      email?: string;
+      role?: 'employee' | 'manager';
+      status?: 'active' | 'suspended';
+    },
+  ) => request<OrgMember>(`/users/${id}`, { method: 'PATCH', accessToken, body: dto }),
+
+  // Owner/manager only.
+  deleteEmployee: (accessToken: string, id: string) =>
+    request<{ success: boolean }>(`/users/${id}`, { method: 'DELETE', accessToken }),
 
   updateProfile: (
     accessToken: string,
@@ -331,6 +341,10 @@ export const checklistsApi = {
   // from, as well as the source list for owner/manager's Manage Checklists editor.
   listTemplates: (accessToken: string) =>
     request<ChecklistTemplate[]>('/checklists/templates', { accessToken }),
+
+  // Owner/manager only.
+  deleteTemplate: (accessToken: string, id: string) =>
+    request<void>(`/checklists/templates/${id}`, { method: 'DELETE', accessToken }),
 
   current: (accessToken: string, position: Position, jobSite: string) =>
     request<LiveChecklist>(

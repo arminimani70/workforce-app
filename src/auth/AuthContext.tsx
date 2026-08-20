@@ -18,12 +18,6 @@ interface AuthContextValue {
   user: CurrentUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (params: {
-    organizationName: string;
-    fullName: string;
-    email: string;
-    password: string;
-  }) => Promise<void>;
   logout: () => Promise<void>;
   // Runs an authenticated call with the current access token, transparently refreshing
   // and retrying once on a 401. Every screen that talks to a protected endpoint uses this
@@ -105,19 +99,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(currentUser);
   };
 
-  const register = async (params: {
-    organizationName: string;
-    fullName: string;
-    email: string;
-    password: string;
-  }) => {
-    const tokens = await authApi.register(params);
-    const currentUser = await usersApi.me(tokens.accessToken);
-    tokensRef.current = tokens;
-    await persistTokens(tokens);
-    setUser(currentUser);
-  };
-
   const logout = async () => {
     tokensRef.current = null;
     await clearStoredTokens();
@@ -130,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [authFetch]);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, register, logout, authFetch, refreshUser }),
+    () => ({ user, isLoading, login, logout, authFetch, refreshUser }),
     [user, isLoading, authFetch, refreshUser],
   );
 

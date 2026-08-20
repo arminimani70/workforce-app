@@ -195,6 +195,13 @@ export default function FormsScreen() {
         <View style={[styles.managerRow, { paddingBottom: insets.bottom }]}>
           <Pressable
             style={styles.manageButton}
+            onPress={() => navigation.navigate('ManageChecklists')}
+          >
+            <Ionicons name="checkbox-outline" size={16} color="#fff" />
+            <Text style={styles.manageButtonText}>Manage Checklists</Text>
+          </Pressable>
+          <Pressable
+            style={styles.manageButton}
             onPress={() => navigation.navigate('ManageForms')}
           >
             <Ionicons name="create-outline" size={16} color="#fff" />
@@ -282,9 +289,10 @@ const styles = StyleSheet.create({
   formTextGroup: { flex: 1 },
   formTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
   formMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
-  managerRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  managerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   manageButton: {
-    flex: 1,
+    flexGrow: 1,
+    minWidth: 150,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

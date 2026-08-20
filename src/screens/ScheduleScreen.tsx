@@ -935,16 +935,6 @@ export default function ScheduleScreen() {
       )}
 
       {canManage && (
-        <Pressable
-          style={styles.manageChecklistsButton}
-          onPress={() => navigation.navigate('ManageChecklists')}
-        >
-          <Ionicons name="checkbox-outline" size={18} color="#fff" />
-          <Text style={styles.newShiftButtonText}>Manage Checklists</Text>
-        </Pressable>
-      )}
-
-      {canManage && (
         <Pressable style={styles.newShiftButton} onPress={() => setIsModalOpen(true)}>
           <Ionicons name="add-circle-outline" size={18} color="#fff" />
           <Text style={styles.newShiftButtonText}>New Shift</Text>
@@ -1582,15 +1572,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: colors.teal,
-    borderRadius: 10,
-    padding: 14,
-  },
-  manageChecklistsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.indigo,
     borderRadius: 10,
     padding: 14,
   },

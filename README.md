@@ -89,19 +89,22 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   if it's expired. It exposes `authFetch`, which every authenticated screen uses to call the
   API — it retries once with a refreshed token on a 401, so that logic lives in one place
   instead of being duplicated per screen.
-- `src/navigation/RootNavigator.tsx` — renders the Auth stack (Login/Register) when there's no
-  user, or the App stack (Home, Time Clock, Schedule, Availability, Team, Messages, Forms,
-  Stock, Wastage, Onboarding, Profile, plus each feature's manager/history sub-screens) once
-  `AuthContext` has one. This is the standard React Navigation "auth flow"
-  pattern: the screens the user can reach are a direct function of auth state, not a route
-  guard. `AuthContext` also exposes `refreshUser()`, which re-fetches `/users/me` and updates
-  the cached user — Profile calls it after a successful edit so the rest of the app (e.g.
-  Home's header avatar) reflects the change immediately, without an app restart.
+- `src/navigation/RootNavigator.tsx` — renders the Auth stack (just Login — there's no
+  self-registration in the app) when there's no user, or the App stack (Home, Time Clock,
+  Schedule, Availability, Team, Messages, Forms, Stock, Wastage, Onboarding, Profile, plus each
+  feature's manager/history sub-screens) once `AuthContext` has one. This is the standard React
+  Navigation "auth flow" pattern: the screens the user can reach are a direct function of auth
+  state, not a route guard. `AuthContext` also exposes `refreshUser()`, which re-fetches
+  `/users/me` and updates the cached user — Profile calls it after a successful edit so the rest
+  of the app (e.g. Home's header avatar) reflects the change immediately, without an app
+  restart.
 
 ## Current screens
 
-- **Login** — `POST /auth/login`
-- **Register** — `POST /auth/register` (creates a new Organization + its Owner)
+- **Login** — `POST /auth/login`. There's no "create an account" link and no Register screen —
+  every account, including the very first owner, is provisioned outside the app (owner) or via
+  Team's Add Employee form (everyone else); the backend's `POST /auth/register` endpoint still
+  exists for that org-bootstrapping case, it's just not reachable from anywhere in the app's UI.
 - **Home** — a headline "today's event" banner is the first thing under the welcome header,
   tappable straight into Time Clock: once clocked in it reads "Clocked in since 08:05" with a
   live elapsed timer and the branch/position (`src/hooks/useTodayShiftContext.ts` resolves
@@ -220,7 +223,13 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   week's entries; a day with no entry shows "Not set".
 - **Team** — lists every org member (`GET /users`). Owner/manager also see an "Add Employee"
   form — full name, email, and a temporary password (`POST /users`); there's no
-  self-registration flow for team members, an admin sets them up directly.
+  self-registration flow for team members, an admin sets them up directly and hands the
+  credentials over. For owner/manager, tapping any row opens a detail popup: the organization
+  owner's row and the viewer's own row are read-only there (a note explains why — edit yourself
+  via Profile instead), but every other member's **Full name**, **Email**, **Role**
+  (Employee/Manager chips), and **Active** switch are editable, saved with **Save Changes**
+  (`PATCH /users/:id`), plus a **Remove from Team** button (`DELETE /users/:id`) to drop someone
+  whose account is no longer needed.
 - **Messages** — direct 1:1 chat with any other org member, no role restriction. The
   conversation list (`GET /messages/conversations`) shows the other person, a preview of the
   last message, and an unread badge, polling every 8 seconds while the screen is focused; a
@@ -267,37 +276,44 @@ device, point `EXPO_PUBLIC_API_URL` at your machine's LAN IP instead.
   signature) as a new history entry and **resets the section back to blank** right there on
   screen — with a brief "submitted" confirmation banner — so the same sheet is immediately ready
   for the next person to fill, rather than staying marked "done" for the rest of the day.
-  Checklists with photos turned off skip straight to the signature step. Owner/manager get
-  **Manage Checklists** and **Submission History** buttons at the bottom of the list screen
-  (mirroring Stock), plus the existing **Manage Checklists** button on Schedule. The manager
-  editor opens a list of every existing template plus an editor: pick a **Position**, optionally
-  pick a **Branch** from the Branches list (leave it on "All branches" to make this the position's
+  Checklists with photos turned off skip straight to the signature step. Owner/manager reach
+  the checklist editor from **Forms**' manager row (a **Manage Checklists** button there, not on
+  Schedule — see Forms below), plus a **Manage Checklists** and **Submission History** button
+  pair at the bottom of the list screen itself (mirroring Stock). The manager editor opens a
+  list of every existing template plus an editor: pick a **Position**, optionally pick a
+  **Branch** from the Branches list (leave it on "All branches" to make this the position's
   default — applied to any pick of that position with no more specific branch template of its
   own), give it an optional **Title** (shown as the checklist's heading, so the same position can
   read differently at different branches), freely add/remove line items for each section, and
   flip an **Allow photo attachments** switch to opt this checklist into the photo-batch step
   above; Save (`PUT /checklists/templates`) — picking a position+branch that already has a
-  template loads it (including its photo setting) for editing instead of starting blank. A **View
-  Submissions** button at the top of that same screen opens **Checklist Submissions** (`GET
-  /checklists/submissions`) — every submitted round ever, newest first, showing who submitted it,
-  whether it was the Opening or Closing section, the position/branch, each answered item with a
-  check/x icon and its note (if any) shown underneath, a grid of the round's attached photos (if
-  any — tapping one opens a full-screen viewer), and the captured signature rendered from its SVG
-  path data at the bottom of the card (fit to a viewBox computed from the path's own bounding box,
-  since the drawing surface's original pixel size isn't stored). Submissions from before the
-  signature/photo fields existed just render without them instead of crashing.
+  template loads it (including its photo setting) for editing instead of starting blank. Each
+  row in that "Existing Checklists" list also has a delete (×) button
+  (`DELETE /checklists/templates/:id`) for retiring one that's gone stale — e.g. a position that
+  no longer exists at a branch three months later. A **View Submissions** button at the top of
+  that same screen opens **Checklist Submissions** (`GET /checklists/submissions`) — every
+  submitted round ever, newest first, showing who submitted it, whether it was the Opening or
+  Closing section, the position/branch, each answered item with a check/x icon and its note (if
+  any) shown underneath, a grid of the round's attached photos (if any — tapping one opens a
+  full-screen viewer), and the captured signature rendered from its SVG path data at the bottom
+  of the card (fit to a viewBox computed from the path's own bounding box, since the drawing
+  surface's original pixel size isn't stored). Submissions from before the signature/photo
+  fields existed just render without them instead of crashing.
 - **Forms** (Home dashboard card) — the single hub for every fill-out-and-submit flow in the
   app. Two built-in rows sit above the ad hoc catalog: **Opening/Closing Checklist** (see
-  Checklists below) and **Wastage Report** (see Wastage below), both plain navigations to their
+  Checklists above) and **Wastage Report** (see Wastage below), both plain navigations to their
   own screens rather than the popup the rows below them use. Below those, an org-wide catalog
   of ad hoc report types (e.g. "Damaged Product", "Equipment Malfunction", "Urgent Supply
   Request") — unlike Checklists these aren't tied to a position or branch, so any employee can
   submit any of them, whenever something needs reporting. Tapping one in this part of the list
   opens a popup with a text/number input per field (`GET /forms/templates` for the catalog,
-  `POST /forms/submissions` to send it). Owner/manager get two extra buttons: **Manage Forms**
-  — a list of existing templates plus an editor (title + freely add/remove fields, each with a
-  label and a Text/Number type, `PUT /forms/templates`) — and **Submission History** — every
-  submission ever made, newest first, with who submitted it and its field values
+  `POST /forms/submissions` to send it). Owner/manager get three buttons in this screen's
+  manager row: **Manage Checklists** (jumps straight to the checklist template editor — see
+  Checklists above, since that's the other "kind of form" a manager might want to build or
+  retire) and **Manage Forms** — a list of existing ad hoc templates plus an editor (title +
+  freely add/remove fields, each with a label and a Text/Number type, `PUT /forms/templates`),
+  each row also deletable (`DELETE /forms/templates/:id`) — and **Submission History** — every ad
+  hoc submission ever made, newest first, with who submitted it and its field values
   (`GET /forms/submissions`).
 - **Onboarding** — a guide per organization (`GET /onboarding`) made of titled sections rather
   than one long text blob. Each section is a card showing just its title; tapping one expands

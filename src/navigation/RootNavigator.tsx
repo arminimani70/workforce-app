@@ -4,7 +4,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
-import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import TimeClockScreen from '../screens/TimeClockScreen';
 import ScheduleScreen from '../screens/ScheduleScreen';
@@ -171,7 +170,6 @@ export default function RootNavigator() {
       ) : (
         <AuthStack.Navigator screenOptions={{ headerShown: false }}>
           <AuthStack.Screen name="Login" component={LoginScreen} />
-          <AuthStack.Screen name="Register" component={RegisterScreen} />
         </AuthStack.Navigator>
       )}
     </NavigationContainer>

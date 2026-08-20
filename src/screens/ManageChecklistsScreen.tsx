@@ -21,6 +21,7 @@ export default function ManageChecklistsScreen() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -76,6 +77,31 @@ export default function ManageChecklistsScreen() {
     applyExisting(selectedPosition, jobSite);
     setMessage(null);
     setError(null);
+  };
+
+  const clearForm = () => {
+    setPosition(null);
+    setJobSite('');
+    setTitle('');
+    setOpeningItems([]);
+    setClosingItems([]);
+    setAllowPhoto(false);
+  };
+
+  const onDelete = async (template: ChecklistTemplate) => {
+    setError(null);
+    setDeletingId(template._id);
+    try {
+      await authFetch((token) => checklistsApi.deleteTemplate(token, template._id));
+      if (position === template.position && jobSite === template.jobSite) {
+        clearForm();
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not delete checklist');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const selectJobSite = (value: string) => {
@@ -154,30 +180,39 @@ export default function ManageChecklistsScreen() {
             <Text style={styles.sectionTitleDark}>Existing Checklists</Text>
           </View>
           {templates.map((template) => (
-            <Pressable
-              key={template._id}
-              style={styles.templateRow}
-              onPress={() => editTemplate(template)}
-            >
-              <Ionicons
-                name={POSITION_ICONS[template.position]}
-                size={16}
-                color={POSITION_COLORS[template.position]}
-              />
-              <View style={styles.templateTextGroup}>
-                <Text style={styles.templateText}>
-                  {template.title || `${POSITION_LABELS[template.position]} · ${template.jobSite || 'All branches'}`}
-                </Text>
-                {template.title && (
-                  <Text style={styles.templateSubtext}>
-                    {POSITION_LABELS[template.position]} · {template.jobSite || 'All branches'}
+            <View key={template._id} style={styles.templateRow}>
+              <Pressable style={styles.templateInfo} onPress={() => editTemplate(template)}>
+                <Ionicons
+                  name={POSITION_ICONS[template.position]}
+                  size={16}
+                  color={POSITION_COLORS[template.position]}
+                />
+                <View style={styles.templateTextGroup}>
+                  <Text style={styles.templateText}>
+                    {template.title || `${POSITION_LABELS[template.position]} · ${template.jobSite || 'All branches'}`}
                   </Text>
+                  {template.title && (
+                    <Text style={styles.templateSubtext}>
+                      {POSITION_LABELS[template.position]} · {template.jobSite || 'All branches'}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.templateMeta}>
+                  {template.openingItems.length} opening · {template.closingItems.length} closing
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => onDelete(template)}
+                disabled={deletingId === template._id}
+                hitSlop={8}
+              >
+                {deletingId === template._id ? (
+                  <ActivityIndicator size="small" color={colors.danger} />
+                ) : (
+                  <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
                 )}
-              </View>
-              <Text style={styles.templateMeta}>
-                {template.openingItems.length} opening · {template.closingItems.length} closing
-              </Text>
-            </Pressable>
+              </Pressable>
+            </View>
           ))}
         </>
       )}
@@ -330,6 +365,7 @@ const styles = StyleSheet.create({
     padding: 12,
     ...cardShadow,
   },
+  templateInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   templateTextGroup: { flex: 1 },
   templateText: { fontSize: 14, fontWeight: '600', color: colors.text },
   templateSubtext: { fontSize: 12, color: colors.textMuted, marginTop: 1 },

@@ -7,14 +7,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError } from '../api/client';
-import type { AuthStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
-
-export default function LoginScreen({ navigation }: Props) {
+export default function LoginScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,10 +62,6 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.buttonText}>Sign in</Text>
         )}
       </Pressable>
-
-      <Pressable onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.link}>Need an account? Create one</Text>
-      </Pressable>
     </View>
   );
 }
@@ -94,5 +86,4 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  link: { color: '#2563eb', textAlign: 'center', marginTop: 16 },
 });
