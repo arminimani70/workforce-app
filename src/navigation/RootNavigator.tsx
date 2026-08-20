@@ -97,7 +97,7 @@ export default function RootNavigator() {
           <AppStack.Screen
             name="Chat"
             component={ChatScreen}
-            options={({ route }) => ({ title: route.params.employeeName })}
+            options={({ route }) => ({ title: route.params.title })}
           />
           <AppStack.Screen
             name="Checklist"

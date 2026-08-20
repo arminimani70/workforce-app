@@ -321,23 +321,63 @@ export const shiftEditRequestsApi = {
 };
 
 export const messagesApi = {
-  send: (accessToken: string, dto: { recipientId: string; text: string }) =>
-    request<ChatMessage>('/messages', { method: 'POST', accessToken, body: dto }),
-
   conversations: (accessToken: string) =>
     request<Conversation[]>('/messages/conversations', { accessToken }),
 
   unreadCount: (accessToken: string) =>
     request<{ count: number }>('/messages/unread-count', { accessToken }),
 
-  thread: (accessToken: string, employeeId: string) =>
-    request<ChatMessage[]>(`/messages/with/${employeeId}`, { accessToken }),
+  // Gets the existing 1:1 thread with this employee, or starts one.
+  openDirect: (accessToken: string, employeeId: string) =>
+    request<Conversation>('/messages/conversations/direct', {
+      method: 'POST',
+      accessToken,
+      body: { employeeId },
+    }),
 
-  markRead: (accessToken: string, employeeId: string) =>
-    request<{ acknowledged: boolean }>(`/messages/with/${employeeId}/read`, {
+  // Owner/manager only.
+  createGroup: (accessToken: string, dto: { name: string; participantIds: string[] }) =>
+    request<Conversation>('/messages/conversations/group', {
+      method: 'POST',
+      accessToken,
+      body: dto,
+    }),
+
+  messages: (accessToken: string, conversationId: string) =>
+    request<ChatMessage[]>(`/messages/conversations/${conversationId}`, { accessToken }),
+
+  send: (accessToken: string, conversationId: string, text: string) =>
+    request<ChatMessage>(`/messages/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      accessToken,
+      body: { text },
+    }),
+
+  sendAttachment: (
+    accessToken: string,
+    conversationId: string,
+    file: { uri: string; name: string; mimeType: string },
+    text?: string,
+  ) => {
+    const formData = new FormData();
+    // React Native's FormData accepts this { uri, name, type } shape in place of a Blob.
+    formData.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+    if (text) formData.append('text', text);
+    return uploadFile<ChatMessage>(
+      `/messages/conversations/${conversationId}/messages`,
+      accessToken,
+      formData,
+    );
+  },
+
+  markRead: (accessToken: string, conversationId: string) =>
+    request<{ acknowledged: boolean }>(`/messages/conversations/${conversationId}/read`, {
       method: 'PATCH',
       accessToken,
     }),
+
+  attachmentDownloadUrl: (messageId: string) =>
+    `${API_URL}/messages/attachments/${messageId}/download`,
 };
 
 export const checklistsApi = {

@@ -18,36 +18,10 @@ import { useAuth } from '../auth/AuthContext';
 import { HttpError, onboardingApi } from '../api/client';
 import type { OnboardingResource, OnboardingSection } from '../types/api';
 import { cardShadow, colors } from '../theme/colors';
-
-const RESOURCE_DOCUMENT_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'image/*',
-];
+import { ATTACHMENT_DOCUMENT_TYPES, formatFileSize, iconForMimeType } from '../utils/files';
 
 function emptySection(): OnboardingSection {
   return { title: '', content: '' };
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function iconForMimeType(mimeType: string): React.ComponentProps<typeof Ionicons>['name'] {
-  if (mimeType === 'application/pdf') return 'document-text-outline';
-  if (mimeType.startsWith('image/')) return 'image-outline';
-  if (mimeType.includes('word')) return 'document-outline';
-  if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'grid-outline';
-  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'easel-outline';
-  return 'document-attach-outline';
 }
 
 export default function OnboardingScreen() {
@@ -163,7 +137,7 @@ export default function OnboardingScreen() {
     setResourcesError(null);
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: RESOURCE_DOCUMENT_TYPES,
+        type: ATTACHMENT_DOCUMENT_TYPES,
         copyToCacheDirectory: true,
       });
       if (result.canceled || result.assets.length === 0) return;

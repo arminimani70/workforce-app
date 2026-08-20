@@ -1,4 +1,4 @@
-import type { Position, StockTemplate } from '../types/api';
+import type { ConversationType, Position, StockTemplate } from '../types/api';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -14,7 +14,7 @@ export type AppStackParamList = {
   Profile: undefined;
   BuildSchedule: undefined;
   Messages: undefined;
-  Chat: { employeeId: string; employeeName: string };
+  Chat: { conversationId: string; title: string; type: ConversationType };
   Checklist: undefined;
   ChecklistFill: { position: Position; jobSite: string; title?: string | null };
   ManageChecklists: undefined;

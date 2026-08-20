@@ -170,20 +170,37 @@ export interface ShiftEditRequest {
   createdAt: string;
 }
 
-// Direct 1:1 messages — senderId is always populated; recipientId is a bare id (only the
-// sender's identity matters for rendering a thread).
+export type ConversationType = 'direct' | 'group';
+
+export interface ConversationParticipant {
+  _id: string;
+  fullName: string;
+  role: UserRole;
+}
+
+export interface ChatMessageAttachment {
+  fileName: string;
+  mimeType: string;
+  size: number;
+}
+
+// Messages inside a Conversation (direct or group). text can be empty when the message is
+// attachment-only.
 export interface ChatMessage {
   _id: string;
+  conversationId: string;
   senderId: { _id: string; fullName: string; role: UserRole };
-  recipientId: string;
   text: string;
-  readAt: string | null;
+  attachment?: ChatMessageAttachment;
   createdAt: string;
 }
 
 export interface Conversation {
-  employeeId: { _id: string; fullName: string; role: UserRole };
-  lastMessage: string;
+  _id: string;
+  type: ConversationType;
+  name?: string;
+  participants: ConversationParticipant[];
+  lastMessage: string | null;
   lastMessageAt: string;
   lastMessageFromMe: boolean;
   unreadCount: number;
