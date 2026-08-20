@@ -117,7 +117,19 @@ export interface OnboardingSection {
 export interface OnboardingGuide {
   organizationId: string;
   sections: OnboardingSection[];
+  rules: string[];
   updatedAt: string | null;
+}
+
+export interface OnboardingResource {
+  _id: string;
+  organizationId: string;
+  title: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedBy: { _id: string; fullName: string; role: UserRole };
+  createdAt: string;
 }
 
 export type SwapRequestStatus =

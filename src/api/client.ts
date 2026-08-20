@@ -15,6 +15,7 @@ import type {
   FormTemplate,
   LiveChecklist,
   OnboardingGuide,
+  OnboardingResource,
   OnboardingSection,
   OrgAvailabilityEntry,
   OrgMember,
@@ -43,6 +44,21 @@ export class HttpError extends Error {
   }
 }
 
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : undefined;
+
+  if (!response.ok) {
+    const apiError = data as ApiError | undefined;
+    const message = Array.isArray(apiError?.message)
+      ? apiError.message.join(', ')
+      : (apiError?.message ?? 'Request failed');
+    throw new HttpError(response.status, message);
+  }
+
+  return data as T;
+}
+
 async function request<T>(
   path: string,
   options: { method?: string; body?: unknown; accessToken?: string } = {},
@@ -58,18 +74,24 @@ async function request<T>(
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : undefined;
+  return parseJsonResponse<T>(response);
+}
 
-  if (!response.ok) {
-    const apiError = data as ApiError | undefined;
-    const message = Array.isArray(apiError?.message)
-      ? apiError.message.join(', ')
-      : (apiError?.message ?? 'Request failed');
-    throw new HttpError(response.status, message);
-  }
+// Multipart upload — deliberately not routed through request(), which always sends
+// Content-Type: application/json. Leaving Content-Type unset lets fetch generate the
+// multipart boundary itself.
+async function uploadFile<T>(
+  path: string,
+  accessToken: string,
+  formData: FormData,
+): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: formData,
+  });
 
-  return data as T;
+  return parseJsonResponse<T>(response);
 }
 
 export const authApi = {
@@ -439,8 +461,35 @@ export const formsApi = {
 export const onboardingApi = {
   get: (accessToken: string) => request<OnboardingGuide>('/onboarding', { accessToken }),
 
-  update: (accessToken: string, sections: OnboardingSection[]) =>
-    request<OnboardingGuide>('/onboarding', { method: 'PUT', accessToken, body: { sections } }),
+  update: (accessToken: string, sections: OnboardingSection[], rules: string[]) =>
+    request<OnboardingGuide>('/onboarding', {
+      method: 'PUT',
+      accessToken,
+      body: { sections, rules },
+    }),
+
+  // Any authenticated user — the catalog of training material attached to onboarding.
+  listResources: (accessToken: string) =>
+    request<OnboardingResource[]>('/onboarding/resources', { accessToken }),
+
+  // Owner/manager only.
+  uploadResource: (
+    accessToken: string,
+    file: { uri: string; name: string; mimeType: string },
+    title: string,
+  ) => {
+    const formData = new FormData();
+    // React Native's FormData accepts this { uri, name, type } shape in place of a Blob.
+    formData.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+    if (title) formData.append('title', title);
+    return uploadFile<OnboardingResource>('/onboarding/resources', accessToken, formData);
+  },
+
+  // Owner/manager only.
+  deleteResource: (accessToken: string, id: string) =>
+    request<void>(`/onboarding/resources/${id}`, { method: 'DELETE', accessToken }),
+
+  resourceDownloadUrl: (id: string) => `${API_URL}/onboarding/resources/${id}/download`,
 };
 
 export const branchesApi = {
