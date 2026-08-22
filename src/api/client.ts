@@ -20,6 +20,7 @@ import type {
   OrgAvailabilityEntry,
   OrgMember,
   Position,
+  PurchaseList,
   Shift,
   ShiftEditRequest,
   StockItem,
@@ -561,6 +562,11 @@ export const stockApi = {
   // Owner/manager only.
   deleteTemplate: (accessToken: string, id: string) =>
     request<void>(`/stock/templates/${id}`, { method: 'DELETE', accessToken }),
+
+  // Any authenticated user — what to buy for this list's next delivery day (1-2 days out),
+  // based on each product's par level vs. the most recently counted on-hand quantity.
+  getPurchaseList: (accessToken: string, templateId: string) =>
+    request<PurchaseList>(`/stock/templates/${templateId}/purchase-list`, { accessToken }),
 
   submit: (
     accessToken: string,

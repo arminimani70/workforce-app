@@ -311,6 +311,10 @@ export interface Branch {
 export interface StockItem {
   productName: string;
   unit: string;
+  // One target on-hand quantity per weekday (index 0=Sunday..6=Saturday, matching
+  // Date.getDay()) — 0 means "not a delivery day for this product". Optional/possibly absent
+  // on lists created before par levels existed.
+  parLevels?: number[];
 }
 
 // A manager-built, named list of products to count at one branch (jobSite is a plain-text
@@ -326,6 +330,25 @@ export interface StockTemplate {
 
 export interface StockEntryValue extends StockItem {
   quantity: number;
+}
+
+// One product's row on the purchase list — its next delivery day's par level compared against
+// the most recently counted on-hand quantity.
+export interface PurchaseListItem {
+  productName: string;
+  unit: string;
+  targetDate: string;
+  parLevel: number;
+  currentOnHand: number;
+  suggestedQuantity: number;
+}
+
+export interface PurchaseList {
+  templateId: string;
+  templateTitle: string;
+  jobSite: string;
+  lastCountedAt: string | null;
+  items: PurchaseListItem[];
 }
 
 // A submitted stock count — snapshots the template's title/branch plus each row's counted

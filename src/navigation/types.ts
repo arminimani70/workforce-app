@@ -26,6 +26,7 @@ export type AppStackParamList = {
   ManageBranches: undefined;
   Stock: undefined;
   StockSubmit: { template: StockTemplate };
+  PurchaseList: { template: StockTemplate };
   ManageStock: undefined;
   StockSubmissions: undefined;
   Wastage: undefined;

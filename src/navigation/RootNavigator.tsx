@@ -25,6 +25,7 @@ import FormSubmissionsScreen from '../screens/FormSubmissionsScreen';
 import ManageBranchesScreen from '../screens/ManageBranchesScreen';
 import StockScreen from '../screens/StockScreen';
 import StockSubmitScreen from '../screens/StockSubmitScreen';
+import PurchaseListScreen from '../screens/PurchaseListScreen';
 import ManageStockScreen from '../screens/ManageStockScreen';
 import StockSubmissionsScreen from '../screens/StockSubmissionsScreen';
 import WastageScreen from '../screens/WastageScreen';
@@ -146,6 +147,11 @@ export default function RootNavigator() {
             name="StockSubmit"
             component={StockSubmitScreen}
             options={{ title: 'Count Stock' }}
+          />
+          <AppStack.Screen
+            name="PurchaseList"
+            component={PurchaseListScreen}
+            options={{ title: 'Purchase List' }}
           />
           <AppStack.Screen
             name="ManageStock"

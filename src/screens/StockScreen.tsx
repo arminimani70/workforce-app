@@ -81,6 +81,13 @@ export default function StockScreen() {
                 {item.jobSite}
               </Text>
             </View>
+            <Pressable
+              onPress={() => navigation.navigate('PurchaseList', { template: item })}
+              hitSlop={8}
+              style={styles.cartButton}
+            >
+              <Ionicons name="cart-outline" size={20} color={colors.teal} />
+            </Pressable>
             <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
           </Pressable>
         )}
@@ -127,6 +134,7 @@ const styles = StyleSheet.create({
   templateMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   branchTag: { borderWidth: 1, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
   branchTagText: { fontSize: 12, fontWeight: '700' },
+  cartButton: { padding: 2 },
   managerRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   manageButton: {
     flex: 1,
