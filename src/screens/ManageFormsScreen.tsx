@@ -138,6 +138,8 @@ export default function ManageFormsScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
     >
       {templates.length > 0 && (
         <>

@@ -15,10 +15,13 @@ import type {
   FormTemplate,
   LiveChecklist,
   OnboardingGuide,
+  OnboardingResource,
   OnboardingSection,
   OrgAvailabilityEntry,
   OrgMember,
   Position,
+  PositionDefaultHours,
+  PurchaseList,
   Shift,
   ShiftEditRequest,
   StockItem,
@@ -43,6 +46,21 @@ export class HttpError extends Error {
   }
 }
 
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : undefined;
+
+  if (!response.ok) {
+    const apiError = data as ApiError | undefined;
+    const message = Array.isArray(apiError?.message)
+      ? apiError.message.join(', ')
+      : (apiError?.message ?? 'Request failed');
+    throw new HttpError(response.status, message);
+  }
+
+  return data as T;
+}
+
 async function request<T>(
   path: string,
   options: { method?: string; body?: unknown; accessToken?: string } = {},
@@ -58,18 +76,24 @@ async function request<T>(
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : undefined;
+  return parseJsonResponse<T>(response);
+}
 
-  if (!response.ok) {
-    const apiError = data as ApiError | undefined;
-    const message = Array.isArray(apiError?.message)
-      ? apiError.message.join(', ')
-      : (apiError?.message ?? 'Request failed');
-    throw new HttpError(response.status, message);
-  }
+// Multipart upload — deliberately not routed through request(), which always sends
+// Content-Type: application/json. Leaving Content-Type unset lets fetch generate the
+// multipart boundary itself.
+async function uploadFile<T>(
+  path: string,
+  accessToken: string,
+  formData: FormData,
+): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: formData,
+  });
 
-  return data as T;
+  return parseJsonResponse<T>(response);
 }
 
 export const authApi = {
@@ -236,6 +260,20 @@ export const availabilityApi = {
     ),
 };
 
+export const positionDefaultHoursApi = {
+  // Any authenticated user — Availability reads these to prefill start/end time per position.
+  list: (accessToken: string) =>
+    request<PositionDefaultHours[]>('/position-default-hours', { accessToken }),
+
+  // Owner/manager only. Upserts one position's default hours.
+  upsert: (accessToken: string, dto: { position: Position; startTime: string; endTime: string }) =>
+    request<PositionDefaultHours>('/position-default-hours', {
+      method: 'PUT',
+      accessToken,
+      body: dto,
+    }),
+};
+
 export const swapRequestsApi = {
   // Omit targetEmployeeId for a "Free Volunteer" broadcast instead of naming a specific person.
   create: (accessToken: string, dto: { requestingShiftId: string; targetEmployeeId?: string }) =>
@@ -299,23 +337,63 @@ export const shiftEditRequestsApi = {
 };
 
 export const messagesApi = {
-  send: (accessToken: string, dto: { recipientId: string; text: string }) =>
-    request<ChatMessage>('/messages', { method: 'POST', accessToken, body: dto }),
-
   conversations: (accessToken: string) =>
     request<Conversation[]>('/messages/conversations', { accessToken }),
 
   unreadCount: (accessToken: string) =>
     request<{ count: number }>('/messages/unread-count', { accessToken }),
 
-  thread: (accessToken: string, employeeId: string) =>
-    request<ChatMessage[]>(`/messages/with/${employeeId}`, { accessToken }),
+  // Gets the existing 1:1 thread with this employee, or starts one.
+  openDirect: (accessToken: string, employeeId: string) =>
+    request<Conversation>('/messages/conversations/direct', {
+      method: 'POST',
+      accessToken,
+      body: { employeeId },
+    }),
 
-  markRead: (accessToken: string, employeeId: string) =>
-    request<{ acknowledged: boolean }>(`/messages/with/${employeeId}/read`, {
+  // Owner/manager only.
+  createGroup: (accessToken: string, dto: { name: string; participantIds: string[] }) =>
+    request<Conversation>('/messages/conversations/group', {
+      method: 'POST',
+      accessToken,
+      body: dto,
+    }),
+
+  messages: (accessToken: string, conversationId: string) =>
+    request<ChatMessage[]>(`/messages/conversations/${conversationId}`, { accessToken }),
+
+  send: (accessToken: string, conversationId: string, text: string) =>
+    request<ChatMessage>(`/messages/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      accessToken,
+      body: { text },
+    }),
+
+  sendAttachment: (
+    accessToken: string,
+    conversationId: string,
+    file: { uri: string; name: string; mimeType: string },
+    text?: string,
+  ) => {
+    const formData = new FormData();
+    // React Native's FormData accepts this { uri, name, type } shape in place of a Blob.
+    formData.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+    if (text) formData.append('text', text);
+    return uploadFile<ChatMessage>(
+      `/messages/conversations/${conversationId}/messages`,
+      accessToken,
+      formData,
+    );
+  },
+
+  markRead: (accessToken: string, conversationId: string) =>
+    request<{ acknowledged: boolean }>(`/messages/conversations/${conversationId}/read`, {
       method: 'PATCH',
       accessToken,
     }),
+
+  attachmentDownloadUrl: (messageId: string) =>
+    `${API_URL}/messages/attachments/${messageId}/download`,
 };
 
 export const checklistsApi = {
@@ -439,8 +517,35 @@ export const formsApi = {
 export const onboardingApi = {
   get: (accessToken: string) => request<OnboardingGuide>('/onboarding', { accessToken }),
 
-  update: (accessToken: string, sections: OnboardingSection[]) =>
-    request<OnboardingGuide>('/onboarding', { method: 'PUT', accessToken, body: { sections } }),
+  update: (accessToken: string, sections: OnboardingSection[], rules: string[]) =>
+    request<OnboardingGuide>('/onboarding', {
+      method: 'PUT',
+      accessToken,
+      body: { sections, rules },
+    }),
+
+  // Any authenticated user — the catalog of training material attached to onboarding.
+  listResources: (accessToken: string) =>
+    request<OnboardingResource[]>('/onboarding/resources', { accessToken }),
+
+  // Owner/manager only.
+  uploadResource: (
+    accessToken: string,
+    file: { uri: string; name: string; mimeType: string },
+    title: string,
+  ) => {
+    const formData = new FormData();
+    // React Native's FormData accepts this { uri, name, type } shape in place of a Blob.
+    formData.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+    if (title) formData.append('title', title);
+    return uploadFile<OnboardingResource>('/onboarding/resources', accessToken, formData);
+  },
+
+  // Owner/manager only.
+  deleteResource: (accessToken: string, id: string) =>
+    request<void>(`/onboarding/resources/${id}`, { method: 'DELETE', accessToken }),
+
+  resourceDownloadUrl: (id: string) => `${API_URL}/onboarding/resources/${id}/download`,
 };
 
 export const branchesApi = {
@@ -473,6 +578,11 @@ export const stockApi = {
   deleteTemplate: (accessToken: string, id: string) =>
     request<void>(`/stock/templates/${id}`, { method: 'DELETE', accessToken }),
 
+  // Any authenticated user — what to buy for this list's next delivery day (1-2 days out),
+  // based on each product's par level vs. the most recently counted on-hand quantity.
+  getPurchaseList: (accessToken: string, templateId: string) =>
+    request<PurchaseList>(`/stock/templates/${templateId}/purchase-list`, { accessToken }),
+
   submit: (
     accessToken: string,
     dto: { stockTemplateId: string; quantities: { productName: string; quantity: number }[] },
@@ -481,6 +591,22 @@ export const stockApi = {
   // Owner/manager only.
   listSubmissions: (accessToken: string) =>
     request<StockSubmission[]>('/stock/submissions', { accessToken }),
+
+  // Owner/manager only. productName/unit stay fixed — only quantities are editable.
+  updateSubmission: (
+    accessToken: string,
+    id: string,
+    quantities: { productName: string; quantity: number }[],
+  ) =>
+    request<StockSubmission>(`/stock/submissions/${id}`, {
+      method: 'PATCH',
+      accessToken,
+      body: { quantities },
+    }),
+
+  // Owner/manager only.
+  deleteSubmission: (accessToken: string, id: string) =>
+    request<void>(`/stock/submissions/${id}`, { method: 'DELETE', accessToken }),
 };
 
 export const wastageApi = {

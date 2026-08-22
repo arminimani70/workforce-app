@@ -105,6 +105,17 @@ export interface OrgAvailabilityEntry extends Omit<AvailabilityEntry, 'employeeI
   employeeId: { _id: string; fullName: string; role: UserRole };
 }
 
+// Owner/manager-set start/end time for a position — one per (org, position). Availability
+// prefills a day's time fields from these instead of a single hardcoded 09:00-17:00, since
+// different jobs start/end at different times. A position with no entry here just falls back
+// to that hardcoded default.
+export interface PositionDefaultHours {
+  _id: string;
+  position: Position;
+  startTime: string; // "HH:mm"
+  endTime: string;
+}
+
 export interface TimeTotal {
   totalSeconds: number;
 }
@@ -117,7 +128,19 @@ export interface OnboardingSection {
 export interface OnboardingGuide {
   organizationId: string;
   sections: OnboardingSection[];
+  rules: string[];
   updatedAt: string | null;
+}
+
+export interface OnboardingResource {
+  _id: string;
+  organizationId: string;
+  title: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedBy: { _id: string; fullName: string; role: UserRole };
+  createdAt: string;
 }
 
 export type SwapRequestStatus =
@@ -158,20 +181,37 @@ export interface ShiftEditRequest {
   createdAt: string;
 }
 
-// Direct 1:1 messages — senderId is always populated; recipientId is a bare id (only the
-// sender's identity matters for rendering a thread).
+export type ConversationType = 'direct' | 'group';
+
+export interface ConversationParticipant {
+  _id: string;
+  fullName: string;
+  role: UserRole;
+}
+
+export interface ChatMessageAttachment {
+  fileName: string;
+  mimeType: string;
+  size: number;
+}
+
+// Messages inside a Conversation (direct or group). text can be empty when the message is
+// attachment-only.
 export interface ChatMessage {
   _id: string;
+  conversationId: string;
   senderId: { _id: string; fullName: string; role: UserRole };
-  recipientId: string;
   text: string;
-  readAt: string | null;
+  attachment?: ChatMessageAttachment;
   createdAt: string;
 }
 
 export interface Conversation {
-  employeeId: { _id: string; fullName: string; role: UserRole };
-  lastMessage: string;
+  _id: string;
+  type: ConversationType;
+  name?: string;
+  participants: ConversationParticipant[];
+  lastMessage: string | null;
   lastMessageAt: string;
   lastMessageFromMe: boolean;
   unreadCount: number;
@@ -282,6 +322,10 @@ export interface Branch {
 export interface StockItem {
   productName: string;
   unit: string;
+  // One target on-hand quantity per weekday (index 0=Sunday..6=Saturday, matching
+  // Date.getDay()) — 0 means "not a delivery day for this product". Optional/possibly absent
+  // on lists created before par levels existed.
+  parLevels?: number[];
 }
 
 // A manager-built, named list of products to count at one branch (jobSite is a plain-text
@@ -297,6 +341,31 @@ export interface StockTemplate {
 
 export interface StockEntryValue extends StockItem {
   quantity: number;
+}
+
+// 'buy': on hand is clearly short of par. 'enough': clearly covers it. 'check': on hand is
+// within a tolerance band of par — too close to call confidently from a snapshot count, so
+// recount before deciding rather than trust the number as-is.
+export type PurchaseStatus = 'buy' | 'check' | 'enough';
+
+// One product's row on the purchase list — its next delivery day's par level compared against
+// the most recently counted on-hand quantity.
+export interface PurchaseListItem {
+  productName: string;
+  unit: string;
+  targetDate: string;
+  parLevel: number;
+  currentOnHand: number;
+  suggestedQuantity: number;
+  status: PurchaseStatus;
+}
+
+export interface PurchaseList {
+  templateId: string;
+  templateTitle: string;
+  jobSite: string;
+  lastCountedAt: string | null;
+  items: PurchaseListItem[];
 }
 
 // A submitted stock count — snapshots the template's title/branch plus each row's counted

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -17,6 +17,12 @@ const ROLE_COLORS: Record<UserRole, string> = {
   owner: colors.amber,
   manager: colors.purple,
   employee: colors.primary,
+};
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  owner: 'Owner',
+  manager: 'Manager',
+  employee: 'Employee',
 };
 
 function initials(fullName: string) {
@@ -37,15 +43,25 @@ function formatConversationTime(iso: string) {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+type Tab = 'chats' | 'contacts';
+
 export default function MessagesScreen() {
   const { user, authFetch } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<Tab>('chats');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
+  const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupParticipantIds, setGroupParticipantIds] = useState<string[]>([]);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [groupError, setGroupError] = useState<string | null>(null);
+
+  const canManage = user?.role === 'owner' || user?.role === 'manager';
 
   const load = useCallback(async () => {
     try {
@@ -66,16 +82,90 @@ export default function MessagesScreen() {
     }, [load]),
   );
 
-  const openNewMessage = async () => {
-    setIsNewMessageOpen(true);
-    if (members.length === 0) {
-      try {
-        const result = await authFetch((token) => usersApi.list(token));
-        setMembers(result.filter((m) => m._id !== user?._id));
-      } catch {
-        // Leave the picker empty if the directory fails to load.
-      }
+  const loadMembers = useCallback(async () => {
+    setIsLoadingContacts(true);
+    try {
+      const result = await authFetch((token) => usersApi.list(token));
+      setMembers(result.filter((m) => m._id !== user?._id));
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not load the team directory');
+    } finally {
+      setIsLoadingContacts(false);
     }
+  }, [authFetch, user?._id]);
+
+  const openTab = (next: Tab) => {
+    setTab(next);
+    setError(null);
+    if (next === 'contacts' && members.length === 0) {
+      loadMembers();
+    }
+  };
+
+  const openNewGroup = async () => {
+    setGroupError(null);
+    setGroupName('');
+    setGroupParticipantIds([]);
+    setIsNewGroupOpen(true);
+    if (members.length === 0) await loadMembers();
+  };
+
+  const openConversation = async (employeeId: string, employeeName: string) => {
+    setError(null);
+    try {
+      const conversation = await authFetch((token) => messagesApi.openDirect(token, employeeId));
+      navigation.navigate('Chat', {
+        conversationId: conversation._id,
+        title: employeeName,
+        type: 'direct',
+      });
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Could not start conversation');
+    }
+  };
+
+  const toggleGroupParticipant = (id: string) => {
+    setGroupParticipantIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
+
+  const onCreateGroup = async () => {
+    if (!groupName.trim()) {
+      setGroupError('Give the group a name');
+      return;
+    }
+    if (groupParticipantIds.length === 0) {
+      setGroupError('Pick at least one person');
+      return;
+    }
+    setGroupError(null);
+    setIsCreatingGroup(true);
+    try {
+      const conversation = await authFetch((token) =>
+        messagesApi.createGroup(token, {
+          name: groupName.trim(),
+          participantIds: groupParticipantIds,
+        }),
+      );
+      setIsNewGroupOpen(false);
+      navigation.navigate('Chat', {
+        conversationId: conversation._id,
+        title: groupName.trim(),
+        type: 'group',
+      });
+      await load();
+    } catch (err) {
+      setGroupError(err instanceof HttpError ? err.message : 'Could not create group');
+    } finally {
+      setIsCreatingGroup(false);
+    }
+  };
+
+  const titleFor = (conversation: Conversation) => {
+    if (conversation.type === 'group') return conversation.name ?? 'Group';
+    const other = conversation.participants.find((p) => p._id !== user?._id);
+    return other?.fullName ?? 'Unknown';
   };
 
   if (isLoading) {
@@ -88,90 +178,182 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.tabRow}>
+        <Pressable
+          style={[styles.tabButton, tab === 'chats' && styles.tabButtonActive]}
+          onPress={() => openTab('chats')}
+        >
+          <Text style={[styles.tabButtonText, tab === 'chats' && styles.tabButtonTextActive]}>
+            Chats
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tabButton, tab === 'contacts' && styles.tabButtonActive]}
+          onPress={() => openTab('contacts')}
+        >
+          <Text style={[styles.tabButtonText, tab === 'contacts' && styles.tabButtonTextActive]}>
+            Contacts
+          </Text>
+        </Pressable>
+      </View>
+
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <FlatList
-        data={conversations}
-        keyExtractor={(item) => item.employeeId._id}
-        style={styles.list}
-        ListEmptyComponent={
-          <View style={styles.emptyRow}>
-            <Ionicons name="chatbubbles-outline" size={16} color={colors.textFaint} />
-            <Text style={styles.empty}>No conversations yet</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.conversationRow}
-            onPress={() =>
-              navigation.navigate('Chat', {
-                employeeId: item.employeeId._id,
-                employeeName: item.employeeId.fullName,
-              })
-            }
-          >
-            <View style={[styles.avatar, { backgroundColor: ROLE_COLORS[item.employeeId.role] }]}>
-              <Text style={styles.avatarText}>{initials(item.employeeId.fullName)}</Text>
+      {tab === 'chats' ? (
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) => item._id}
+          style={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyRow}>
+              <Ionicons name="chatbubbles-outline" size={16} color={colors.textFaint} />
+              <Text style={styles.empty}>No conversations yet</Text>
             </View>
-            <View style={styles.conversationTextGroup}>
-              <Text style={styles.conversationName}>{item.employeeId.fullName}</Text>
-              <Text
-                style={[
-                  styles.conversationPreview,
-                  item.unreadCount > 0 && styles.conversationPreviewUnread,
-                ]}
-                numberOfLines={1}
+          }
+          renderItem={({ item }) => {
+            const title = titleFor(item);
+            const isGroup = item.type === 'group';
+            const other = item.participants.find((p) => p._id !== user?._id);
+            return (
+              <Pressable
+                style={styles.conversationRow}
+                onPress={() =>
+                  navigation.navigate('Chat', {
+                    conversationId: item._id,
+                    title,
+                    type: item.type,
+                  })
+                }
               >
-                {item.lastMessageFromMe ? 'You: ' : ''}
-                {item.lastMessage}
-              </Text>
-            </View>
-            <View style={styles.conversationMeta}>
-              <Text style={styles.conversationTime}>
-                {formatConversationTime(item.lastMessageAt)}
-              </Text>
-              {item.unreadCount > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>
-                    {item.unreadCount > 9 ? '9+' : item.unreadCount}
+                <View
+                  style={[
+                    styles.avatar,
+                    { backgroundColor: isGroup ? colors.teal : ROLE_COLORS[other?.role ?? 'employee'] },
+                  ]}
+                >
+                  {isGroup ? (
+                    <Ionicons name="people" size={20} color="#fff" />
+                  ) : (
+                    <Text style={styles.avatarText}>{initials(title)}</Text>
+                  )}
+                </View>
+                <View style={styles.conversationTextGroup}>
+                  <Text style={styles.conversationName}>{title}</Text>
+                  <Text
+                    style={[
+                      styles.conversationPreview,
+                      item.unreadCount > 0 && styles.conversationPreviewUnread,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.lastMessageFromMe ? 'You: ' : ''}
+                    {item.lastMessage ?? 'No messages yet'}
                   </Text>
                 </View>
-              )}
+                <View style={styles.conversationMeta}>
+                  <Text style={styles.conversationTime}>
+                    {formatConversationTime(item.lastMessageAt)}
+                  </Text>
+                  {item.unreadCount > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>
+                        {item.unreadCount > 9 ? '9+' : item.unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </Pressable>
+            );
+          }}
+        />
+      ) : isLoadingContacts ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={members}
+          keyExtractor={(item) => item._id}
+          style={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyRow}>
+              <Ionicons name="people-outline" size={16} color={colors.textFaint} />
+              <Text style={styles.empty}>No other team members yet</Text>
             </View>
-          </Pressable>
-        )}
-      />
+          }
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.conversationRow}
+              onPress={() => openConversation(item._id, item.fullName)}
+            >
+              <View style={[styles.avatar, { backgroundColor: ROLE_COLORS[item.role] }]}>
+                <Text style={styles.avatarText}>{initials(item.fullName)}</Text>
+              </View>
+              <View style={styles.conversationTextGroup}>
+                <Text style={styles.conversationName}>{item.fullName}</Text>
+                <Text style={styles.conversationPreview}>{ROLE_LABELS[item.role]}</Text>
+              </View>
+              <Ionicons name="chatbubble-outline" size={18} color={colors.textFaint} />
+            </Pressable>
+          )}
+        />
+      )}
 
-      <Pressable
-        style={[styles.newMessageButton, { marginBottom: Math.max(insets.bottom, 12) }]}
-        onPress={openNewMessage}
-      >
-        <Ionicons name="create-outline" size={18} color="#fff" />
-        <Text style={styles.newMessageButtonText}>New Message</Text>
-      </Pressable>
+      {canManage && (
+        <Pressable
+          style={[styles.groupButton, { marginBottom: Math.max(insets.bottom, 12) }]}
+          onPress={openNewGroup}
+        >
+          <Ionicons name="people-outline" size={18} color={colors.teal} />
+          <Text style={styles.groupButtonText}>New Group</Text>
+        </Pressable>
+      )}
 
-      <PopupModal visible={isNewMessageOpen} onClose={() => setIsNewMessageOpen(false)}>
+      <PopupModal visible={isNewGroupOpen} onClose={() => setIsNewGroupOpen(false)}>
         <View style={styles.modalCard}>
-          <Text style={styles.formTitle}>New Message</Text>
+          <Text style={styles.formTitle}>New Group</Text>
+          <TextInput
+            style={styles.groupNameInput}
+            placeholder="Group name"
+            value={groupName}
+            onChangeText={setGroupName}
+          />
           {members.length === 0 ? (
             <Text style={styles.empty}>No other team members yet</Text>
           ) : (
-            members.map((item) => (
-              <Pressable
-                key={item._id}
-                style={styles.pickerRow}
-                onPress={() => {
-                  setIsNewMessageOpen(false);
-                  navigation.navigate('Chat', { employeeId: item._id, employeeName: item.fullName });
-                }}
-              >
-                <View style={[styles.avatar, { backgroundColor: ROLE_COLORS[item.role] }]}>
-                  <Text style={styles.avatarText}>{initials(item.fullName)}</Text>
-                </View>
-                <Text style={styles.pickerName}>{item.fullName}</Text>
-              </Pressable>
-            ))
+            members.map((item) => {
+              const isSelected = groupParticipantIds.includes(item._id);
+              return (
+                <Pressable
+                  key={item._id}
+                  style={styles.pickerRow}
+                  onPress={() => toggleGroupParticipant(item._id)}
+                >
+                  <View style={[styles.avatar, { backgroundColor: ROLE_COLORS[item.role] }]}>
+                    <Text style={styles.avatarText}>{initials(item.fullName)}</Text>
+                  </View>
+                  <Text style={styles.pickerName}>{item.fullName}</Text>
+                  <Ionicons
+                    name={isSelected ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={isSelected ? colors.primary : colors.textFaint}
+                  />
+                </Pressable>
+              );
+            })
           )}
+          {groupError && <Text style={styles.error}>{groupError}</Text>}
+          <Pressable
+            style={[styles.createGroupButton, isCreatingGroup && styles.buttonDisabled]}
+            onPress={onCreateGroup}
+            disabled={isCreatingGroup}
+          >
+            {isCreatingGroup ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.createGroupButtonText}>Create Group</Text>
+            )}
+          </Pressable>
         </View>
       </PopupModal>
     </View>
@@ -182,6 +364,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   error: { color: colors.danger, marginBottom: 12 },
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 12,
+    gap: 4,
+  },
+  tabButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
+  tabButtonActive: { backgroundColor: colors.primary },
+  tabButtonText: { fontSize: 14, fontWeight: '600', color: colors.textMuted },
+  tabButtonTextActive: { color: '#fff' },
   list: { flex: 1 },
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, justifyContent: 'center' },
   empty: { fontSize: 13, color: colors.textFaint },
@@ -219,20 +413,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  newMessageButton: {
+  groupButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.teal,
     borderRadius: 10,
     padding: 14,
   },
-  newMessageButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  groupButtonText: { color: colors.teal, fontSize: 15, fontWeight: '600' },
   modalCard: {
     padding: 20,
   },
   formTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  groupNameInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    marginBottom: 10,
+  },
   pickerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  pickerName: { fontSize: 15, fontWeight: '600', color: colors.text },
+  pickerName: { fontSize: 15, fontWeight: '600', color: colors.text, flex: 1 },
+  createGroupButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonDisabled: { opacity: 0.6 },
+  createGroupButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

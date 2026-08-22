@@ -33,6 +33,10 @@ function formatShiftLine(shift: Shift) {
   return `${day} · ${startText}–${endText}`;
 }
 
+function firstName(fullName: string | undefined) {
+  return fullName?.trim().split(/\s+/)[0] ?? '';
+}
+
 function initials(fullName: string | undefined) {
   if (!fullName) return '?';
   return fullName
@@ -73,6 +77,7 @@ function DashboardCard({
 export default function HomeScreen({ navigation }: Props) {
   const { user, logout, authFetch } = useAuth();
   const insets = useSafeAreaInsets();
+  const canManage = user?.role === 'owner' || user?.role === 'manager';
   const [openEntry, setOpenEntry] = useState<TimeClockEntry | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [nextShift, setNextShift] = useState<Shift | null>(null);
@@ -131,14 +136,16 @@ export default function HomeScreen({ navigation }: Props) {
         }
       })();
 
-      (async () => {
-        try {
-          const members = await authFetch((token) => usersApi.list(token));
-          setTeamSize(members.length);
-        } catch {
-          // Leave the Team subtitle blank if the call fails.
-        }
-      })();
+      if (canManage) {
+        (async () => {
+          try {
+            const members = await authFetch((token) => usersApi.list(token));
+            setTeamSize(members.length);
+          } catch {
+            // Leave the Team subtitle blank if the call fails.
+          }
+        })();
+      }
 
       (async () => {
         try {
@@ -148,7 +155,7 @@ export default function HomeScreen({ navigation }: Props) {
           // Leave the Messages subtitle blank if the call fails.
         }
       })();
-    }, [authFetch]),
+    }, [authFetch, canManage]),
   );
 
   useEffect(() => {
@@ -219,10 +226,8 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         )}
         <View>
-          <Text style={styles.title}>Welcome, {user?.fullName}</Text>
-          <Text style={styles.subtitle}>
-            {user?.email} · {user?.role}
-          </Text>
+          <Text style={styles.title}>Welcome, {firstName(user?.fullName)}</Text>
+          <Text style={styles.subtitle}>{user?.role}</Text>
         </View>
       </Pressable>
 
@@ -272,13 +277,15 @@ export default function HomeScreen({ navigation }: Props) {
         onPress={() => navigation.navigate('Availability')}
       />
 
-      <DashboardCard
-        icon="people-outline"
-        tint={colors.amber}
-        title="Team"
-        subtitle={teamSubtitle}
-        onPress={() => navigation.navigate('Team')}
-      />
+      {canManage && (
+        <DashboardCard
+          icon="people-outline"
+          tint={colors.amber}
+          title="Team"
+          subtitle={teamSubtitle}
+          onPress={() => navigation.navigate('Team')}
+        />
+      )}
 
       <DashboardCard
         icon="chatbubbles-outline"

@@ -106,6 +106,8 @@ export default function ManageWastageReasonsScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
     >
       {reasons.length === 0 ? (
         <NoteBox variant="warning">

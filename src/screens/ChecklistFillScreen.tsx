@@ -364,7 +364,12 @@ export default function ChecklistFillScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
       {message && (
         <View style={styles.messageBox}>
           <Ionicons name="checkmark-circle" size={16} color={colors.successText} />

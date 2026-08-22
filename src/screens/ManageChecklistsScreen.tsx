@@ -164,6 +164,8 @@ export default function ManageChecklistsScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
     >
       <Pressable
         style={styles.submissionsButton}

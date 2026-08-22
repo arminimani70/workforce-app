@@ -16,8 +16,16 @@ import type { Branch, StockItem, StockTemplate } from '../types/api';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
 import { NoteBox } from '../components/NoteBox';
 
+const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
 function emptyItem(): StockItem {
-  return { productName: '', unit: '' };
+  return { productName: '', unit: '', parLevels: [0, 0, 0, 0, 0, 0, 0] };
+}
+
+function parLevelsOf(item: StockItem): number[] {
+  return item.parLevels && item.parLevels.length === 7
+    ? item.parLevels
+    : [0, 0, 0, 0, 0, 0, 0];
 }
 
 export default function ManageStockScreen() {
@@ -83,6 +91,18 @@ export default function ManageStockScreen() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const updateParLevel = (index: number, dayIndex: number, value: string) => {
+    const parsed = Math.max(0, Math.round(Number(value)) || 0);
+    setItems((prev) =>
+      prev.map((it, i) => {
+        if (i !== index) return it;
+        const parLevels = [...parLevelsOf(it)];
+        parLevels[dayIndex] = parsed;
+        return { ...it, parLevels };
+      }),
+    );
+  };
+
   const onSave = async () => {
     if (!jobSite.trim()) {
       setError('Pick a branch');
@@ -93,7 +113,11 @@ export default function ManageStockScreen() {
       return;
     }
     const cleanItems = items
-      .map((i) => ({ productName: i.productName.trim(), unit: i.unit.trim() }))
+      .map((i) => ({
+        productName: i.productName.trim(),
+        unit: i.unit.trim(),
+        parLevels: parLevelsOf(i),
+      }))
       .filter((i) => i.productName && i.unit);
     if (cleanItems.length === 0) {
       setError('Add at least one product with a unit');
@@ -147,6 +171,8 @@ export default function ManageStockScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
     >
       {branches.length === 0 && (
         <NoteBox variant="warning">
@@ -228,23 +254,46 @@ export default function ManageStockScreen() {
       />
 
       <Text style={styles.sectionLabel}>Products</Text>
+      <Text style={styles.parLevelHint}>
+        Par level = target quantity on hand after that day's delivery. Leave a day at 0 if this
+        product isn't restocked then — the purchase list will skip it.
+      </Text>
       {items.map((item, index) => (
-        <View key={index} style={styles.itemRow}>
-          <TextInput
-            style={styles.itemInput}
-            placeholder="Product name"
-            value={item.productName}
-            onChangeText={(value) => updateItem(index, 'productName', value)}
-          />
-          <TextInput
-            style={styles.unitInput}
-            placeholder="Unit"
-            value={item.unit}
-            onChangeText={(value) => updateItem(index, 'unit', value)}
-          />
-          <Pressable onPress={() => removeItem(index)} hitSlop={8}>
-            <Ionicons name="close-circle" size={22} color={colors.danger} />
-          </Pressable>
+        <View key={index} style={styles.itemCard}>
+          <View style={styles.itemRow}>
+            <TextInput
+              style={styles.itemInput}
+              placeholder="Product name"
+              value={item.productName}
+              onChangeText={(value) => updateItem(index, 'productName', value)}
+            />
+            <TextInput
+              style={styles.unitInput}
+              placeholder="Unit"
+              value={item.unit}
+              onChangeText={(value) => updateItem(index, 'unit', value)}
+            />
+            <Pressable onPress={() => removeItem(index)} hitSlop={8} style={styles.removeItemButton}>
+              <Ionicons name="close-circle" size={22} color={colors.danger} />
+            </Pressable>
+          </View>
+          <View style={styles.parLevelRow}>
+            {DAY_LABELS.map((label, dayIndex) => {
+              const value = parLevelsOf(item)[dayIndex];
+              return (
+                <View key={label} style={styles.parLevelCell}>
+                  <Text style={styles.parLevelDayLabel}>{label}</Text>
+                  <TextInput
+                    style={styles.parLevelInput}
+                    keyboardType="number-pad"
+                    value={value ? String(value) : ''}
+                    placeholder="0"
+                    onChangeText={(text) => updateParLevel(index, dayIndex, text)}
+                  />
+                </View>
+              );
+            })}
+          </View>
         </View>
       ))}
       <Pressable style={styles.addItemButton} onPress={addItem}>
@@ -322,9 +371,31 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
   },
+  parLevelHint: { fontSize: 12, color: colors.textMuted },
+  itemCard: {
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 10,
+    ...cardShadow,
+  },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  removeItemButton: { flexShrink: 0 },
+  parLevelRow: { flexDirection: 'row', gap: 6 },
+  parLevelCell: { flex: 1, alignItems: 'center' },
+  parLevelDayLabel: { fontSize: 10, fontWeight: '700', color: colors.textFaint, marginBottom: 2 },
+  parLevelInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    paddingVertical: 6,
+    textAlign: 'center',
+    fontSize: 13,
+  },
   itemInput: {
     flex: 2,
+    minWidth: 0,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
@@ -333,6 +404,7 @@ const styles = StyleSheet.create({
   },
   unitInput: {
     flex: 1,
+    minWidth: 0,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,

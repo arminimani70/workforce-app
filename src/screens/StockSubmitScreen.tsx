@@ -8,6 +8,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { stockApi, HttpError } from '../api/client';
 import { cardShadow, colorForBranch, colors } from '../theme/colors';
+import { toEnglishDigits } from '../utils/digits';
 import type { AppStackParamList } from '../navigation/types';
 
 export default function StockSubmitScreen() {
@@ -51,7 +52,11 @@ export default function StockSubmitScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <View style={styles.headerRow}>
           <Text style={styles.title}>{template.title}</Text>
           <View
@@ -76,8 +81,10 @@ export default function StockSubmitScreen() {
             <TextInput
               style={styles.input}
               value={quantities[index] ?? ''}
-              onChangeText={(text) => setQuantities((prev) => ({ ...prev, [index]: text }))}
-              keyboardType="numeric"
+              onChangeText={(text) =>
+                setQuantities((prev) => ({ ...prev, [index]: toEnglishDigits(text) }))
+              }
+              keyboardType="decimal-pad"
               placeholder="0"
             />
           </View>

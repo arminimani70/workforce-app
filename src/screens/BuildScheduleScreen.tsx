@@ -87,6 +87,8 @@ export default function BuildScheduleScreen() {
   const [error, setError] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
 
+  const [expandedOthersDay, setExpandedOthersDay] = useState<number | null>(null);
+
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [modalStartTime, setModalStartTime] = useState('09:00');
   const [modalEndTime, setModalEndTime] = useState('17:00');
@@ -248,6 +250,15 @@ export default function BuildScheduleScreen() {
         );
         const scheduledEmployeeIds = new Set(dayShifts.map((s) => s.employeeId));
 
+        // Members with no availability entry for this day (or marked unavailable) — hidden by
+        // default since this list is every non-candidate in the org, but a manager can still
+        // schedule any of them.
+        const candidateIds = new Set(candidates.map((c) => c.employeeId._id));
+        const others = members
+          .filter((m) => m.status === 'active' && !candidateIds.has(m._id))
+          .sort((a, b) => a.fullName.localeCompare(b.fullName));
+        const othersExpanded = expandedOthersDay === index;
+
         return (
           <View key={index} style={styles.dayCard}>
             <View style={styles.dayHeaderRow}>
@@ -280,6 +291,44 @@ export default function BuildScheduleScreen() {
                   </Pressable>
                 </View>
               ))
+            )}
+
+            {others.length > 0 && (
+              <>
+                <Pressable
+                  style={styles.othersToggle}
+                  onPress={() => setExpandedOthersDay(othersExpanded ? null : index)}
+                >
+                  <Ionicons
+                    name={othersExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color={colors.textFaint}
+                  />
+                  <Text style={styles.othersToggleText}>
+                    {othersExpanded ? 'Hide' : 'Schedule'} someone who didn't mark availability
+                  </Text>
+                </Pressable>
+                {othersExpanded &&
+                  others.map((member) => (
+                    <View key={member._id} style={styles.candidateRow}>
+                      <View style={styles.candidateInfo}>
+                        <Text style={styles.candidateName}>
+                          {member.fullName}
+                          {scheduledEmployeeIds.has(member._id) ? (
+                            <Text style={styles.candidateScheduledBadge}> ✓ scheduled</Text>
+                          ) : null}
+                        </Text>
+                        <Text style={styles.candidateMeta}>No availability marked</Text>
+                      </View>
+                      <Pressable
+                        style={styles.addButton}
+                        onPress={() => openAddModal(member._id, member.fullName, day)}
+                      >
+                        <Ionicons name="add" size={16} color="#fff" />
+                      </Pressable>
+                    </View>
+                  ))}
+              </>
             )}
 
             <Text style={styles.subLabel}>Scheduled</Text>
@@ -496,6 +545,13 @@ const styles = StyleSheet.create({
   candidateName: { fontSize: 14, fontWeight: '600', color: colors.text },
   candidateScheduledBadge: { fontSize: 11, fontWeight: '600', color: colors.success },
   candidateMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  othersToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+  },
+  othersToggleText: { fontSize: 12, fontWeight: '600', color: colors.textFaint },
   addButton: {
     width: 28,
     height: 28,

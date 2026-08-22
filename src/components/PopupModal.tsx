@@ -1,5 +1,13 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { cardShadow, colors } from '../theme/colors';
 
 // Wraps every popup in the app with the same behavior and the same look: a centered dialog
@@ -23,20 +31,43 @@ export function PopupModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const { height: windowHeight } = useWindowDimensions();
+  // A percentage maxHeight on the ScrollView can't reliably resolve here — its immediate
+  // parent (cardShell) has no defined height of its own (it shrinks to fit content), and RN's
+  // yoga layout doesn't resolve a percentage against an auto-sized ancestor consistently. That
+  // showed up as popups that wouldn't scroll, or whose bottom (often the Cancel/Save row) sat
+  // just past the edge of the screen depending on how tall the content happened to be. A pixel
+  // value computed from the actual window height is unambiguous.
+  const maxCardHeight = Math.round(windowHeight * 0.85);
+
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable onPress={() => {}} style={styles.cardShell}>
-          <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-            {children}
-          </ScrollView>
+      <KeyboardAvoidingView
+        style={styles.avoider}
+        behavior={Platform.OS === 'android' ? 'height' : undefined}
+      >
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <Pressable onPress={() => {}} style={styles.cardShell}>
+            <ScrollView
+              style={[styles.scroll, { maxHeight: maxCardHeight }]}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              nestedScrollEnabled
+              automaticallyAdjustKeyboardInsets
+            >
+              {children}
+            </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  avoider: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -50,9 +81,9 @@ const styles = StyleSheet.create({
   },
   // The maxHeight (and the card's visual chrome) has to live on the ScrollView itself, not an
   // ancestor View — that's what actually bounds its viewport so it knows content overflows and
-  // needs to scroll, instead of just growing past the screen.
+  // needs to scroll, instead of just growing past the screen. It's set inline (a pixel value
+  // from useWindowDimensions), not here — see maxCardHeight above.
   scroll: {
-    maxHeight: '92%',
     backgroundColor: colors.surface,
     borderRadius: 20,
     overflow: 'hidden',

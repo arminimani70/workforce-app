@@ -8,8 +8,10 @@ import HomeScreen from '../screens/HomeScreen';
 import TimeClockScreen from '../screens/TimeClockScreen';
 import ScheduleScreen from '../screens/ScheduleScreen';
 import AvailabilityScreen from '../screens/AvailabilityScreen';
+import ManagePositionHoursScreen from '../screens/ManagePositionHoursScreen';
 import TeamScreen from '../screens/TeamScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import DocumentViewerScreen from '../screens/DocumentViewerScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import BuildScheduleScreen from '../screens/BuildScheduleScreen';
 import MessagesScreen from '../screens/MessagesScreen';
@@ -24,6 +26,7 @@ import FormSubmissionsScreen from '../screens/FormSubmissionsScreen';
 import ManageBranchesScreen from '../screens/ManageBranchesScreen';
 import StockScreen from '../screens/StockScreen';
 import StockSubmitScreen from '../screens/StockSubmitScreen';
+import PurchaseListScreen from '../screens/PurchaseListScreen';
 import ManageStockScreen from '../screens/ManageStockScreen';
 import StockSubmissionsScreen from '../screens/StockSubmissionsScreen';
 import WastageScreen from '../screens/WastageScreen';
@@ -73,11 +76,21 @@ export default function RootNavigator() {
             component={AvailabilityScreen}
             options={{ title: 'Availability' }}
           />
+          <AppStack.Screen
+            name="ManagePositionHours"
+            component={ManagePositionHoursScreen}
+            options={{ title: 'Position Hours' }}
+          />
           <AppStack.Screen name="Team" component={TeamScreen} options={{ title: 'Team' }} />
           <AppStack.Screen
             name="Onboarding"
             component={OnboardingScreen}
             options={{ title: 'Onboarding' }}
+          />
+          <AppStack.Screen
+            name="DocumentViewer"
+            component={DocumentViewerScreen}
+            options={({ route }) => ({ title: route.params.title })}
           />
           <AppStack.Screen
             name="Profile"
@@ -97,7 +110,7 @@ export default function RootNavigator() {
           <AppStack.Screen
             name="Chat"
             component={ChatScreen}
-            options={({ route }) => ({ title: route.params.employeeName })}
+            options={({ route }) => ({ title: route.params.title })}
           />
           <AppStack.Screen
             name="Checklist"
@@ -140,6 +153,11 @@ export default function RootNavigator() {
             name="StockSubmit"
             component={StockSubmitScreen}
             options={{ title: 'Count Stock' }}
+          />
+          <AppStack.Screen
+            name="PurchaseList"
+            component={PurchaseListScreen}
+            options={{ title: 'Purchase List' }}
           />
           <AppStack.Screen
             name="ManageStock"
