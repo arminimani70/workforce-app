@@ -9,6 +9,7 @@ export type AppStackParamList = {
   TimeClock: undefined;
   Schedule: undefined;
   Availability: undefined;
+  ManagePositionHours: undefined;
   Team: undefined;
   Onboarding: undefined;
   DocumentViewer: { uri: string; title: string; mimeType: string };

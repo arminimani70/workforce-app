@@ -20,6 +20,7 @@ import type {
   OrgAvailabilityEntry,
   OrgMember,
   Position,
+  PositionDefaultHours,
   PurchaseList,
   Shift,
   ShiftEditRequest,
@@ -257,6 +258,20 @@ export const availabilityApi = {
       `/availability?from=${range.from}&to=${range.to}`,
       { accessToken },
     ),
+};
+
+export const positionDefaultHoursApi = {
+  // Any authenticated user — Availability reads these to prefill start/end time per position.
+  list: (accessToken: string) =>
+    request<PositionDefaultHours[]>('/position-default-hours', { accessToken }),
+
+  // Owner/manager only. Upserts one position's default hours.
+  upsert: (accessToken: string, dto: { position: Position; startTime: string; endTime: string }) =>
+    request<PositionDefaultHours>('/position-default-hours', {
+      method: 'PUT',
+      accessToken,
+      body: dto,
+    }),
 };
 
 export const swapRequestsApi = {

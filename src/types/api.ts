@@ -105,6 +105,17 @@ export interface OrgAvailabilityEntry extends Omit<AvailabilityEntry, 'employeeI
   employeeId: { _id: string; fullName: string; role: UserRole };
 }
 
+// Owner/manager-set start/end time for a position — one per (org, position). Availability
+// prefills a day's time fields from these instead of a single hardcoded 09:00-17:00, since
+// different jobs start/end at different times. A position with no entry here just falls back
+// to that hardcoded default.
+export interface PositionDefaultHours {
+  _id: string;
+  position: Position;
+  startTime: string; // "HH:mm"
+  endTime: string;
+}
+
 export interface TimeTotal {
   totalSeconds: number;
 }

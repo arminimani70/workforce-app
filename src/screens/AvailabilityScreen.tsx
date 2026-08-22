@@ -1,10 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
-import { availabilityApi, HttpError } from '../api/client';
+import { availabilityApi, positionDefaultHoursApi, HttpError } from '../api/client';
 import { POSITIONS } from '../types/api';
-import type { AvailabilityEntry, AvailabilityStatus, Position } from '../types/api';
+import type {
+  AvailabilityEntry,
+  AvailabilityStatus,
+  Position,
+  PositionDefaultHours,
+} from '../types/api';
+import type { AppStackParamList } from '../navigation/types';
 import { cardShadow, colors } from '../theme/colors';
 import { POSITION_COLORS, POSITION_ICONS, POSITION_LABELS } from '../constants/positions';
 import { PopupModal } from '../components/PopupModal';
@@ -69,9 +77,14 @@ function summarize(entry: AvailabilityEntry | undefined): string {
 }
 
 export default function AvailabilityScreen() {
-  const { authFetch } = useAuth();
+  const { user, authFetch } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const canManage = user?.role === 'owner' || user?.role === 'manager';
   const [weekOffset, setWeekOffset] = useState(0);
   const [entries, setEntries] = useState<AvailabilityEntry[]>([]);
+  const [positionDefaults, setPositionDefaults] = useState<
+    Partial<Record<Position, PositionDefaultHours>>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -113,6 +126,17 @@ export default function AvailabilityScreen() {
     load();
   }, [load]);
 
+  // Loaded once, not per-week — used only to prefill the time fields when picking a position.
+  useEffect(() => {
+    authFetch((token) => positionDefaultHoursApi.list(token))
+      .then((defaults) => {
+        setPositionDefaults(Object.fromEntries(defaults.map((d) => [d.position, d])));
+      })
+      .catch(() => {
+        // Best-effort — the form still works with the hardcoded 09:00-17:00 fallback.
+      });
+  }, [authFetch]);
+
   const entryForDay = (day: Date) => entries.find((e) => isSameDay(new Date(e.date), day));
 
   const openDayModal = (day: Date) => {
@@ -125,10 +149,23 @@ export default function AvailabilityScreen() {
     setOpenDay(day);
   };
 
+  // Turning a position on, when it ends up the only one selected, prefills the time fields
+  // with that position's default hours (front desk might open earlier than the manager comes
+  // in) — only for the single-position case, so picking a second position on top of one
+  // already set doesn't yank the time back to some other job's default.
   const togglePosition = (position: Position) => {
-    setFormPositions((prev) =>
-      prev.includes(position) ? prev.filter((p) => p !== position) : [...prev, position],
-    );
+    setFormPositions((prev) => {
+      const wasSelected = prev.includes(position);
+      const next = wasSelected ? prev.filter((p) => p !== position) : [...prev, position];
+      if (!wasSelected && next.length === 1) {
+        const def = positionDefaults[position];
+        if (def) {
+          setFormStartTime(def.startTime);
+          setFormEndTime(def.endTime);
+        }
+      }
+      return next;
+    });
   };
 
   const onSave = async () => {
@@ -204,6 +241,16 @@ export default function AvailabilityScreen() {
           <Text style={styles.weekNavButtonText}>›</Text>
         </Pressable>
       </View>
+
+      {canManage && (
+        <Pressable
+          style={styles.positionHoursLink}
+          onPress={() => navigation.navigate('ManagePositionHours')}
+        >
+          <Ionicons name="time-outline" size={14} color={colors.primary} />
+          <Text style={styles.positionHoursLinkText}>Set default hours per position</Text>
+        </Pressable>
+      )}
 
       {error && !openDay && <Text style={styles.error}>{error}</Text>}
 
@@ -393,6 +440,14 @@ const styles = StyleSheet.create({
   },
   currentWeekBadgeText: { fontSize: 11, fontWeight: '700', color: colors.infoText },
   jumpToTodayText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  positionHoursLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  positionHoursLinkText: { fontSize: 12, fontWeight: '600', color: colors.primary },
   error: { color: colors.danger, marginBottom: 8 },
   list: { gap: 8, paddingBottom: 16 },
   dayRow: {

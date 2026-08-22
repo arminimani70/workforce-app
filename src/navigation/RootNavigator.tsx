@@ -8,6 +8,7 @@ import HomeScreen from '../screens/HomeScreen';
 import TimeClockScreen from '../screens/TimeClockScreen';
 import ScheduleScreen from '../screens/ScheduleScreen';
 import AvailabilityScreen from '../screens/AvailabilityScreen';
+import ManagePositionHoursScreen from '../screens/ManagePositionHoursScreen';
 import TeamScreen from '../screens/TeamScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import DocumentViewerScreen from '../screens/DocumentViewerScreen';
@@ -74,6 +75,11 @@ export default function RootNavigator() {
             name="Availability"
             component={AvailabilityScreen}
             options={{ title: 'Availability' }}
+          />
+          <AppStack.Screen
+            name="ManagePositionHours"
+            component={ManagePositionHoursScreen}
+            options={{ title: 'Position Hours' }}
           />
           <AppStack.Screen name="Team" component={TeamScreen} options={{ title: 'Team' }} />
           <AppStack.Screen
