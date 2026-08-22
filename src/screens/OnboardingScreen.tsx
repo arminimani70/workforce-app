@@ -221,6 +221,8 @@ export default function OnboardingScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
     >
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>

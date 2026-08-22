@@ -52,7 +52,11 @@ export default function StockSubmitScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <View style={styles.headerRow}>
           <Text style={styles.title}>{template.title}</Text>
           <View

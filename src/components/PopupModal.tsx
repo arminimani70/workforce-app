@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { cardShadow, colors } from '../theme/colors';
 
 // Wraps every popup in the app with the same behavior and the same look: a centered dialog
@@ -25,18 +25,32 @@ export function PopupModal({
 }) {
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable onPress={() => {}} style={styles.cardShell}>
-          <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-            {children}
-          </ScrollView>
+      <KeyboardAvoidingView
+        style={styles.avoider}
+        behavior={Platform.OS === 'android' ? 'height' : undefined}
+      >
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <Pressable onPress={() => {}} style={styles.cardShell}>
+            <ScrollView
+              style={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              nestedScrollEnabled
+              automaticallyAdjustKeyboardInsets
+            >
+              {children}
+            </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  avoider: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
