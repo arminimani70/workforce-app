@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../auth/AuthContext';
 import { HttpError } from '../api/client';
+import { Logo } from '../components/Logo';
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -31,6 +32,9 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.logo}>
+        <Logo />
+      </View>
       <Text style={styles.title}>Sign in</Text>
 
       <TextInput
@@ -68,7 +72,8 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, gap: 12 },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 12 },
+  logo: { alignItems: 'center', marginBottom: 8 },
+  title: { fontSize: 28, fontWeight: '700', marginBottom: 12, textAlign: 'center' },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
