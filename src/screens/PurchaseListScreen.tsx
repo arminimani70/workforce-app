@@ -8,7 +8,7 @@ import { useAuth } from '../auth/AuthContext';
 import { stockApi, HttpError } from '../api/client';
 import type { PurchaseList, PurchaseListItem, PurchaseStatus } from '../types/api';
 import type { AppStackParamList } from '../navigation/types';
-import { cardShadow, colors } from '../theme/colors';
+import { cardShadow, colorForBranch, colors } from '../theme/colors';
 
 type Props = { route: RouteProp<AppStackParamList, 'PurchaseList'> };
 
@@ -118,6 +118,22 @@ export default function PurchaseListScreen({ route }: Props) {
       {error && <Text style={styles.error}>{error}</Text>}
       {list && (
         <>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{list.templateTitle}</Text>
+            <View
+              style={[
+                styles.branchTag,
+                {
+                  backgroundColor: `${colorForBranch(list.jobSite)}1a`,
+                  borderColor: colorForBranch(list.jobSite),
+                },
+              ]}
+            >
+              <Text style={[styles.branchTagText, { color: colorForBranch(list.jobSite) }]}>
+                {list.jobSite}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.subtitle}>{formatLastCounted(list.lastCountedAt)}</Text>
           <FlatList
             data={list.items}
@@ -159,6 +175,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   error: { color: colors.danger, marginBottom: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+  branchTag: { borderWidth: 1, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 },
+  branchTagText: { fontSize: 11, fontWeight: '700' },
   subtitle: { fontSize: 12, color: colors.textMuted, marginBottom: 10 },
   list: { flex: 1 },
   emptyRow: { flexDirection: 'row', gap: 8, marginTop: 24, paddingHorizontal: 8 },
