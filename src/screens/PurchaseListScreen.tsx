@@ -6,7 +6,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { stockApi, HttpError } from '../api/client';
-import type { PurchaseList, PurchaseListItem } from '../types/api';
+import type { PurchaseList, PurchaseListItem, PurchaseStatus } from '../types/api';
 import type { AppStackParamList } from '../navigation/types';
 import { cardShadow, colors } from '../theme/colors';
 
@@ -27,8 +27,36 @@ function formatLastCounted(iso: string | null) {
   return `Last counted ${new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 }
 
+// A count is a snapshot, and by the delivery day some of it will likely have been used — so
+// only 'buy' and 'enough' are confident calls (on hand is clearly outside a tolerance band
+// around par); 'check' means it's too close to par to trust the snapshot, and recommends a
+// recount instead of a guess either way.
+const STATUS_CONFIG: Record<
+  PurchaseStatus,
+  { icon: keyof typeof Ionicons.glyphMap; bg: string; text: string; label: (item: PurchaseListItem) => string }
+> = {
+  buy: {
+    icon: 'cart-outline',
+    bg: colors.dangerBg,
+    text: colors.dangerText,
+    label: (item) => `Buy ${item.suggestedQuantity} ${item.unit}`,
+  },
+  check: {
+    icon: 'help-circle-outline',
+    bg: colors.warningBg,
+    text: colors.warningText,
+    label: () => 'Close to target — recount before ordering',
+  },
+  enough: {
+    icon: 'checkmark-circle',
+    bg: colors.successBg,
+    text: colors.successText,
+    label: () => 'Enough on hand',
+  },
+};
+
 function Row({ item }: { item: PurchaseListItem }) {
-  const needsBuying = item.suggestedQuantity > 0;
+  const status = STATUS_CONFIG[item.status];
   return (
     <View style={styles.row}>
       <View style={styles.rowTop}>
@@ -39,16 +67,10 @@ function Row({ item }: { item: PurchaseListItem }) {
         <Text style={styles.detailText}>
           On hand: {item.currentOnHand} {item.unit} · Par: {item.parLevel} {item.unit}
         </Text>
-        <View style={[styles.buyBadge, needsBuying ? styles.buyBadgeActive : styles.buyBadgeDone]}>
-          <Ionicons
-            name={needsBuying ? 'cart-outline' : 'checkmark-circle'}
-            size={14}
-            color={needsBuying ? colors.warningText : colors.successText}
-          />
-          <Text style={[styles.buyBadgeText, { color: needsBuying ? colors.warningText : colors.successText }]}>
-            {needsBuying ? `Buy ${item.suggestedQuantity} ${item.unit}` : 'Enough on hand'}
-          </Text>
-        </View>
+      </View>
+      <View style={[styles.buyBadge, { backgroundColor: status.bg }]}>
+        <Ionicons name={status.icon} size={14} color={status.text} />
+        <Text style={[styles.buyBadgeText, { color: status.text }]}>{status.label(item)}</Text>
       </View>
     </View>
   );
@@ -88,7 +110,8 @@ export default function PurchaseListScreen({ route }: Props) {
     );
   }
 
-  const toBuyCount = list?.items.filter((i) => i.suggestedQuantity > 0).length ?? 0;
+  const toBuyCount = list?.items.filter((i) => i.status === 'buy').length ?? 0;
+  const toCheckCount = list?.items.filter((i) => i.status === 'check').length ?? 0;
 
   return (
     <View style={styles.container}>
@@ -115,9 +138,14 @@ export default function PurchaseListScreen({ route }: Props) {
           {list.items.length > 0 && (
             <View style={styles.summaryBar}>
               <Text style={styles.summaryText}>
-                {toBuyCount === 0
+                {toBuyCount === 0 && toCheckCount === 0
                   ? 'Everything is stocked up'
-                  : `${toBuyCount} product${toBuyCount === 1 ? '' : 's'} to buy`}
+                  : [
+                      toBuyCount > 0 && `${toBuyCount} to buy`,
+                      toCheckCount > 0 && `${toCheckCount} to recount`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
               </Text>
             </View>
           )}
@@ -146,18 +174,17 @@ const styles = StyleSheet.create({
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   productName: { fontSize: 15, fontWeight: '600', color: colors.text },
   targetDate: { fontSize: 12, fontWeight: '600', color: colors.primary },
-  rowBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  detailText: { flex: 1, fontSize: 12, color: colors.textMuted },
+  rowBottom: { flexDirection: 'row', alignItems: 'center' },
+  detailText: { fontSize: 12, color: colors.textMuted },
   buyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 4,
     borderRadius: 999,
     paddingVertical: 4,
     paddingHorizontal: 10,
   },
-  buyBadgeActive: { backgroundColor: colors.warningBg },
-  buyBadgeDone: { backgroundColor: colors.successBg },
   buyBadgeText: { fontSize: 12, fontWeight: '700' },
   summaryBar: {
     borderTopWidth: 1,

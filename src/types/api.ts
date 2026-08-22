@@ -332,6 +332,11 @@ export interface StockEntryValue extends StockItem {
   quantity: number;
 }
 
+// 'buy': on hand is clearly short of par. 'enough': clearly covers it. 'check': on hand is
+// within a tolerance band of par — too close to call confidently from a snapshot count, so
+// recount before deciding rather than trust the number as-is.
+export type PurchaseStatus = 'buy' | 'check' | 'enough';
+
 // One product's row on the purchase list — its next delivery day's par level compared against
 // the most recently counted on-hand quantity.
 export interface PurchaseListItem {
@@ -341,6 +346,7 @@ export interface PurchaseListItem {
   parLevel: number;
   currentOnHand: number;
   suggestedQuantity: number;
+  status: PurchaseStatus;
 }
 
 export interface PurchaseList {
